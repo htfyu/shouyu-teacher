@@ -1,0 +1,15 @@
+# Local reference material and test artifacts
+资料/
+node_modules/
+*.log
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Local browser profiles from screenshot testing
+edge-profile*/
+playwright-report/
+test-results/
