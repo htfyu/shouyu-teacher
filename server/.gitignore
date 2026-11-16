@@ -1,0 +1,8 @@
+# Local secrets / tool state — never commit
+.dev.vars
+.env
+.env.*
+!.env.example
+node_modules/
+.wrangler/
+.vercel/

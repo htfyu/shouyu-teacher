@@ -1,0 +1,12 @@
+{
+  "name": "jiangbei-files-tests",
+  "private": true,
+  "description": "Browser tests for js/files.js and the V2 application (no build step)",
+  "scripts": {
+    "test:files": "node files.test.mjs",
+    "test:e2e": "node e2e.smoke.mjs"
+  },
+  "devDependencies": {
+    "playwright": "1.65.1"
+  }
+}

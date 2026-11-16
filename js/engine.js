@@ -131,10 +131,60 @@ function cjkTokens(text) {
   return Array.from(tokens).slice(0, 90);
 }
 
+/**
+ * 轻量语义扩展：不是神经网络向量检索，而是领域同义词 / 上下位词扩展。
+ * 检索时基础词权重为 1，扩展词权重为 0.55，避免扩展词淹没原问题。
+ */
+const SEMANTIC_EXPANSIONS = [
+  { keys: ["电动机", "电机", "马达"], terms: ["电动机", "接触器", "控制线路"] },
+  { keys: ["互锁", "联锁"], terms: ["互锁", "联锁", "自锁", "接触器"] },
+  { keys: ["接线", "配线"], terms: ["接线", "布线", "线号", "工艺"] },
+  { keys: ["对刀", "找正"], terms: ["对刀", "工件坐标系", "刀具补偿", "找正"] },
+  { keys: ["数控", "cnc"], terms: ["数控", "车削", "编程", "刀具"] },
+  { keys: ["plc", "可编程"], terms: ["PLC", "I/O", "梯形图", "顺序控制"] },
+  { keys: ["机器人", "机械臂"], terms: ["工业机器人", "示教", "坐标系", "安全防护"] },
+  { keys: ["焊接", "焊条"], terms: ["焊接", "焊条", "电弧", "防护"] },
+  { keys: ["制动", "刹车"], terms: ["制动", "刹车", "液压", "检修"] },
+  { keys: ["光伏", "太阳能"], terms: ["光伏", "组件", "逆变器", "高压"] },
+  { keys: ["新能源", "电池"], terms: ["新能源", "储能", "电池", "高压安全"] },
+  { keys: ["化工", "危化品"], terms: ["化工", "危化品", "防护", "应急"] },
+  { keys: ["建筑", "施工"], terms: ["建筑", "施工", "测量", "安全"] },
+  { keys: ["网络", "局域网"], terms: ["网络", "局域网", "交换机", "故障"] },
+  { keys: ["评价", "考核", "评分"], terms: ["评价", "评分", "权重", "证据"] },
+  { keys: ["学情", "学生基础"], terms: ["学情", "基础", "支持策略", "分层"] },
+  { keys: ["安全", "规程", "上电"], terms: ["安全", "上电", "验电", "防护", "应急"] },
+  { keys: ["工作页", "任务单"], terms: ["工作页", "任务单", "六步", "记录"] },
+  { keys: ["听课", "评课"], terms: ["听课", "评课", "证据", "改进"] }
+];
+
+function expandSemanticTerms(query, baseTerms) {
+  const hay = normalize(query);
+  const base = new Set(baseTerms);
+  const expanded = new Set();
+  SEMANTIC_EXPANSIONS.forEach((rule) => {
+    if (!rule.keys.some((key) => hay.includes(normalize(key)) || base.has(normalize(key)))) return;
+    rule.terms.forEach((term) => {
+      const normalized = normalize(term);
+      if (normalized && !base.has(normalized)) expanded.add(normalized);
+    });
+  });
+  return Array.from(expanded).slice(0, 24);
+}
+
 function sectionHaystack(doc, section) {
   return normalize(
-    [doc.title, doc.category, doc.tags.join(" "), section.title, section.text, section.bullets.join(" ")]
-      .join(" ")
+    [
+      doc.title,
+      doc.category,
+      doc.specialty,
+      doc.course,
+      doc.source,
+      doc.author,
+      doc.tags.join(" "),
+      section.title,
+      section.text,
+      section.bullets.join(" ")
+    ].filter(Boolean).join(" ")
   );
 }
 
@@ -166,6 +216,13 @@ function toSource(doc, section, score, terms, reason = "") {
     sectionTitle: section.title,
     version: doc.version,
     category: doc.category,
+    specialty: doc.specialty || "",
+    course: doc.course || "",
+    source: doc.source || "",
+    author: doc.author || "",
+    published: doc.published || "",
+    updated: doc.updated || "",
+    scope: doc.scope || "",
     snippet: makeSnippet(section.text || section.bullets.join("；"), terms),
     score: Math.round(score * 10) / 10,
     reason,
@@ -179,8 +236,11 @@ function toSource(doc, section, score, terms, reason = "") {
  */
 export function retrieve(query, options = {}) {
   const { scene = "", limit = 6, category = "", minScore = 0 } = options;
-  const terms = cjkTokens(query);
+  const baseTerms = cjkTokens(query);
+  const expandedTerms = expandSemanticTerms(query, baseTerms);
+  const terms = Array.from(new Set([...baseTerms, ...expandedTerms]));
   if (!terms.length && !category) return { results: [], terms, coverage: 0 };
+  const baseSet = new Set(baseTerms);
   const boosts = SCENE_DOC_BOOST[scene] || {};
   const scored = [];
 
@@ -190,19 +250,23 @@ export function retrieve(query, options = {}) {
       const hay = sectionHaystack(doc, section);
       let score = boosts[doc.id] || 0;
       let matched = 0;
+      let baseMatched = 0;
       terms.forEach((term) => {
         if (hay.includes(term)) {
+          const isBase = baseSet.has(term);
           matched += 1;
-          score += term.length >= 3 ? 2.2 : term.length === 2 ? 1.15 : 0.6;
-          if (normalize(section.title).includes(term)) score += 1.4;
-          if (normalize(doc.tags.join(" ")).includes(term)) score += 0.8;
+          if (isBase) baseMatched += 1;
+          const weight = isBase ? 1 : 0.55;
+          score += (term.length >= 3 ? 2.2 : term.length === 2 ? 1.15 : 0.6) * weight;
+          if (normalize(section.title).includes(term)) score += 1.4 * weight;
+          if (normalize(doc.tags.join(" ")).includes(term)) score += 0.8 * weight;
         }
       });
-      if (matched === 0) return;
-      const coverage = matched / Math.max(terms.length, 1);
+      if (baseMatched === 0) return;
+      const coverage = baseMatched / Math.max(baseTerms.length, 1);
       score += coverage * 3;
       score += Math.min(matched, 6) * 0.15;
-      if (score >= minScore) scored.push({ doc, section, score, terms, matched });
+      if (score >= minScore) scored.push({ doc, section, score, terms, matched, baseMatched });
     });
   });
 
@@ -215,8 +279,8 @@ export function retrieve(query, options = {}) {
     results.push(toSource(item.doc, item.section, item.score, terms, `命中 ${item.matched} 个检索词`));
   });
   const top = results.slice(0, limit);
-  const coverage = top.length ? clamp(top[0].score / Math.max(4, terms.length * 1.2), 0, 1) : 0;
-  return { results: top, terms, coverage };
+  const coverage = top.length ? clamp(top[0].score / Math.max(4, baseTerms.length * 1.2), 0, 1) : 0;
+  return { results: top, terms, baseTerms, expandedTerms, coverage };
 }
 
 export function searchKnowledge(query, category = "") {
@@ -255,9 +319,12 @@ function getSource(ref, reason = "") {
   let docId = "";
   let rawNo = "";
   if (value.includes(" §")) {
-    [docId, rawNo] = value.split(" §");
+    const parts = value.split(" §");
+    docId = parts[0].trim();
+    rawNo = parts[1].trim();
   } else {
-    const match = value.match(/^(KB-\d{2})-(\d+)$/);
+    // Supports KB-03-2, PK-CNC-01-2 and USER-...-2 section ids.
+    const match = value.match(/^(.*)-(\d+)$/);
     if (match) {
       docId = match[1];
       rawNo = match[2];
@@ -1308,7 +1375,7 @@ function buildSafety(ctx) {
       no: "01",
       title: "查询结果：知识库未收录该场所专项规程",
       blocks: [
-        callout("danger", "请勿把本回答当作操作依据", `知识库目前只收录「电工与 PLC 实训室」安全规程，未收录「${venue}」的专项规程。我不能编造该场地的准入、防护或应急处置要求。`),
+        callout("danger", "请勿把本回答当作操作依据", `知识库目前只收录「电工与 PLC 实训室」的操作级专项规程。其他专业包虽有教学安全提示，但没有收录「${venue}」经审核的专项规程，我不能据此编造准入、防护或应急处置要求。`),
         p("建议按以下路径获取有依据的答案："),
         ol([
           "查阅该实训室现场上墙的安全制度、设备操作规程和应急预案。",
@@ -1882,6 +1949,31 @@ export function generate(scene, rawParams) {
   } else {
     sourceMap = sourceSet(allRefs);
   }
+  // 将 12 个专业包中与当前专业 / 课程 / 任务最相关的章节接入本次成果，
+  // 既进入本地依据面板，也进入 AI 提示词白名单。
+  if (scene !== "safety") {
+    const specialtyQuery = [ctx.major, ctx.course, ctx.task].filter(Boolean).join(" ");
+    if (specialtyQuery) {
+      const specialtyResults = retrieve(specialtyQuery, { scene, limit: 8 }).results
+        .filter((source) => source.docId.startsWith("PK-"))
+        .filter((source, index, all) => all.findIndex((item) => item.key === source.key) === index)
+        .slice(0, 3);
+      if (specialtyResults.length) {
+        const firstSection = built.docs[0]?.sections?.[0];
+        if (firstSection) {
+          const note = specialtyResults
+            .map((source) => `《${source.docTitle}》${source.sectionTitle}：${source.snippet}`)
+            .join("\n");
+          firstSection.blocks.push(callout("note", "专业资料提示（校本示例，需核对）", note));
+          specialtyResults.forEach((source) => {
+            if (!firstSection.refs.includes(source.ref)) firstSection.refs.push(source.ref);
+            if (!sourceMap.has(source.key)) sourceMap.set(source.key, source);
+          });
+        }
+      }
+    }
+  }
+
   const sources = Array.from(sourceMap.values());
   const rawAll = [
     ctx.major, ctx.course, ctx.task, ctx.learners, ctx.resources, ctx.notes,
@@ -2045,6 +2137,12 @@ function unsupportedSafetyReply(text) {
     ["数控", "数控实训室"],
     ["汽车", "汽车实训室"],
     ["机器人", "工业机器人实训室"],
+    ["机械加工", "机械加工实训室"],
+    ["钳工", "钳工实训室"],
+    ["电子", "电子实训室"],
+    ["计算机", "计算机实训室"],
+    ["新能源", "新能源实训室"],
+    ["光伏", "光伏实训室"],
     ["烹饪", "烹饪实训室"],
     ["焊接", "焊接实训室"],
     ["化工", "化工实训室"],
@@ -2058,7 +2156,7 @@ function unsupportedSafetyReply(text) {
   const review = getSource("KB-09 §03");
   return {
     type: "chat",
-    text: `知识库里**没有收录「${venue[1]}」的专项安全规程**，我不会把电工 / PLC 的要求直接套到该场所。\n\n可以确认的边界：\n> 本知识库仅适用于电工、PLC 实训室的示例性教学安全参考，不覆盖数控、汽车、工业机器人、化工等场所；实际执行必须以现场上墙制度、设备说明书和指导教师交底为准。\n\n建议按以下路径获取有依据的答案：\n1. 查阅该场所的安全制度、设备操作规程和应急预案；\n2. 咨询实训中心安全员或设备管理员，并记录确认人；\n3. 核对设备说明书中与本次操作相关的防护、锁定 / 挂牌和异常处置条款；\n4. 在专项规程补齐前，不开展缺乏依据的高风险操作。\n\n如果您要查电工或 PLC 实训室，我可以继续检索知识库。`,
+    text: `知识库里**没有收录「${venue[1]}」的操作级专项安全规程**，我不会把电工 / PLC 的要求直接套到该场所。\n\n需要说明：部分专业包包含**教学安全提示**，但不能当作设备操作依据。可以确认的边界是：\n> 操作级安全查询仅覆盖电工、PLC 实训室；其他场所的实际执行必须以现场上墙制度、设备操作规程、设备说明书和指导教师交底为准。\n\n建议按以下路径获取有依据的答案：\n1. 查阅该场所的安全制度、设备操作规程和应急预案；\n2. 咨询实训中心安全员或设备管理员，并记录确认人；\n3. 核对设备说明书中与本次操作相关的防护、锁定 / 挂牌和异常处置条款；\n4. 在专项规程补齐前，不开展缺乏依据的高风险操作。\n\n如果您要查电工或 PLC 实训室，我可以继续检索知识库；其他专业的课程与教学问题也可以继续问我。`,
     sources: [boundary, review].filter(Boolean),
     tag: "知识库未覆盖"
   };
@@ -2287,6 +2385,11 @@ export function getContextSummary(context = {}) {
     context.hours ? `${context.hours} 学时` : "",
     context.venue
   ].filter(Boolean).join(" · ");
+}
+
+/** Resolve a knowledge ref (KB-01 §03 or KB-01-3) to a source object. */
+export function sourceForRef(ref) {
+  return getSource(ref);
 }
 
 export { KB_DOCS, KB_VERSION, SCENES, LESSON_TEMPLATES, EVAL_TEMPLATES, OBSERVATION_TEMPLATES };

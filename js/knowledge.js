@@ -4,9 +4,11 @@
  * 替换方式见 README.md「替换知识库」。
  */
 
-export const KB_VERSION = "2026.11 · 校本示例版";
+import { PACK_DOCS, SPECIALTY_PACKS } from "./knowledge-packs.js";
 
-export const KB_DOCS = [
+export const KB_VERSION = "2026.11 · 校本示例版 v2";
+
+const BASE_DOCS = [
   {
     id: "KB-01",
     title: "工学一体化课程设计指引",
@@ -671,6 +673,75 @@ export const KB_DOCS = [
   }
 ];
 
+/**
+ * 内置材料 + 12 个专业包。程序启动后还会把 IndexedDB 中的自定义材料追加进来。
+ * 所有检索、来源解析与导出都读取同一个可变数组，避免复制出两份知识库。
+ */
+export const KB_DOCS = [...BASE_DOCS, ...PACK_DOCS];
+KB_DOCS.forEach((doc) => {
+  doc.builtin = true;
+  doc.specialty = doc.specialty || "";
+});
+
+export { SPECIALTY_PACKS };
+
+export function getKnowledgeCategories() {
+  return ["全部", ...Array.from(new Set(KB_DOCS.map((doc) => doc.category).filter(Boolean)))];
+}
+
+export function getSpecialtyNames() {
+  return SPECIALTY_PACKS.map((pack) => pack.name);
+}
+
+export function isBuiltinDoc(id) {
+  const doc = KB_DOCS.find((item) => item.id === id);
+  return Boolean(doc?.builtin);
+}
+
+export function registerCustomKnowledgeDocs(docs = []) {
+  // Remove previous custom docs, keep built-ins, then append fresh custom docs.
+  for (let index = KB_DOCS.length - 1; index >= 0; index -= 1) {
+    if (!KB_DOCS[index].builtin) KB_DOCS.splice(index, 1);
+  }
+  docs.forEach((doc) => {
+    if (!doc?.id || doc.builtin) return;
+    KB_DOCS.push({ ...doc, builtin: false, custom: true });
+  });
+  return KB_DOCS;
+}
+
+export function addOrUpdateCustomDoc(doc) {
+  if (!doc?.id) throw new Error("自定义知识缺少 id");
+  const existing = KB_DOCS.find((item) => item.id === doc.id);
+  if (existing && existing.builtin) throw new Error("内置材料请先复制为自定义材料再编辑");
+  const normalized = { ...doc, builtin: false, custom: true, updated: doc.updated || new Date().toISOString() };
+  if (existing) {
+    const index = KB_DOCS.indexOf(existing);
+    KB_DOCS[index] = normalized;
+  } else {
+    KB_DOCS.push(normalized);
+  }
+  return normalized;
+}
+
+export function deleteCustomDoc(id) {
+  const index = KB_DOCS.findIndex((doc) => doc.id === id && !doc.builtin);
+  if (index >= 0) KB_DOCS.splice(index, 1);
+  return index >= 0;
+}
+
+export function findDuplicateKnowledgeDoc(candidate) {
+  const normalize = (value) => String(value || "").replace(/\s+/g, "").toLowerCase();
+  const title = normalize(candidate?.title);
+  const body = normalize((candidate?.sections || []).map((section) => `${section.title}${section.text}`).join("")).slice(0, 500);
+  return KB_DOCS.find((doc) => {
+    if (doc.id === candidate?.id) return false;
+    if (title && normalize(doc.title) === title) return true;
+    const existingBody = normalize((doc.sections || []).map((section) => `${section.title}${section.text}`).join("")).slice(0, 500);
+    return Boolean(body && existingBody && body === existingBody);
+  }) || null;
+}
+
 export const TASK_PRESETS = [
   {
     id: "motor-fwd-rev",
@@ -806,12 +877,23 @@ export const TASK_PRESETS = [
 
 export const MAJORS = [
   "电气自动化设备安装与维修",
-  "机电一体化技术",
+  "电气自动化",
+  "PLC 技术",
+  "数控技术",
   "数控加工",
   "汽车维修",
   "工业机器人应用与维护",
-  "电子商务",
+  "工业机器人",
+  "机械加工",
+  "焊接技术",
+  "电子技术",
+  "计算机技术",
   "计算机网络应用",
+  "建筑工程",
+  "化工技术",
+  "新能源技术",
+  "机电一体化技术",
+  "电子商务",
   "幼儿教育",
   "烹饪",
   "其他专业"
@@ -819,12 +901,23 @@ export const MAJORS = [
 
 export const COURSE_FALLBACK = {
   "电气自动化设备安装与维修": "电动机控制线路安装与调试",
-  "机电一体化技术": "机电设备安装与调试",
+  "电气自动化": "电动机控制线路安装与调试",
+  "PLC 技术": "PLC 顺序控制与调试",
+  "数控技术": "数控车削编程与加工",
   "数控加工": "数控车削编程与加工",
   "汽车维修": "汽车底盘检修",
   "工业机器人应用与维护": "工业机器人示教与编程",
-  "电子商务": "网店运营实务",
+  "工业机器人": "工业机器人示教与编程",
+  "机械加工": "典型零件机械加工",
+  "焊接技术": "焊条电弧焊技能训练",
+  "电子技术": "电子产品装配与调试",
+  "计算机技术": "小型网络构建与维护",
   "计算机网络应用": "小型局域网构建与维护",
+  "建筑工程": "建筑施工技术与安全",
+  "化工技术": "化工单元操作与安全",
+  "新能源技术": "光伏发电系统安装与维护",
+  "机电一体化技术": "机电设备安装与调试",
+  "电子商务": "网店运营实务",
   "幼儿教育": "幼儿园一日活动组织",
   "烹饪": "中式热菜制作"
 };
@@ -973,18 +1066,24 @@ export function docMarkdown(doc) {
     "",
     `- 知识库编号：${doc.id}`,
     `- 分类：${doc.category}`,
+    doc.specialty ? `- 所属专业：${doc.specialty}` : "",
+    doc.course ? `- 所属课程：${doc.course}` : "",
+    `- 来源：${doc.source || "校本示例 · 教学团队整理"}`,
+    `- 作者 / 单位：${doc.author || "匠备教研示例"}`,
+    doc.published ? `- 发布时间：${doc.published}` : "",
     `- 版本：${doc.version}`,
     `- 更新：${doc.updated}`,
-    `- 标签：${doc.tags.join("、")}`,
+    `- 标签：${(doc.tags || []).join("、")}`,
     "",
     `> ${doc.summary}`,
     "",
-    "> 说明：本材料为「匠备」演示用校本示例，不对应任何正式文件。正式使用前请替换为学院现行制度并由负责人审核。",
+    doc.scope ? `> 适用范围：${doc.scope}` : "",
+    doc.builtin ? "> 说明：本材料为「匠备」演示用校本示例，不对应任何正式文件。正式使用前请替换为学院现行制度并由负责人审核。" : "> 说明：本材料由教师在本机自建 / 导入，未经学校审核；正式使用前请核对原文与现行制度。",
     ""
-  ];
+  ].filter((line) => line !== "");
   doc.sections.forEach((section) => {
     lines.push(`## ${section.no} ${section.title}`, "", section.text, "");
-    section.bullets.forEach((bullet) => lines.push(`- ${bullet}`));
+    (section.bullets || []).forEach((bullet) => lines.push(`- ${bullet}`));
     lines.push("");
   });
   return lines.join("\n");
