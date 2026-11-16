@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#ffffff">
+  <meta name="description" content="匠备：面向工学一体化教学的 AI 教师助手。基于可检索的校本知识库，生成教案、学习任务单、工作页、评价表与实训安全核查清单。">
+  <title>匠备 · 工学一体化教师助手</title>
+  <link rel="icon" href="./assets/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="./assets/styles.css">
+</head>
+<body>
+  <a class="skip-link" href="#view">跳到主要内容</a>
+  <div class="app-shell" id="app">
+    <aside class="sidebar" id="sidebar" aria-label="主导航"></aside>
+    <div class="main-shell">
+      <header class="topbar" id="topbar"></header>
+      <main class="view" id="view" tabindex="-1">
+        <div class="boot-screen" aria-live="polite">
+          <div class="boot-mark">匠</div>
+          <p>正在打开教学工作台…</p>
+        </div>
+      </main>
+    </div>
+  </div>
+  <div id="overlay-root"></div>
+  <div id="toast-root" class="toast-root" role="status" aria-live="polite"></div>
+  <noscript>
+    <div class="noscript">本工具需要启用 JavaScript 才能使用。所有输入默认只在您的浏览器内处理。</div>
+  </noscript>
+  <script type="module" src="./js/app.js"></script>
+</body>
+</html>
