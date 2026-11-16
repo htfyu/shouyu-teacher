@@ -730,8 +730,8 @@ function renderTopbar(activeConv) {
     ${icon(aiModeActive() ? "spark" : "shield", 12)}
     <span>${aiModeActive() ? (hasValidConsent(state.ai) ? "AI 增强" : "AI 待授权") : "本地模式"}</span>
   </button>`;
-  let kicker = "WORKBENCH / 教学工作台";
-  let title = "工学一体化教师助手";
+  let kicker = "";
+  let title = "";
   let center = "“把每一节课，备成一件作品。”";
   let actions = `
     ${aiChip}
@@ -783,12 +783,12 @@ function renderTopbar(activeConv) {
   topbarEl.innerHTML = `
     <button class="mobile-menu" type="button" data-action="toggle-sidebar" aria-label="打开导航">${icon("menu", 16)}</button>
     <a class="mobile-brand" href="#/" data-action="nav" data-path="/" aria-label="授渔首页"><img src="./assets/brand/logo-mark-inverse.png" alt=""></a>
-    <div class="topbar-left">
+    ${title || kicker ? `<div class="topbar-left">
       <div class="topbar-heading">
-        <div class="topbar-kicker">${escapeHtml(kicker)}</div>
-        <h1 class="topbar-title">${escapeHtml(title)}</h1>
+        ${kicker ? `<div class="topbar-kicker">${escapeHtml(kicker)}</div>` : ""}
+        ${title ? `<h1 class="topbar-title">${escapeHtml(title)}</h1>` : ""}
       </div>
-    </div>
+    </div>` : ""}
     <div class="topbar-center"><span class="topbar-quote">${escapeHtml(center)}</span></div>
     <div class="topbar-right">${actions}</div>
   `;
@@ -869,29 +869,9 @@ function renderHomePage() {
 
   return `
     <div class="home">
-      <div class="home-top">
-        <div class="home-top-left">FOR TVET TEACHERS / 工学一体化专用</div>
-        <div class="home-top-right">
-          <span>KB ${KB_VERSION}</span>
-          <span class="cross-mark" aria-hidden="true"></span>
-          <span>${aiModeActive() ? (hasValidConsent(state.ai) ? `AI · ${providerLabel(state.ai)}` : "AI · 待授权") : "LOCAL ENGINE"}</span>
-        </div>
-      </div>
-
       <section class="hero" aria-labelledby="hero-title">
-        <div class="hero-eyebrow">
-          <span>AI TEACHING WORKFLOW</span>
-          <span>${aiModeActive() ? "大模型 + 知识库 + 人工审核" : "本地引擎 + 知识库 + 人工审核"}</span>
-        </div>
         <h1 class="hero-title" id="hero-title">Hey，老师！</h1>
         <p class="hero-subtitle">今天我可以为您做点什么呢？</p>
-
-        <div class="scope-note" aria-label="能力边界">
-          <div class="scope-key">我能</div>
-          <div class="scope-line">把<strong>专业 + 工作任务 + 学情</strong>变成教案、学习任务单、工作页和评价表；基于知识库回答电工 / PLC 实训安全；把脱敏听课记录整理成评课意见。</div>
-          <div class="scope-key">我不做</div>
-          <div class="scope-line">学生心理诊断、成绩预测与排名、人事财务法律判断，或处理涉密与未脱敏数据。超范围时我会明确说明，并建议您咨询对应部门。</div>
-        </div>
       </section>
 
       <div class="composer-wrap">
@@ -901,7 +881,6 @@ function renderHomePage() {
       <section class="scenes" aria-labelledby="scene-title">
         <div class="section-row">
           <div>
-            <div class="section-kicker">START WITH A SCENE / 场景入口</div>
             <h2 class="section-title" id="scene-title">不要从空白对话框开始。选一个真实任务。</h2>
           </div>
           <button class="btn-link" type="button" data-action="nav" data-path="/guide">怎么用 →</button>

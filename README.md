@@ -200,7 +200,7 @@ node tests/e2e.smoke.mjs
 
 - 63 个单元测试（隐私 33、知识包 8、引擎 7、AI 合并 7、安全代理 Mock 8）；
 - 18 个文件解析用例（TXT / MD / CSV / JSON / DOCX / PDF / XLSX / PPTX / 分块 / BOM / 进度 / 无上传）；
-- 26 项浏览器 E2E（路由、五场景、品牌标识 / favicon、编辑器、DOCX / XLSX、文件解析、历史、移动端、控制台）；
+- 27 项浏览器 E2E（路由、五场景、品牌标识 / favicon、首页精简、编辑器、DOCX / XLSX、文件解析、历史、移动端、控制台）；
 - AI 体验通道真实流式生成、对话、截断提示与失败回退；
 - DOCX / XLSX 用 `python-docx` / `openpyxl` 独立打开验证。
 

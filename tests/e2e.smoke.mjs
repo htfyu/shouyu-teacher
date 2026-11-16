@@ -109,6 +109,7 @@ async function main() {
     check("品牌名称", (await page.locator(".brand-name").innerText()) === "授渔");
     check("品牌标识加载", await page.locator(".brand-mark img").evaluate((img) => img.complete && img.naturalWidth > 0));
     check("favicon 已切换", await page.evaluate(() => document.querySelector('link[rel="icon"]')?.getAttribute("href") === "./assets/brand/favicon-64.png"));
+    check("首页已精简", await page.locator(".home-top, .hero-eyebrow, .scope-note, .section-kicker").count() === 0);
     check("五个场景入口", await page.locator(".scene-card").count() === 5);
     check("侧栏导航", await page.locator(".nav-item").count() >= 7);
     check("知识库统计 ≥33 份", Number(await page.locator(".nav-item[data-path='/kb'] .nav-count").textContent()) >= 33);
