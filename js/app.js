@@ -1940,7 +1940,7 @@ function renderGuidePage() {
           <strong>当前版本</strong>
           V2.0 · ${escapeHtml(KB_VERSION)}<br>
           本地引擎 + 可选 AI 安全代理<br>
-          在线：<a href="https://htfyu.github.io/jiangbei-teacher/" target="_blank" rel="noopener">htfyu.github.io/jiangbei-teacher</a>
+          在线：<a href="https://htfyu.github.io/shouyu-teacher/" target="_blank" rel="noopener">htfyu.github.io/shouyu-teacher</a>
         </div>
       </div>
 

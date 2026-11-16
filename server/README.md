@@ -219,7 +219,7 @@ const response = await fetch(AI_ENDPOINT, {
 - 非流式：`await response.json()`。
 - 流式：检查 `response.ok` 后读取 `response.body`，按 SSE 的 `data:` 行解析；代理会转发上游的 `[DONE]`。
 - 在设置 `ACCESS_TOKEN` 时，预检允许 `Authorization` 头，前端必须带对应 Bearer。
-- `ALLOWED_ORIGINS` 必须包含 GitHub Pages 的实际 Origin：`https://htfyu.github.io`。它只匹配 Origin，不包含 `/jiangbei-teacher/` 路径。
+- `ALLOWED_ORIGINS` 必须包含 GitHub Pages 的实际 Origin：`https://htfyu.github.io`。它只匹配 Origin，不包含 `/shouyu-teacher/` 路径。
 - 请求中的 `model` 只是展示值，代理不会用它切换模型；真正的模型以 `AI_MODEL` 为准。
 - 健康检查客户端应同时检查 HTTP 200 和响应体 `ok:true`；代理在 Key/URL 未配置时会返回 `503`，因此只检查 `res.ok` 的客户端也不会误判为可用。
 - 当前 `js/ai.js` 默认最多发送 8,192 输出 token，代理上限同为 8,192；代理默认 1,600 仅在调用方省略 `max_tokens` 时使用。

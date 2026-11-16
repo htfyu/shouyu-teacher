@@ -4,8 +4,8 @@
 
 > 本地引擎保底，AI 增强可选；有依据、可编辑、可导出、可审核。
 
-**固定访问地址：** [https://htfyu.github.io/jiangbei-teacher/](https://htfyu.github.io/jiangbei-teacher/)  
-**代码仓库：** [https://github.com/htfyu/jiangbei-teacher](https://github.com/htfyu/jiangbei-teacher)
+**固定访问地址：** [https://htfyu.github.io/shouyu-teacher/](https://htfyu.github.io/shouyu-teacher/)  
+**代码仓库：** [https://github.com/htfyu/shouyu-teacher](https://github.com/htfyu/shouyu-teacher)
 
 ---
 
