@@ -1,5 +1,5 @@
 /**
- * 匠备 V2 · Cloudflare Worker AI Proxy
+ * 授渔 V2 · Cloudflare Worker AI Proxy
  *
  * Routes:
  *   POST /api/chat   OpenAI-compatible chat completion proxy (JSON or SSE)

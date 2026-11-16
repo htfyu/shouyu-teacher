@@ -1,4 +1,4 @@
-# 匠备 V2 · AI Proxy（安全代理）
+# 授渔 V2 · AI Proxy（安全代理）
 
 站点本身部署在 GitHub Pages，是纯静态前端。**模型 API Key 绝不能放进浏览器代码。** 本目录提供两个可部署的 OpenAI-compatible 代理：
 

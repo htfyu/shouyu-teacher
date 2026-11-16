@@ -1,5 +1,5 @@
 /**
- * 匠备 · 导出与复制
+ * 授渔 · 导出与复制
  * 支持：复制、Markdown、Word（.doc，Word/WPS 可直接打开）、打印 / 另存 PDF。
  */
 
@@ -13,7 +13,7 @@ function escapeHtml(value) {
 }
 
 export function sanitizeFilename(name) {
-  return String(name || "匠备教学文档")
+  return String(name || "授渔教学文档")
     .replace(/[\\/:*?"<>|\r\n]+/g, "_")
     .replace(/\s+/g, " ")
     .trim()
@@ -69,7 +69,7 @@ export function docToText(doc) {
 export function artifactToText(artifact) {
   if (!artifact) return "";
   const blocks = [];
-  blocks.push(`匠备 · ${artifact.sceneLabel || "教学成果"}`);
+  blocks.push(`授渔 · ${artifact.sceneLabel || "教学成果"}`);
   blocks.push(`生成时间：${formatDate(artifact.generatedAt)}`);
   blocks.push("AI 辅助生成，正式使用前须由教师人工审核。");
   blocks.push("");
@@ -91,7 +91,7 @@ export function artifactToText(artifact) {
 export function artifactToMarkdown(artifact) {
   if (!artifact) return "";
   const lines = [
-    `# 匠备 · ${artifact.docs?.[0]?.title || artifact.sceneLabel || "教学成果"}`,
+    `# 授渔 · ${artifact.docs?.[0]?.title || artifact.sceneLabel || "教学成果"}`,
     "",
     `> 生成时间：${formatDate(artifact.generatedAt)}　|　工作流：${artifact.sceneLabel || ""}　|　模板：${artifact.template || ""}`,
     "",
@@ -176,7 +176,7 @@ function renderBlocksHtml(blocks) {
 function renderWordDoc(doc, artifact) {
   return `
     <div class="doc">
-      <div class="doc-kicker">匠备 · ${escapeHtml(artifact.sceneLabel || "教学成果")}　|　${escapeHtml(formatDate(artifact.generatedAt))}</div>
+      <div class="doc-kicker">授渔 · ${escapeHtml(artifact.sceneLabel || "教学成果")}　|　${escapeHtml(formatDate(artifact.generatedAt))}</div>
       <h1>${escapeHtml(doc.title)}</h1>
       <table class="meta"><tbody>
         ${(doc.meta || []).map((item) => `<tr><th>${escapeHtml(item.label)}</th><td>${escapeHtml(item.value)}</td></tr>`).join("")}
@@ -194,7 +194,7 @@ export function downloadWord(artifact, activeDocId) {
   if (!artifact) return;
   const docs = activeDocId ? (artifact.docs || []).filter((doc) => doc.id === activeDocId) : artifact.docs || [];
   const content = docs.length ? docs : artifact.docs || [];
-  const title = content[0]?.title || "匠备教学成果";
+  const title = content[0]?.title || "授渔教学成果";
   const html = `<!DOCTYPE html>
 <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">
 <head>
@@ -230,8 +230,8 @@ export function downloadWord(artifact, activeDocId) {
 <body>
   ${content.map((doc) => renderWordDoc(doc, artifact)).join("")}
   <div class="footer">
-    人工审核提示：本文档由「匠备」本地工作流辅助生成，仅作为教学草稿。正式使用前请核对学习目标、设备参数、评价权重、安全条款及数据脱敏情况。<br>
-    知识库版本：${escapeHtml(artifact.sources?.[0]?.version || "校本示例")}　｜　生成时间：${escapeHtml(formatDate(artifact.generatedAt))}　｜　匠备 JIANGBEI
+    人工审核提示：本文档由「授渔」本地工作流辅助生成，仅作为教学草稿。正式使用前请核对学习目标、设备参数、评价权重、安全条款及数据脱敏情况。<br>
+    知识库版本：${escapeHtml(artifact.sources?.[0]?.version || "校本示例")}　｜　生成时间：${escapeHtml(formatDate(artifact.generatedAt))}　｜　授渔 SHOUYU
   </div>
 </body>
 </html>`;
@@ -287,13 +287,13 @@ export function printArtifact(artifact, activeDocId) {
   if (!artifact) return;
   const docs = activeDocId ? (artifact.docs || []).filter((doc) => doc.id === activeDocId) : artifact.docs || [];
   const content = docs.length ? docs : artifact.docs || [];
-  const title = content[0]?.title || "匠备教学成果";
+  const title = content[0]?.title || "授渔教学成果";
   const html = `<!DOCTYPE html>
 <html lang="zh-CN">
 <head><meta charset="utf-8"><title>${escapeHtml(title)}</title><style>${printStyles()}</style></head>
 <body>
   <div class="cover">
-    <div class="kicker">匠备 JIANGBEI / 工学一体化教学工作台</div>
+    <div class="kicker">授渔 SHOUYU / 工学一体化教学工作台</div>
     <h1>${escapeHtml(title)}</h1>
     <div class="art-meta">
       <span>生成时间：${escapeHtml(formatDate(artifact.generatedAt))}</span>
@@ -301,7 +301,7 @@ export function printArtifact(artifact, activeDocId) {
       <span>模板：${escapeHtml(artifact.template || "")}</span>
       <span>引用：${artifact.sources?.length || 0} 处知识库依据</span>
     </div>
-    <p class="intro">本文档由「匠备」辅助生成，仅作为教学草稿。正式使用前须由教师人工审核学习目标、设备参数、评价权重、安全条款与数据脱敏情况。</p>
+    <p class="intro">本文档由「授渔」辅助生成，仅作为教学草稿。正式使用前须由教师人工审核学习目标、设备参数、评价权重、安全条款与数据脱敏情况。</p>
   </div>
   ${content.map((doc) => `
     <div class="doc">
@@ -348,7 +348,7 @@ export function printArtifact(artifact, activeDocId) {
 
 export function downloadMarkdown(artifact) {
   if (!artifact) return;
-  const title = artifact.docs?.[0]?.title || "匠备教学成果";
+  const title = artifact.docs?.[0]?.title || "授渔教学成果";
   const blob = new Blob([artifactToMarkdown(artifact)], { type: "text/markdown;charset=utf-8" });
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
@@ -518,7 +518,7 @@ function wmlBlocks(blocks = []) {
 
 function buildDocxDocument(artifact, options = {}) {
   const docs = artifact.docs || [];
-  const title = options.title || artifact.title || docs[0]?.title || "匠备教学成果";
+  const title = options.title || artifact.title || docs[0]?.title || "授渔教学成果";
   const generated = artifact.generatedAt ? new Date(artifact.generatedAt).toLocaleString("zh-CN") : new Date().toLocaleString("zh-CN");
   const docsXml = docs.map((doc, index) => `
     ${index > 0 ? "<w:p><w:r><w:br w:type=\"page\"/></w:r></w:p>" : ""}
@@ -538,7 +538,7 @@ function buildDocxDocument(artifact, options = {}) {
   ` : "";
   const body = `
     ${wmlParagraph(title, { bold: true, size: 38, align: "center", after: 160 })}
-    ${wmlParagraph(`匠心备课 · ${artifact.sceneLabel || "教学成果"}`, { size: 19, color: "666666", align: "center", after: 60 })}
+    ${wmlParagraph(`授渔 · ${artifact.sceneLabel || "教学成果"}`, { size: 19, color: "666666", align: "center", after: 60 })}
     ${wmlParagraph(`生成时间：${generated} · AI/本地辅助草稿，正式使用前须由教师人工审核`, { size: 17, color: "666666", align: "center", after: 240 })}
     ${docsXml}
     ${sourcesXml}
@@ -559,7 +559,7 @@ export async function downloadDOCX(artifact, { title } = {}) {
   if (!artifact?.docs?.length) throw new Error("没有可导出的内容");
   const JSZip = await loadJSZipForExport();
   const zip = new JSZip();
-  const docTitle = title || artifact.docs[0]?.title || "匠备教学成果";
+  const docTitle = title || artifact.docs[0]?.title || "授渔教学成果";
   zip.file("[Content_Types].xml", `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
   <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
@@ -593,7 +593,7 @@ export async function downloadDOCX(artifact, { title } = {}) {
   zip.file("word/footer1.xml", `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <w:ftr xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
   <w:p><w:pPr><w:jc w:val="center"/></w:pPr>
-    <w:r><w:rPr><w:sz w:val="18"/><w:color w:val="666666"/></w:rPr><w:t xml:space="preserve">匠备 · </w:t></w:r>
+    <w:r><w:rPr><w:sz w:val="18"/><w:color w:val="666666"/></w:rPr><w:t xml:space="preserve">授渔 · </w:t></w:r>
     <w:r><w:fldChar w:fldCharType="begin"/></w:r>
     <w:r><w:instrText xml:space="preserve"> PAGE </w:instrText></w:r>
     <w:r><w:fldChar w:fldCharType="separate"/></w:r>
@@ -603,12 +603,12 @@ export async function downloadDOCX(artifact, { title } = {}) {
 </w:ftr>`);
   zip.file("docProps/core.xml", `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
-  <dc:title>${escapeXml(docTitle)}</dc:title><dc:creator>匠备 · 工学一体化教师助手</dc:creator><cp:lastModifiedBy>匠备</cp:lastModifiedBy>
+  <dc:title>${escapeXml(docTitle)}</dc:title><dc:creator>授渔 · 工学一体化教师助手</dc:creator><cp:lastModifiedBy>授渔</cp:lastModifiedBy>
   <dcterms:created xsi:type="dcterms:W3CDTF">${new Date().toISOString()}</dcterms:created>
 </cp:coreProperties>`);
   zip.file("docProps/app.xml", `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties" xmlns:vt="http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes">
-  <Application>匠备 · 工学一体化教师助手</Application><DocSecurity>0</DocSecurity><AppVersion>2.0</AppVersion>
+  <Application>授渔 · 工学一体化教师助手</Application><DocSecurity>0</DocSecurity><AppVersion>2.0</AppVersion>
 </Properties>`);
   const blob = await zip.generateAsync({ type: "blob", mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" });
   const url = URL.createObjectURL(blob);
@@ -626,7 +626,7 @@ export async function downloadXLSX(artifact, { title } = {}) {
   if (!artifact?.docs?.length) throw new Error("没有可导出的内容");
   const XLSX = await loadXLSXForExport();
   const wb = XLSX.utils.book_new();
-  const summary = [["匠备 · 教学成果"], ["标题", title || artifact.docs[0]?.title || ""], ["场景", artifact.sceneLabel || ""], ["生成时间", artifact.generatedAt || ""], []];
+  const summary = [["授渔 · 教学成果"], ["标题", title || artifact.docs[0]?.title || ""], ["场景", artifact.sceneLabel || ""], ["生成时间", artifact.generatedAt || ""], []];
   artifact.docs.forEach((doc, docIndex) => {
     const rows = [["模块", "内容", "依据"], [`${doc.label} ${doc.title}`, "", ""]];
     doc.sections.forEach((section) => {
@@ -659,12 +659,12 @@ export async function downloadXLSX(artifact, { title } = {}) {
   }
   const summaryWs = XLSX.utils.aoa_to_sheet(summary);
   XLSX.utils.book_append_sheet(wb, summaryWs, "说明");
-  const filename = `${sanitizeFilename(title || artifact.docs[0]?.title || "匠备教学成果")}.xlsx`;
+  const filename = `${sanitizeFilename(title || artifact.docs[0]?.title || "授渔教学成果")}.xlsx`;
   XLSX.writeFile(wb, filename);
   return true;
 }
 
 export function downloadTXT(artifact, { title } = {}) {
   if (!artifact) throw new Error("没有可导出的内容");
-  downloadTextFile(`${sanitizeFilename(title || artifact.docs?.[0]?.title || "匠备教学成果")}.txt`, artifactToText(artifact), "text/plain;charset=utf-8");
+  downloadTextFile(`${sanitizeFilename(title || artifact.docs?.[0]?.title || "授渔教学成果")}.txt`, artifactToText(artifact), "text/plain;charset=utf-8");
 }

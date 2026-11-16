@@ -1,5 +1,5 @@
 /**
- * 匠备 · 知识库
+ * 授渔 · 知识库
  * 所有材料均为可检索的结构化片段。演示版为校本示例，正式使用前请替换为学院现行文件。
  * 替换方式见 README.md「替换知识库」。
  */
@@ -1069,7 +1069,7 @@ export function docMarkdown(doc) {
     doc.specialty ? `- 所属专业：${doc.specialty}` : "",
     doc.course ? `- 所属课程：${doc.course}` : "",
     `- 来源：${doc.source || "校本示例 · 教学团队整理"}`,
-    `- 作者 / 单位：${doc.author || "匠备教研示例"}`,
+    `- 作者 / 单位：${doc.author || "授渔教研示例"}`,
     doc.published ? `- 发布时间：${doc.published}` : "",
     `- 版本：${doc.version}`,
     `- 更新：${doc.updated}`,
@@ -1078,7 +1078,7 @@ export function docMarkdown(doc) {
     `> ${doc.summary}`,
     "",
     doc.scope ? `> 适用范围：${doc.scope}` : "",
-    doc.builtin ? "> 说明：本材料为「匠备」演示用校本示例，不对应任何正式文件。正式使用前请替换为学院现行制度并由负责人审核。" : "> 说明：本材料由教师在本机自建 / 导入，未经学校审核；正式使用前请核对原文与现行制度。",
+    doc.builtin ? "> 说明：本材料为「授渔」演示用校本示例，不对应任何正式文件。正式使用前请替换为学院现行制度并由负责人审核。" : "> 说明：本材料由教师在本机自建 / 导入，未经学校审核；正式使用前请核对原文与现行制度。",
     ""
   ].filter((line) => line !== "");
   doc.sections.forEach((section) => {

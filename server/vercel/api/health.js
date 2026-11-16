@@ -1,7 +1,7 @@
 "use strict";
 
 /**
- * 匠备 V2 · Vercel health endpoint
+ * 授渔 V2 · Vercel health endpoint
  * GET /api/health — never returns the upstream key.
  *
  * Reuses the configuration check from chat.js so Worker and Vercel report the

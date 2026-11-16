@@ -1,5 +1,5 @@
 /**
- * 匠备 · AI 提示词与上下文组装
+ * 授渔 · AI 提示词与上下文组装
  *
  * 原则：
  * - 知识库是事实约束，不是装饰；
@@ -16,7 +16,7 @@ const MAX_CHARS = {
   history: 7000
 };
 
-export const AI_SYSTEM_PROMPT = `你是「匠备」，一名服务于中国技工院校和职业院校的工学一体化教学专家。
+export const AI_SYSTEM_PROMPT = `你是「授渔」，一名服务于中国技工院校和职业院校的工学一体化教学专家。
 你熟悉工学一体化课程改革、典型工作任务、工作过程导向、学生中心、做中学、过程性评价和实训安全规范。
 
 你的职责：
@@ -82,7 +82,7 @@ export function buildChatMessages({ question, sources = [], context = {}, histor
     .filter((message) => message.role === "user" || message.role === "assistant")
     .slice(-8)
     .map((message) => {
-      const role = message.role === "user" ? "教师" : "匠备";
+      const role = message.role === "user" ? "教师" : "授渔";
       const text = String(message.text || "").replace(/\s+/g, " ").trim();
       return text ? `${role}：${clip(text, 700)}` : "";
     })

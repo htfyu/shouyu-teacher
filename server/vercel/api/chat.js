@@ -1,7 +1,7 @@
 "use strict";
 
 /**
- * 匠备 V2 · Vercel Serverless Function AI Proxy
+ * 授渔 V2 · Vercel Serverless Function AI Proxy
  *
  * Endpoint: POST /api/chat
  * Runtime:  Node.js 20+ (uses global fetch, Web Streams and AbortController).

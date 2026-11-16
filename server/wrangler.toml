@@ -1,4 +1,4 @@
-# 匠备 V2 · Cloudflare Worker
+# 授渔 V2 · Cloudflare Worker
 # 部署前请按实际域名修改 ALLOWED_ORIGINS；不要在本文件中写任何真实密钥。
 name = "jiangbei-ai-proxy"
 main = "cloudflare-worker.js"

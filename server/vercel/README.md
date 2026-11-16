@@ -1,4 +1,4 @@
-# 匠备 V2 · Vercel AI Proxy（备选）
+# 授渔 V2 · Vercel AI Proxy（备选）
 
 这是 Cloudflare Worker 的 Vercel Node Serverless 兼容实现。安全策略、环境变量、限制和错误格式与 [`../README.md`](../README.md) 保持一致。
 

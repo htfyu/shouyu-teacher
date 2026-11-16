@@ -1,4 +1,6 @@
-# 匠备 V2 · 工学一体化教师助手
+# 授渔 V2 · 工学一体化教师助手
+
+<img src="assets/brand/logo-mark.png" alt="授渔 · 无限回环鱼钩标识" width="180">
 
 > 本地引擎保底，AI 增强可选；有依据、可编辑、可导出、可审核。
 
@@ -136,8 +138,8 @@ wrangler deploy
 .
 ├─ index.html
 ├─ assets/
+│  ├─ brand/                     # 授渔 logo、反白标与 favicon
 │  ├─ styles.css                 # 黑白线稿 + V2 设置 / 编辑器 / 文件中心
-│  ├─ favicon.svg
 │  └─ vendor/                    # 按需加载的本地解析/导出依赖（约 4MB）
 │     ├─ mammoth/                # DOCX
 │     ├─ pdfjs/                  # PDF + worker + cmaps
@@ -197,7 +199,7 @@ node tests/e2e.smoke.mjs
 
 - 63 个单元测试（隐私 33、知识包 8、引擎 7、AI 合并 7、安全代理 Mock 8）；
 - 18 个文件解析用例（TXT / MD / CSV / JSON / DOCX / PDF / XLSX / PPTX / 分块 / BOM / 进度 / 无上传）；
-- 23 项浏览器 E2E（路由、五场景、编辑器、DOCX / XLSX、文件解析、历史、移动端、控制台）；
+- 26 项浏览器 E2E（路由、五场景、品牌标识 / favicon、编辑器、DOCX / XLSX、文件解析、历史、移动端、控制台）；
 - AI 体验通道真实流式生成、对话、截断提示与失败回退；
 - DOCX / XLSX 用 `python-docx` / `openpyxl` 独立打开验证。
 
@@ -239,4 +241,4 @@ node tests/e2e.smoke.mjs
 
 ---
 
-**匠备 JIANGBEI / 2026** · 本地优先 · 双引擎 · 人工审核是最后一道工序
+**授渔 SHOUYU / 2026** · 本地优先 · 双引擎 · 人工审核是最后一道工序

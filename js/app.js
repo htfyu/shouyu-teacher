@@ -1,5 +1,5 @@
 /**
- * 匠备 · 界面与交互
+ * 授渔 · 界面与交互
  * 纯前端、无构建步骤。对话与资料优先保存在本机 IndexedDB，localStorage 仅作兼容回退。
  */
 
@@ -679,11 +679,11 @@ function renderSidebar(activeConv) {
     { key: "guide", path: "/guide", icon: "help", label: "使用说明" }
   ];
   sidebarEl.innerHTML = `
-    <a class="brand" href="#/" data-action="nav" data-path="/" aria-label="匠备首页">
-      <span class="brand-mark">匠</span>
+    <a class="brand" href="#/" data-action="nav" data-path="/" aria-label="授渔首页">
+      <span class="brand-mark"><img src="./assets/brand/logo-mark-inverse.png" alt=""></span>
       <span class="brand-copy">
-        <span class="brand-name">匠备</span>
-        <span class="brand-sub">JIANGBEI · TVET STUDIO</span>
+        <span class="brand-name">授渔</span>
+        <span class="brand-sub">SHOUYU · TVET STUDIO</span>
       </span>
     </a>
     <div class="side-scroll">
@@ -782,6 +782,7 @@ function renderTopbar(activeConv) {
   }
   topbarEl.innerHTML = `
     <button class="mobile-menu" type="button" data-action="toggle-sidebar" aria-label="打开导航">${icon("menu", 16)}</button>
+    <a class="mobile-brand" href="#/" data-action="nav" data-path="/" aria-label="授渔首页"><img src="./assets/brand/logo-mark-inverse.png" alt=""></a>
     <div class="topbar-left">
       <div class="topbar-heading">
         <div class="topbar-kicker">${escapeHtml(kicker)}</div>
@@ -1078,8 +1079,8 @@ function renderAssistantHead(message) {
   const badge = isAI ? "AI-ASSISTED" : message.kind === "result" ? "KNOWLEDGE-GROUNDED" : "SCOPE-GUARDED";
   return `
     <div class="assistant-head">
-      <span class="assistant-mark">匠</span>
-      <span class="assistant-name">匠备</span>
+      <span class="assistant-mark" aria-hidden="true">授</span>
+      <span class="assistant-name">授渔</span>
       <span class="assistant-badge${isAI ? " is-ai" : ""}">${badge}</span>
       <time class="assistant-time" datetime="${escapeAttr(message.createdAt)}">${escapeHtml(formatTime(message.createdAt))}</time>
     </div>
@@ -1933,7 +1934,7 @@ function renderGuidePage() {
         <div>
           <div class="page-kicker">MANUAL / 作品说明</div>
           <h1 class="page-title">先说边界，再谈智能。</h1>
-          <p class="page-intro">匠备只服务一件事：把工学一体化备课从“写一份看起来完整的方案”，变成“拿到一份可以修改、可以上课、可以审核的教学成果”。V2 提供本地与 AI 增强双引擎：本地模式永远可用；AI 模式需要明确授权，可流式生成，并在失败时自动回退。</p>
+          <p class="page-intro">授渔只服务一件事：把工学一体化备课从“写一份看起来完整的方案”，变成“拿到一份可以修改、可以上课、可以审核的教学成果”。V2 提供本地与 AI 增强双引擎：本地模式永远可用；AI 模式需要明确授权，可流式生成，并在失败时自动回退。</p>
         </div>
         <div class="page-head-side">
           <strong>当前版本</strong>
@@ -2035,11 +2036,11 @@ function renderGuidePage() {
             <h2 class="guide-h2" data-no="07">试用反馈怎样留证据</h2>
             <p class="guide-p">不要编造“已有 100 位老师使用”。邀请 1—2 位同事真实使用，记录具体任务、耗时、修改点和是否愿意继续使用。下面的模板可以复制到文档里，自行填写并附截图。</p>
             <div class="feedback-template" id="trial-template">
-              <strong>匠备 · 试用反馈记录（模板）</strong><br>
+              <strong>授渔 · 试用反馈记录（模板）</strong><br>
               试用日期：____年__月__日　　试用对象岗位：__________（可匿名）<br>
               使用场景：□教案　□任务单 / 工作页　□评价表　□安全查询　□听评课<br>
               原始任务：______________________________________________<br>
-              完成用时：手工约____分钟　　使用匠备约____分钟<br>
+              完成用时：手工约____分钟　　使用授渔约____分钟<br>
               可直接采用的部分：______________________________________<br>
               需要修改的部分：________________________________________<br>
               发现的问题 / 改进建议：_________________________________<br>
@@ -2345,7 +2346,7 @@ async function exportBackup({ conversationsOnly = false } = {}) {
     });
     backup.exportedAt = new Date().toISOString();
     const stamp = new Date().toISOString().replace(/[:T]/g, "-").slice(0, 16);
-    downloadTextFile(`匠备_${conversationsOnly ? "对话" : "完整备份"}_${stamp}.json`, JSON.stringify(backup, null, 2), "application/json;charset=utf-8");
+    downloadTextFile(`授渔_${conversationsOnly ? "对话" : "完整备份"}_${stamp}.json`, JSON.stringify(backup, null, 2), "application/json;charset=utf-8");
     showToast("备份文件已开始下载，请存放在学校批准的位置");
   } catch (error) {
     showToast(error.message || "备份导出失败");
@@ -2973,7 +2974,7 @@ function renderModal() {
       <div class="modal${modal.narrow ? " is-narrow" : ""}" role="dialog" aria-modal="true" aria-labelledby="modal-title">
         <div class="modal-head">
           <div>
-            <div class="modal-kicker">${escapeHtml(modal.kicker || "JIANGBEI / DIALOG")}</div>
+            <div class="modal-kicker">${escapeHtml(modal.kicker || "SHOUYU / DIALOG")}</div>
             <h2 class="modal-title" id="modal-title">${escapeHtml(modal.title || "")}</h2>
             ${modal.sub ? `<p class="modal-sub">${escapeHtml(modal.sub)}</p>` : ""}
           </div>
@@ -5239,7 +5240,7 @@ function handleAction(action, el, event) {
         showToast("还没有自定义材料可导出");
         break;
       }
-      downloadTextFile("匠备_自定义知识库.json", JSON.stringify({ schema: "jiangbei.knowledge.v1", exportedAt: new Date().toISOString(), docs }, null, 2), "application/json;charset=utf-8");
+      downloadTextFile("授渔_自定义知识库.json", JSON.stringify({ schema: "jiangbei.knowledge.v1", exportedAt: new Date().toISOString(), docs }, null, 2), "application/json;charset=utf-8");
       showToast(`已导出 ${docs.length} 份自定义材料`);
       break;
     }

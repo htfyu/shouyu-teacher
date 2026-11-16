@@ -94,7 +94,7 @@ test("每份文档字段完整，课程、标签和适用范围可检索", () =>
     assert.ok(Array.isArray(doc.tags) && doc.tags.length >= 3, `${doc.id} 标签不足`);
     assert.ok(doc.tags.every((tag) => typeof tag === "string" && tag.trim()), `${doc.id} 标签需为非空字符串`);
     assert.equal(doc.source, "校本示例 · 教学团队整理");
-    assert.equal(doc.author, "匠备教研示例");
+    assert.equal(doc.author, "授渔教研示例");
     assert.match(doc.published, /^\d{4}-\d{2}-\d{2}$/);
     assert.match(doc.updated, /^\d{4}-\d{2}-\d{2}$/);
     assert.equal(doc.version, "校本示例 v1.0");

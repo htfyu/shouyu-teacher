@@ -1,5 +1,5 @@
 /**
- * 匠备 V2 · IndexedDB 数据层
+ * 授渔 V2 · IndexedDB 数据层
  *
  * 设计：
  * - 数据主存储在 IndexedDB；localStorage 只作为旧版本迁移与轻量回退。
@@ -197,7 +197,7 @@ export async function getStorageEstimate() {
 
 export async function buildBackup({ conversations, knowledge, files, settings }) {
   return {
-    app: "匠备 JIANGBEI",
+    app: "授渔 SHOUYU",
     schema: "jiangbei.backup.v2",
     version: 2,
     exportedAt: new Date().toISOString(),

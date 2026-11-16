@@ -1,5 +1,5 @@
 /* ==========================================================
-   匠备 · JIANGBEI
+   授渔 · SHOUYU
    White paper, black lines, no decoration without purpose.
    ========================================================== */
 
@@ -153,10 +153,18 @@ svg {
   width: 44px;
   height: 44px;
   place-items: center;
+  overflow: hidden;
   background: var(--ink);
   color: var(--paper);
   font-family: var(--serif);
   font-size: 24px;
+}
+
+.boot-mark img {
+  display: block;
+  width: 35px;
+  height: 35px;
+  object-fit: contain;
 }
 
 /* ---------- Sidebar ---------- */
@@ -186,15 +194,23 @@ svg {
 .brand-mark {
   position: relative;
   display: grid;
-  width: 36px;
+  width: 42px;
   height: 36px;
   place-items: center;
-  flex: 0 0 36px;
+  flex: 0 0 42px;
+  overflow: hidden;
   background: var(--ink);
   color: var(--paper);
   font-family: var(--serif);
   font-size: 21px;
   line-height: 1;
+}
+
+.brand-mark img {
+  display: block;
+  width: 37px;
+  height: 37px;
+  object-fit: contain;
 }
 
 .brand-mark::after {
@@ -509,6 +525,10 @@ svg {
 }
 
 .mobile-menu {
+  display: none;
+}
+
+.mobile-brand {
   display: none;
 }
 
@@ -3689,6 +3709,23 @@ code {
     place-items: center;
     background: var(--paper);
     border: 1px solid var(--mid);
+  }
+
+  .mobile-brand {
+    display: grid;
+    width: 30px;
+    height: 30px;
+    flex: 0 0 30px;
+    place-items: center;
+    overflow: hidden;
+    background: var(--ink);
+  }
+
+  .mobile-brand img {
+    display: block;
+    width: 26px;
+    height: 26px;
+    object-fit: contain;
   }
 
   .topbar {

@@ -1,5 +1,5 @@
 /**
- * 匠备 V2 · 隐私模块测试
+ * 授渔 V2 · 隐私模块测试
  *
  * 运行：node --test tests/privacy.test.mjs
  *
