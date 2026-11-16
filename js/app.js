@@ -441,10 +441,29 @@ function loadAISettings() {
   }
 }
 
+const SIDEBAR_UI_KEY = "shouyu.ui.sidebar.v1";
+
+function loadSidebarCollapsed() {
+  try {
+    return localStorage.getItem(SIDEBAR_UI_KEY) === "1";
+  } catch (error) {
+    return false;
+  }
+}
+
+function saveSidebarCollapsed(value) {
+  try {
+    localStorage.setItem(SIDEBAR_UI_KEY, value ? "1" : "0");
+  } catch (error) {
+    // 界面偏好写入失败不影响主流程。
+  }
+}
+
 const state = {
   route: { name: "home" },
   activeId: null,
   sidebarOpen: false,
+  sidebarCollapsed: loadSidebarCollapsed(),
   railOpen: false,
   modal: null,
   draft: "",
@@ -648,6 +667,7 @@ function renderApp(options = {}) {
   const activeConv = state.activeId ? findConversation(state.activeId) : null;
 
   appEl.classList.toggle("sidebar-open", state.sidebarOpen);
+  appEl.classList.toggle("sidebar-collapsed", state.sidebarCollapsed);
   renderSidebar(activeConv);
   renderTopbar(activeConv);
   renderView(activeConv, options, previousChatScroll, previousViewScroll);
@@ -678,6 +698,11 @@ function renderSidebar(activeConv) {
     { key: "settings", path: "/settings", icon: "sliders", label: "AI 与数据设置" },
     { key: "guide", path: "/guide", icon: "help", label: "使用说明" }
   ];
+  const navGroups = [
+    { label: "WORKSPACE / 工作区", items: navItems.slice(0, 4) },
+    { label: "ARCHIVE / 记录", items: navItems.slice(4, 5) },
+    { label: "SYSTEM / 系统", items: navItems.slice(5) }
+  ];
   sidebarEl.innerHTML = `
     <a class="brand" href="#/" data-action="nav" data-path="/" aria-label="授渔首页">
       <span class="brand-mark"><img src="./assets/brand/logo-mark-inverse.png" alt=""></span>
@@ -687,35 +712,51 @@ function renderSidebar(activeConv) {
       </span>
     </a>
     <div class="side-scroll">
-      <button class="new-chat" type="button" data-action="new-chat">
-        ${icon("plus", 14)}
-        <span>新对话</span>
+      <button class="new-chat" type="button" data-action="new-chat" title="新建对话">
+        ${icon("plus", 15)}
+        <span class="new-chat-label">新对话</span>
         <kbd>N</kbd>
       </button>
-      <div class="side-label">WORKSPACE / 工作区</div>
-      <nav class="side-nav" aria-label="工作区导航">
-        ${navItems.map((item) => {
-          const active = route.name === item.key;
-          return `<button class="nav-item${active ? " is-active" : ""}" type="button" data-action="nav" data-path="${item.path}" ${active ? 'aria-current="page"' : ""}>
-            ${icon(item.icon, 14)}
-            <span>${item.label}</span>
-            ${item.count != null ? `<span class="nav-count">${String(item.count).padStart(2, "0")}</span>` : ""}
-          </button>`;
-        }).join("")}
-      </nav>
-      <div class="side-label">RECENT / 最近</div>
+      ${navGroups.map((group) => `
+        <div class="nav-group">
+          <div class="side-label">${group.label}</div>
+          <nav class="side-nav" aria-label="${group.label}">
+            ${group.items.map((item) => {
+              const active = route.name === item.key;
+              return `<button class="nav-item${active ? " is-active" : ""}" type="button" data-action="nav" data-path="${item.path}" title="${escapeAttr(item.label)}" aria-label="${escapeAttr(item.label)}" ${active ? 'aria-current="page"' : ""}>
+                <span class="nav-icon">${icon(item.icon, 16)}</span>
+                <span class="nav-label">${item.label}</span>
+                ${item.count != null ? `<span class="nav-count">${String(item.count).padStart(2, "0")}</span>` : ""}
+              </button>`;
+            }).join("")}
+          </nav>
+        </div>
+      `).join("")}
+      <div class="side-label side-label-recent">RECENT / 最近</div>
       <div class="recent-list">
         ${recent.length ? recent.map((conv) => `
-          <button class="recent-item${activeId === conv.id ? " is-active" : ""}" type="button" data-action="open-conv" data-id="${escapeAttr(conv.id)}">
+          <button class="recent-item${activeId === conv.id ? " is-active" : ""}" type="button" data-action="open-conv" data-id="${escapeAttr(conv.id)}" title="${escapeAttr(conv.title || "未命名对话")}">
             <span class="recent-title">${conv.pinned ? "◉ " : ""}${escapeHtml(conv.title || "未命名对话")}</span>
             <span class="recent-meta"><span>${escapeHtml(sceneShort(conv.scene))}</span><span>${escapeHtml(formatRelative(conv.updatedAt))}</span></span>
           </button>
         `).join("") : `<div class="recent-empty">还没有记录。<br>从一次真实的备课任务开始。</div>`}
       </div>
+      <div class="side-tip">
+        <div class="side-tip-top"><span class="status-dot"></span>本地工作区</div>
+        <div class="side-tip-stats">
+          <span><strong>${KB_DOCS.length}</strong> 份材料</span>
+          <span><strong>12</strong> 专业</span>
+        </div>
+        <p>数据留在浏览器，换设备请用备份迁移。</p>
+      </div>
     </div>
     <div class="side-foot">
-      <div class="side-foot-row"><span class="status-dot"></span><span>${aiModeActive() ? (hasValidConsent(state.ai) ? "AI MODE · 发送前隐私检查" : "AI MODE · 待授权") : "LOCAL-FIRST · 数据不出浏览器"}</span></div>
-      <a href="#/settings" data-action="nav" data-path="/settings">AI 模式 · 数据与隐私 →</a>
+      <div class="side-foot-row"><span class="status-dot"></span><span class="side-foot-status">${aiModeActive() ? (hasValidConsent(state.ai) ? "AI MODE · 发送前隐私检查" : "AI MODE · 待授权") : "LOCAL-FIRST · 数据不出浏览器"}</span></div>
+      <a href="#/settings" data-action="nav" data-path="/settings" class="side-foot-link">AI 模式 · 数据与隐私 <span aria-hidden="true">→</span></a>
+      <button class="sidebar-collapse" type="button" data-action="toggle-sidebar-collapse" aria-expanded="${state.sidebarCollapsed ? "false" : "true"}" aria-controls="sidebar" aria-label="${state.sidebarCollapsed ? "展开侧栏" : "收起侧栏"}" title="${state.sidebarCollapsed ? "展开侧栏" : "收起侧栏"}">
+        ${icon(state.sidebarCollapsed ? "arrowRight" : "arrowLeft", 14)}
+        <span class="sidebar-collapse-label">${state.sidebarCollapsed ? "展开侧栏" : "收起侧栏"}</span>
+      </button>
     </div>
   `;
 }
@@ -779,6 +820,11 @@ function renderTopbar(activeConv) {
     title = "能力、边界与扩展方式";
     center = "默认本地运行 · 人工审核是最后一道工序";
     actions = `${aiChip}<button class="btn" type="button" data-action="nav" data-path="/" aria-label="返回工作台">${icon("arrowLeft", 13)}<span class="topbar-action-label">返回工作台</span></button>`;
+  }
+  // 页面标题由内容区 page-head 承担；顶栏只保留全局导航与操作，避免重复占用首屏。
+  if (route.name !== "chat") {
+    kicker = "";
+    title = "";
   }
   topbarEl.innerHTML = `
     <button class="mobile-menu" type="button" data-action="toggle-sidebar" aria-label="打开导航">${icon("menu", 16)}</button>
@@ -1372,6 +1418,9 @@ function getKbResults() {
 function renderKnowledgePage() {
   const stats = knowledgeStats();
   const cats = Array.from(new Set(KB_DOCS.map((doc) => doc.category)));
+  const categories = getKnowledgeCategories();
+  const generalCats = categories.filter((cat) => cat === "全部" || !cat.startsWith("专业·"));
+  const specialtyCats = categories.filter((cat) => cat.startsWith("专业·"));
   return `
     <div class="page">
       <div class="page-head">
@@ -1385,8 +1434,8 @@ function renderKnowledgePage() {
           12 个专业包 · 关键词 + 概念扩展（本地混合检索）<br>
           自定义材料支持新增 / 导入 / 删除<br>
           <div class="page-head-actions">
-            <button class="btn" type="button" data-action="toggle-kb-manage">${state.kbManageMode ? "退出管理" : "管理知识库"}</button>
-            <button class="btn btn-ghost" type="button" data-action="new-kb-doc">+ 新增材料</button>
+            <button class="btn btn-ghost" type="button" data-action="toggle-kb-manage">${state.kbManageMode ? "退出管理" : "管理知识库"}</button>
+            <button class="btn btn-solid" type="button" data-action="new-kb-doc">${icon("plus", 11)} 新增材料</button>
           </div>
         </div>
       </div>
@@ -1396,13 +1445,27 @@ function renderKnowledgePage() {
         <div class="stat"><div class="stat-value">${String(cats.length).padStart(2, "0")}</div><div class="stat-label">CATEGORIES / 分类</div></div>
         <div class="stat"><div class="stat-value" style="font-size:15px;line-height:1.4">${escapeHtml(stats.version)}</div><div class="stat-label">LOCAL BASELINE / 当前基线</div></div>
       </div>
-      <div class="kb-tools">
-        <div class="search-field">
-          ${icon("search", 13)}
-          <input type="search" placeholder="搜索“互锁”“过程性评价”“上电前检查”…" value="${escapeAttr(state.kbQuery)}" data-role="kb-search" aria-label="搜索知识库">
+      <div class="kb-toolbar">
+        <div class="kb-search-row">
+          <div class="search-field">
+            ${icon("search", 15)}
+            <input type="search" placeholder="搜索“互锁”“过程性评价”“上电前检查”…" value="${escapeAttr(state.kbQuery)}" data-role="kb-search" aria-label="搜索知识库">
+          </div>
+          <span class="kb-search-meta">${escapeHtml(state.kbCategory === "全部" ? "全部材料" : state.kbCategory)} · 本地混合检索</span>
         </div>
-        <div class="filter-row" role="group" aria-label="知识库分类">
-          ${getKnowledgeCategories().map((cat) => `<button class="filter-btn${state.kbCategory === cat ? " is-active" : ""}" type="button" data-action="set-kb-cat" data-cat="${escapeAttr(cat)}">${escapeHtml(cat)}</button>`).join("")}
+        <div class="kb-filter-groups">
+          <div class="filter-group">
+            <span class="filter-label">通用分类</span>
+            <div class="filter-row" role="group" aria-label="通用知识分类">
+              ${generalCats.map((cat) => `<button class="filter-btn${state.kbCategory === cat ? " is-active" : ""}" type="button" data-action="set-kb-cat" data-cat="${escapeAttr(cat)}">${escapeHtml(cat)}</button>`).join("")}
+            </div>
+          </div>
+          <div class="filter-group filter-group-specialty">
+            <span class="filter-label">专业方向</span>
+            <div class="filter-row" role="group" aria-label="专业知识分类">
+              ${specialtyCats.map((cat) => `<button class="filter-btn filter-btn-specialty${state.kbCategory === cat ? " is-active" : ""}" type="button" data-action="set-kb-cat" data-cat="${escapeAttr(cat)}">${escapeHtml(cat.replace(/^专业·/, ""))}</button>`).join("")}
+            </div>
+          </div>
         </div>
       </div>
       <div id="kb-grid">${renderKbGrid()}</div>
@@ -1517,7 +1580,7 @@ function openKnowledgeDocForm(source = null, { copy = false } = {}) {
       </form>
     `,
     focusSelector: "#kb-title",
-    footer: `<button class="btn btn-ghost" type="button" data-action="close-modal">取消</button><span class="spacer"></span><span class="settings-note">保存到本机 IndexedDB</span>`
+    footer: `<button class="btn btn-ghost" type="button" data-action="close-modal">取消</button><span class="spacer"></span><span class="settings-note">保存到本机 IndexedDB</span><button class="btn btn-solid" type="submit" form="kb-doc-form">${editing ? "保存修改" : "保存材料"}</button>`
   });
 }
 
@@ -1693,6 +1756,8 @@ function refreshKbGrid() {
   document.querySelectorAll("[data-action='set-kb-cat']").forEach((button) => {
     button.classList.toggle("is-active", button.dataset.cat === state.kbCategory);
   });
+  const meta = document.querySelector(".kb-search-meta");
+  if (meta) meta.textContent = `${state.kbCategory === "全部" ? "全部材料" : state.kbCategory} · 本地混合检索`;
 }
 
 /* ==========================================================
@@ -1700,9 +1765,12 @@ function refreshKbGrid() {
    ========================================================== */
 
 function renderTemplatesPage() {
-  const renderTemplateCards = (items, scene, type) => items.map((item, index) => `
-    <button class="template-card" type="button" data-action="use-template" data-scene="${escapeAttr(scene)}" data-template-kind="${escapeAttr(type)}" data-template-id="${escapeAttr(item.id)}">
+  const renderTemplateCards = (items, scene, type) => items.map((item, index) => {
+    const glyph = type === "lesson" ? "layers" : type === "eval" ? "check" : "file";
+    return `
+    <button class="template-card" type="button" data-action="use-template" data-scene="${escapeAttr(scene)}" data-template-kind="${escapeAttr(type)}" data-template-id="${escapeAttr(item.id)}" aria-label="使用模板 ${escapeAttr(item.name)}">
       <div class="template-top">
+        <span class="template-glyph" aria-hidden="true">${icon(glyph, 16)}</span>
         <span class="template-tag">${escapeHtml(item.tag || "TEMPLATE")}</span>
         <span class="template-id">T-${String(index + 1).padStart(2, "0")}</span>
       </div>
@@ -1711,9 +1779,10 @@ function renderTemplatesPage() {
       <ol class="outline-list">
         ${(item.outline || ["参数确认", "知识检索", "结构化生成", "合规自检"]).map((line) => `<li>${escapeHtml(line)}</li>`).join("")}
       </ol>
-      <span class="btn">使用此模板 ${icon("arrowRight", 12)}</span>
+      <span class="template-use">使用此模板 ${icon("arrowRight", 12)}</span>
     </button>
-  `).join("");
+  `;
+  }).join("");
 
   return `
     <div class="page">
@@ -1815,22 +1884,24 @@ function renderHistoryPage() {
         <div class="stat"><div class="stat-value">${String(sourceCount).padStart(2, "0")}</div><div class="stat-label">CITATIONS / 引用依据</div></div>
         <div class="stat"><div class="stat-value">${useful}<span style="font-family:var(--mono);font-size:9px;color:var(--muted);margin-left:5px">/ ${bad}</span></div><div class="stat-label">HELPFUL / 有用 · 需改进</div></div>
       </div>
-      <div class="history-tools">
-        <div class="search-field">
-          ${icon("search", 13)}
-          <input type="search" placeholder="搜索标题、专业、任务或分类…" value="${escapeAttr(state.historyQuery)}" data-role="history-search" aria-label="搜索历史对话">
+      <div class="history-toolbar">
+        <div class="history-tools">
+          <div class="search-field">
+            ${icon("search", 15)}
+            <input type="search" placeholder="搜索标题、专业、任务或分类…" value="${escapeAttr(state.historyQuery)}" data-role="history-search" aria-label="搜索历史对话">
+          </div>
+          <button class="btn btn-solid" type="button" data-action="nav" data-path="/">${icon("plus", 12)}新建对话</button>
         </div>
-        <button class="btn" type="button" data-action="nav" data-path="/">${icon("plus", 12)}新建对话</button>
-      </div>
-      <div class="history-categories" role="group" aria-label="对话分类">
-        ${categories.map((cat) => `<button class="filter-btn${state.historyCategory === cat ? " is-active" : ""}" type="button" data-action="set-history-cat" data-cat="${escapeAttr(cat)}">${escapeHtml(cat)}</button>`).join("")}
-      </div>
-      <div class="history-batch-bar${state.historySelected.length ? " is-active" : ""}">
-        <label class="history-select-all"><input type="checkbox" data-role="history-select-all" ${filtered.length && filtered.every((conv) => state.historySelected.includes(conv.id)) ? "checked" : ""}> 全选当前筛选</label>
-        <span class="history-selected-count">已选 ${state.historySelected.length} 条</span>
-        <span class="spacer"></span>
-        <button class="btn btn-ghost" type="button" data-action="export-conversations">导出备份</button>
-        <button class="btn btn-ghost" type="button" data-action="batch-delete-history" ${state.historySelected.length ? "" : "disabled"}>删除所选</button>
+        <div class="history-categories" role="group" aria-label="对话分类">
+          ${categories.map((cat) => `<button class="filter-btn${state.historyCategory === cat ? " is-active" : ""}" type="button" data-action="set-history-cat" data-cat="${escapeAttr(cat)}">${escapeHtml(cat)}</button>`).join("")}
+        </div>
+        <div class="history-batch-bar${state.historySelected.length ? " is-active" : ""}">
+          <label class="history-select-all"><input type="checkbox" data-role="history-select-all" ${filtered.length && filtered.every((conv) => state.historySelected.includes(conv.id)) ? "checked" : ""}> 全选当前筛选</label>
+          <span class="history-selected-count">已选 ${state.historySelected.length} 条</span>
+          <span class="spacer"></span>
+          <button class="btn btn-ghost" type="button" data-action="export-conversations">导出备份</button>
+          <button class="btn btn-ghost" type="button" data-action="batch-delete-history" ${state.historySelected.length ? "" : "disabled"}>删除所选</button>
+        </div>
       </div>
       <div id="history-list">${renderHistoryList(filtered)}</div>
       <div class="history-note">
@@ -2095,6 +2166,10 @@ function renderSettingsPage() {
           引擎：${aiModeActive() ? "AI 增强" : "本地引擎"}<br>
           授权：${consent ? "已同意数据传输说明" : "尚未同意"}<br>
           存储：${state.storageReady ? "IndexedDB + 兼容回退" : "正在初始化"}
+          <div class="page-head-actions">
+            <button class="btn btn-solid" type="submit" form="ai-settings-form">保存设置</button>
+            <button class="btn btn-ghost" type="button" data-action="nav" data-path="/guide">安全说明</button>
+          </div>
         </div>
       </div>
 
@@ -2435,10 +2510,10 @@ function renderFilesPage() {
           <p class="page-intro">上传教学资料、设备说明、课程标准或听课记录。文件只在浏览器本机解析，不上传服务器；解析后可预览、分块、检查隐私，再决定是否加入知识库。</p>
         </div>
         <div class="page-head-side">
-          <strong>支持格式</strong>
-          TXT · MD · CSV · JSON · DOCX · PDF · XLSX · PPTX<br>
-          单个文件上限可配置<br>
-          扫描 PDF 可选用 OCR
+          <strong>隐私与处理边界</strong>
+          原始文件不上传，仅在本机解析<br>
+          解析结果优先保存在 IndexedDB<br>
+          OCR 仅在教师确认后加载
         </div>
       </div>
       <div class="page-stats">
@@ -2447,49 +2522,92 @@ function renderFilesPage() {
         <div class="stat"><div class="stat-value">0</div><div class="stat-label">UPLOADED TO SERVER / 上传服务器</div></div>
         <div class="stat"><div class="stat-value">LOCAL</div><div class="stat-label">PARSING / 本机解析</div></div>
       </div>
-      <div id="file-upload-progress" class="file-upload-progress" aria-live="polite"></div>
-      <div class="file-center">
-        <div class="upload-zone" data-action="open-file-picker" role="button" tabindex="0">
-          <div class="upload-mark">${icon("file", 22)}</div>
-          <h2>把资料拖到这里，或选择文件</h2>
-          <p>支持多文件；解析过程显示进度；长文档按语义段落分块，不会简单截断。</p>
-          <button class="btn btn-solid" type="button" data-action="open-file-picker">选择资料文件</button>
-          <input type="file" id="file-center-input" data-role="file-center-input" multiple accept=".txt,.md,.markdown,.csv,.json,.docx,.pdf,.xlsx,.pptx" hidden>
-          <p class="upload-privacy">${icon("shield", 11)} 默认只在本机读取；加入知识库前会先做隐私检查。</p>
-        </div>
-        <div class="file-help">
-          <h3>解析能力</h3>
-          <ul>
-            <li><strong>DOCX</strong>：段落 + 表格文本</li>
-            <li><strong>PDF</strong>：逐页文本提取，扫描页可选 OCR</li>
-            <li><strong>XLSX</strong>：工作表逐行转文本</li>
-            <li><strong>PPTX</strong>：幻灯片文本</li>
-            <li><strong>TXT / MD / CSV / JSON</strong>：原生解析</li>
-          </ul>
-          <p class="settings-note">超长资料会分块并保留全文索引，不使用“截断前若干字”的方式冒充解析完成。</p>
-        </div>
-      </div>
-      <div id="file-list" class="file-list">
-        ${state.files.length ? state.files.map((file) => `
-          <article class="file-row">
-            <div class="file-row-icon">${icon("file", 16)}</div>
-            <div class="file-row-main">
-              <h3>${escapeHtml(file.name || file.title || "未命名资料")}</h3>
-              <p>${escapeHtml(file.status || "已解析")} · ${file.chunks?.length || 0} 个片段 · ${file.charCount || 0} 字 · ${escapeHtml(file.type || "")}${file.privacyMasked ? " · 已脱敏" : ""}${file.needsOCR ? " · 需 OCR" : ""}</p>
+      <div class="file-layout">
+        <section class="file-upload-panel">
+          <div class="panel-heading">
+            <div>
+              <div class="panel-kicker">UPLOAD / 文件上传</div>
+              <h2>上传与解析</h2>
+              <p>拖入文件或从本机选择。解析过程全程可见，完成后可预览、检查隐私并决定是否加入知识库。</p>
             </div>
-            <div class="file-row-actions">
-              ${file.needsOCR ? `<button class="btn btn-ghost" type="button" data-action="ocr-file" data-id="${escapeAttr(file.id)}">OCR 识别</button>` : ""}
-              ${file.inKnowledge ? `<span class="mini-tag">已入知识库</span>` : `<button class="btn" type="button" data-action="file-to-kb" data-id="${escapeAttr(file.id)}">加入知识库</button>`}
-              <button class="btn btn-ghost" type="button" data-action="preview-file" data-id="${escapeAttr(file.id)}">预览</button>
-              <button class="btn btn-ghost" type="button" data-action="delete-file" data-id="${escapeAttr(file.id)}" aria-label="删除 ${escapeAttr(file.name || "资料")}">${icon("trash", 11)}</button>
+            <span class="status-pill">${icon("shield", 12)} 本机处理</span>
+          </div>
+          <div id="file-upload-progress" class="file-upload-progress" aria-live="polite"></div>
+          <div class="upload-zone" data-action="open-file-picker" role="button" tabindex="0">
+            <div class="upload-mark">${icon("file", 24)}</div>
+            <h2>把资料拖到这里，或选择文件</h2>
+            <p>支持多文件；解析过程显示进度；长文档按语义段落分块，不会简单截断。</p>
+            <button class="btn btn-solid" type="button" data-action="open-file-picker">${icon("plus", 13)} 选择资料文件</button>
+            <input type="file" id="file-center-input" data-role="file-center-input" multiple accept=".txt,.md,.markdown,.csv,.json,.docx,.pdf,.xlsx,.pptx" hidden>
+            <p class="upload-privacy">${icon("shield", 11)} 默认只在本机读取；加入知识库前会先做隐私检查。</p>
+          </div>
+          <div class="upload-footnote">
+            ${icon("info", 12)}
+            <span>超长资料会分块并保留全文索引，不使用“截断前若干字”的方式冒充解析完成。</span>
+          </div>
+        </section>
+
+        <aside class="file-aside">
+          <section class="aside-card">
+            <div class="panel-kicker">SUPPORTED / 支持格式</div>
+            <h3>八种常见教学资料</h3>
+            <div class="format-grid">
+              <span>TXT</span><span>MD</span><span>CSV</span><span>JSON</span>
+              <span>DOCX</span><span>PDF</span><span>XLSX</span><span>PPTX</span>
             </div>
-          </article>
-        `).join("") : `<div class="empty-state">
-          <div class="empty-mark"></div>
-          <h2 class="empty-title">还没有资料</h2>
-          <p class="empty-copy">从一份真实的课程标准、设备说明或听课记录开始。解析后可以选择加入知识库，也可以移除。</p>
-        </div>`}
+            <p>单个文件上限 <strong>${escapeHtml(String(state.fileMaxMB))} MB</strong>，可在设置中调整；扫描 PDF 可选用 OCR。</p>
+          </section>
+          <section class="aside-card">
+            <div class="panel-kicker">PROCESSING / 处理规则</div>
+            <h3>浏览器内完成</h3>
+            <ul class="aside-list">
+              <li><span>01</span>本机读取与解析，不上传服务器</li>
+              <li><span>02</span>按语义段落分块，保留全文索引</li>
+              <li><span>03</span>识别到个人信息时先提示、可脱敏</li>
+              <li><span>04</span>由教师决定是否加入知识库</li>
+            </ul>
+          </section>
+          <section class="aside-card aside-card-accent">
+            <div class="panel-kicker">GUIDE / 使用建议</div>
+            <h3>先解析，再入库</h3>
+            <p>课程标准、设备说明、听课记录建议分别建立资料，入库前确认来源与适用范围。</p>
+            <button class="btn btn-ghost" type="button" data-action="nav" data-path="/guide">${icon("help", 12)} 查看使用说明</button>
+          </section>
+        </aside>
       </div>
+
+      <section class="file-library">
+        <div class="section-row file-section-head">
+          <div>
+            <div class="panel-kicker">LIBRARY / 本机资料</div>
+            <h2 class="section-title">解析结果与文件操作</h2>
+          </div>
+          <span class="status-pill">${state.files.length} 份资料</span>
+        </div>
+        <div id="file-list" class="file-list">
+          ${state.files.length ? state.files.map((file) => `
+            <article class="file-row">
+              <div class="file-row-icon">${icon("file", 17)}</div>
+              <div class="file-row-main">
+                <h3>${escapeHtml(file.name || file.title || "未命名资料")}</h3>
+                <p>${escapeHtml(file.status || "已解析")} · ${file.chunks?.length || 0} 个片段 · ${file.charCount || 0} 字 · ${escapeHtml(file.type || "")}${file.privacyMasked ? " · 已脱敏" : ""}${file.needsOCR ? " · 需 OCR" : ""}</p>
+              </div>
+              <div class="file-row-actions">
+                ${file.needsOCR ? `<button class="btn btn-ghost" type="button" data-action="ocr-file" data-id="${escapeAttr(file.id)}">OCR 识别</button>` : ""}
+                ${file.inKnowledge ? `<span class="mini-tag">已入知识库</span>` : `<button class="btn" type="button" data-action="file-to-kb" data-id="${escapeAttr(file.id)}">加入知识库</button>`}
+                <button class="btn btn-ghost" type="button" data-action="preview-file" data-id="${escapeAttr(file.id)}">预览</button>
+                <button class="btn btn-ghost" type="button" data-action="delete-file" data-id="${escapeAttr(file.id)}" aria-label="删除 ${escapeAttr(file.name || "资料")}">${icon("trash", 11)}</button>
+              </div>
+            </article>
+          `).join("") : `<div class="empty-state is-compact">
+            <div class="empty-mark">${icon("file", 20)}</div>
+            <div>
+              <h2 class="empty-title">还没有资料</h2>
+              <p class="empty-copy">从一份真实的课程标准、设备说明或听课记录开始。解析后可以选择加入知识库，也可以移除。</p>
+            </div>
+          </div>`}
+        </div>
+      </section>
     </div>
   `;
 }
@@ -2515,7 +2633,7 @@ function renderFileUploadQueue() {
         <span>${escapeHtml(upload.message || upload.phase || "")}${upload.status === "running" ? ` · ${Math.round((upload.progress || 0) * 100)}%` : ""}</span>
       </div>
       <div class="upload-progress-track"><i style="width:${Math.max(2, Math.round((upload.progress || 0) * 100))}%"></i></div>
-      ${upload.status === "error" ? `<p class="upload-progress-error">${escapeHtml(upload.error || "解析失败")}</p>` : ""}
+      ${upload.status === "error" ? `<div class="upload-progress-error-row"><p class="upload-progress-error">${escapeHtml(upload.error || "解析失败")}</p><button class="btn btn-ghost" type="button" data-action="retry-file-upload" data-id="${escapeAttr(upload.id)}">重试</button></div>` : ""}
     </div>
   `).join("");
 }
@@ -2602,7 +2720,7 @@ function maskDeep(value) {
 
 async function processFileUpload(file) {
   const queueId = uid("upload");
-  const upload = { id: queueId, name: file.name, status: "running", progress: 0, phase: "reading", message: "读取文件" };
+  const upload = { id: queueId, name: file.name, file, status: "running", progress: 0, phase: "reading", message: "读取文件" };
   state.fileUploads.push(upload);
   renderFileUploadQueue();
   if (file.size > state.fileMaxMB * 1024 * 1024) {
@@ -3385,7 +3503,7 @@ function renderFormModal() {
   const submitText = modal.sceneId === "safety" ? "检索规程" : "开始生成";
   overlayEl.innerHTML = `
     <div class="modal-backdrop" data-modal-backdrop>
-      <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+      <div class="modal is-form" role="dialog" aria-modal="true" aria-labelledby="modal-title">
         <div class="modal-head">
           <div>
             <div class="modal-kicker">PARAMETERS / ${escapeHtml(scene.no)} ${isEdit ? "· 重新生成" : "· 先问清再生成"}</div>
@@ -3401,7 +3519,30 @@ function renderFormModal() {
               <button class="btn-link" type="button" data-action="fill-example">载入示例</button>
             </div>
             ${state.attachments.length ? `<div class="form-banner"><div><strong>已附带 ${state.attachments.length} 份本地资料。</strong> 本次生成会把资料摘要作为任务参考，不会上传。请先确认资料已脱敏。</div></div>` : ""}
-            ${fieldHtml}
+            <div class="task-form-layout">
+              <div class="task-form-main">${fieldHtml}</div>
+              <aside class="task-form-aside" aria-label="填写提示">
+                <section class="aside-card">
+                  <div class="panel-kicker">TIPS / 填写建议</div>
+                  <h3>先把任务说清楚</h3>
+                  <ul class="aside-list">
+                    <li><span>01</span>专业、课程、任务保持同一工作情境</li>
+                    <li><span>02</span>学情只写班级层面，不写学生姓名</li>
+                    <li><span>03</span>设备写真实台套数，便于分组设计</li>
+                  </ul>
+                </section>
+                <section class="aside-card">
+                  <div class="panel-kicker">CHECK / 生成前</div>
+                  <h3>系统会先校验</h3>
+                  <p>专业、课程、工作任务、学情与设备为关键条件；缺失时不会用编造的数据补齐。</p>
+                </section>
+                <section class="aside-card aside-card-accent">
+                  <div class="panel-kicker">MODE / 当前模式</div>
+                  <h3>${aiModeActive() ? "AI 增强" : "本地模式"}</h3>
+                  <p>${aiModeActive() ? "AI 参与改写关键模块；发送前会做隐私检查，失败自动回退本地。" : "全部在本机生成，不联网；成果可编辑、导出与人工审核。"}</p>
+                </section>
+              </aside>
+            </div>
             <div class="form-privacy">${icon("shield", 11)} <span>所有输入仅在本机浏览器处理，不上传服务器。请勿填写学生姓名、学号、联系方式、家庭信息；正式使用前由教师人工审核。</span></div>
           </div>
           <div class="modal-foot">
@@ -4948,9 +5089,24 @@ function handleAction(action, el, event) {
       adjustParams();
       break;
     }
+    case "retry-file-upload": {
+      const failed = state.fileUploads.find((upload) => upload.id === el.dataset.id);
+      if (failed?.file) {
+        state.fileUploads = state.fileUploads.filter((upload) => upload.id !== failed.id);
+        processFileUpload(failed.file);
+      }
+      break;
+    }
     case "toggle-sidebar": {
       state.sidebarOpen = !state.sidebarOpen;
       renderApp({ preserveScroll: true });
+      break;
+    }
+    case "toggle-sidebar-collapse": {
+      state.sidebarCollapsed = !state.sidebarCollapsed;
+      saveSidebarCollapsed(state.sidebarCollapsed);
+      appEl.classList.toggle("sidebar-collapsed", state.sidebarCollapsed);
+      renderSidebar(state.activeId ? findConversation(state.activeId) : null);
       break;
     }
     case "close-sidebar": {

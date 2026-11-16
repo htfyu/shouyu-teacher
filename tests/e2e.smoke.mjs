@@ -112,6 +112,12 @@ async function main() {
     check("首页已精简", await page.locator(".home-top, .hero-eyebrow, .scope-note, .section-kicker").count() === 0);
     check("五个场景入口", await page.locator(".scene-card").count() === 5);
     check("侧栏导航", await page.locator(".nav-item").count() >= 7);
+    await page.locator(".sidebar-collapse").click();
+    await page.waitForTimeout(250);
+    check("侧栏可折叠", (await page.locator(".sidebar").evaluate((el) => el.getBoundingClientRect().width)) < 100);
+    await page.locator(".sidebar-collapse").click();
+    await page.waitForTimeout(250);
+    check("侧栏可展开", (await page.locator(".sidebar").evaluate((el) => el.getBoundingClientRect().width)) > 200);
     check("知识库统计 ≥33 份", Number(await page.locator(".nav-item[data-path='/kb'] .nav-count").textContent()) >= 33);
 
     for (const route of ["kb", "files", "templates", "history", "settings", "guide"]) {
@@ -119,6 +125,10 @@ async function main() {
       await page.waitForTimeout(180);
       check(`页面 ${route}`, Boolean(await page.locator(".page-title").count()));
     }
+
+    await page.goto(`${base}#/templates`, { waitUntil: "networkidle" });
+    await page.waitForTimeout(200);
+    check("模板视觉标识", await page.locator(".template-glyph").count() >= 3);
 
     await page.goto(base, { waitUntil: "networkidle" });
     await page.waitForTimeout(200);
@@ -149,6 +159,8 @@ async function main() {
 
     await page.goto(`${base}#/files`, { waitUntil: "networkidle" });
     await page.waitForTimeout(300);
+    check("资料上传分栏", await page.locator(".file-layout .file-upload-panel").count() === 1);
+    check("资料侧栏说明", await page.locator(".file-aside .aside-card").count() >= 3);
     await page.locator('[data-role="file-center-input"]').setInputFiles(path.join(ROOT, "tests/fixtures/sample.docx"));
     await page.waitForTimeout(1400);
     check("DOCX 本机解析", await page.locator(".file-row").count() >= 1);
