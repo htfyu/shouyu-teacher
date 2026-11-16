@@ -4169,7 +4169,7 @@ async function startAIChat(conv, rawText, localReply, attachmentContext = "") {
     });
     pending.ai.streamText = response.text;
     updateAIStreamDom(pending, "完成");
-    const truncated = response.finishReason === "length" || Boolean(response.partial);
+    const truncated = response.finishReason === "length" || Boolean(response.partial) || Boolean(response.incomplete);
     const finalMessage = {
       id: pending.id,
       role: "assistant",

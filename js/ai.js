@@ -130,6 +130,14 @@ function extractDelta(value) {
   };
 }
 
+function looksIncomplete(text) {
+  const value = String(text || "").trim();
+  if (value.length < 500) return false;
+  // Heuristic only: a long answer ending mid-sentence (no terminal punctuation
+  // or closing quote) is likely cut off by an upstream token cap or disconnect.
+  return !/[。！？.!?…；;：:）)\]】”’"'\n]$/.test(value);
+}
+
 function safeError(status, rawText = "") {
   const base = UNSAFE_RESPONSE_MESSAGES[status] || (status >= 500 ? "AI 上游服务异常，请稍后重试。" : "AI 请求失败。");
   // 不回传上游正文，避免把可能包含用户数据或密钥的错误信息写入日志 / 界面。
@@ -297,7 +305,8 @@ export async function streamAI({ messages, settings, signal, onDelta, onReasonin
         duration: performance.now() - startedAt,
         finishReason,
         usage,
-        partial: true
+        partial: true,
+        incomplete: looksIncomplete(fullText)
       };
     }
     throw new Error("AI 返回内容读取失败，请重试或回退本地模式。");
@@ -317,7 +326,8 @@ export async function streamAI({ messages, settings, signal, onDelta, onReasonin
     model: config.model,
     duration: performance.now() - startedAt,
     finishReason,
-    usage
+    usage,
+    incomplete: !finishReason && looksIncomplete(fullText)
   };
 }
 
