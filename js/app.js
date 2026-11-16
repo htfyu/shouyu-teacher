@@ -25,10 +25,8 @@ import {
   detectParamEdits,
   detectInputRisk,
   retrieve,
-  findTaskPreset,
   searchKnowledge,
-  knowledgeStats,
-  getContextSummary
+  knowledgeStats
 } from "./engine.js";
 
 import {
@@ -39,8 +37,7 @@ import {
   downloadTextFile,
   artifactToText,
   docToText,
-  sectionToText,
-  sanitizeFilename
+  sectionToText
 } from "./export.js";
 
 /* ==========================================================
@@ -273,17 +270,44 @@ function loadDB() {
     if (!raw) return blankDB();
     const parsed = JSON.parse(raw);
     if (!parsed || !Array.isArray(parsed.conversations)) return blankDB();
+    let repaired = false;
     parsed.conversations = parsed.conversations
       .filter((conv) => conv && conv.id && Array.isArray(conv.messages))
-      .map((conv) => ({
-        ...conv,
-        pinned: Boolean(conv.pinned),
-        messages: conv.messages.filter((msg) => msg && msg.role && msg.kind),
-        createdAt: conv.createdAt || new Date().toISOString(),
-        updatedAt: conv.updatedAt || conv.createdAt || new Date().toISOString()
-      }))
+      .map((conv) => {
+        const interrupted = conv.messages.some((msg) => msg && (msg.kind === "pending" || msg.kind === "typing"));
+        const messages = conv.messages.filter(
+          (msg) => msg && msg.role && msg.kind && msg.kind !== "pending" && msg.kind !== "typing"
+        );
+        if (interrupted) {
+          repaired = true;
+          messages.push({
+            id: uid("msg"),
+            role: "assistant",
+            kind: "chat",
+            text: "上次生成在页面刷新或关闭时被中断了，没有产生结果。您的任务条件仍保留在这次对话里；可以重新填写参数后再生成。",
+            sources: [],
+            suggestions: [{ label: "重新填写参数", action: "scene", scene: conv.scene || "lesson" }],
+            createdAt: new Date().toISOString()
+          });
+        }
+        return {
+          ...conv,
+          pinned: Boolean(conv.pinned),
+          messages,
+          createdAt: conv.createdAt || new Date().toISOString(),
+          updatedAt: interrupted ? new Date().toISOString() : conv.updatedAt || conv.createdAt || new Date().toISOString()
+        };
+      })
       .slice(0, MAX_CONVERSATIONS);
-    return { ...blankDB(), ...parsed, version: DB_VERSION };
+    const cleaned = { ...blankDB(), ...parsed, version: DB_VERSION };
+    if (repaired) {
+      try {
+        localStorage.setItem(DB_KEY, JSON.stringify(cleaned));
+      } catch (error) {
+        console.warn("无法保存中断状态修复。", error);
+      }
+    }
+    return cleaned;
   } catch (error) {
     console.warn("无法读取本地记录，使用新工作区。", error);
     return blankDB();
@@ -369,6 +393,10 @@ function parseRoute() {
   return { name: "home" };
 }
 
+function routeIdentity(route) {
+  return `${route?.name || "home"}:${route?.id || ""}`;
+}
+
 function navigate(path, options = {}) {
   const hash = path === "/" ? "#/" : `#${path}`;
   closeModal();
@@ -383,6 +411,7 @@ function navigate(path, options = {}) {
 
 function handleRoute() {
   const route = parseRoute();
+  const changed = routeIdentity(route) !== routeIdentity(state.route);
   if (route.name === "notfound") {
     history.replaceState(null, "", "#/");
     state.route = { name: "home" };
@@ -391,7 +420,20 @@ function handleRoute() {
     state.route = route;
     state.activeId = route.name === "chat" ? route.id : null;
   }
+  if (changed) {
+    // Do not leak an unsent draft or attachment into another page/conversation.
+    state.draft = "";
+    state.attachments = [];
+    state.sidebarOpen = false;
+    state.railOpen = false;
+    state.showAllSources = false;
+    if (state.modal) closeModal();
+  }
   if (route.name !== "chat") state.railOpen = false;
+  if (route.name === "chat" && state.pendingScroll === "auto") {
+    const conv = findConversation(route.id);
+    state.pendingScroll = conv?.latestArtifact ? "result" : "bottom";
+  }
   renderApp();
 }
 
@@ -403,12 +445,13 @@ window.addEventListener("popstate", handleRoute);
 
 function renderApp(options = {}) {
   const previousChatScroll = document.querySelector(".chat-scroll")?.scrollTop;
+  const previousViewScroll = viewEl.scrollTop;
   const activeConv = state.activeId ? findConversation(state.activeId) : null;
 
   appEl.classList.toggle("sidebar-open", state.sidebarOpen);
   renderSidebar(activeConv);
   renderTopbar(activeConv);
-  renderView(activeConv, options, previousChatScroll);
+  renderView(activeConv, options, previousChatScroll, previousViewScroll);
 
   document.querySelectorAll(".sidebar-scrim").forEach((el) => el.remove());
   if (state.sidebarOpen) {
@@ -487,38 +530,38 @@ function renderTopbar(activeConv) {
   let center = "“把每一节课，备成一件作品。”";
   let actions = `
     <div class="topbar-status"><span class="status-dot"></span>知识库 ${KB_DOCS.length} 份 · 本地就绪</div>
-    <button class="btn btn-ghost" type="button" data-action="nav" data-path="/kb">${icon("book", 13)}<span class="topbar-action-label">知识库</span></button>
-    <button class="btn" type="button" data-action="nav" data-path="/guide">${icon("help", 13)}<span class="topbar-action-label">使用说明</span></button>
+    <button class="btn btn-ghost" type="button" data-action="nav" data-path="/kb" aria-label="打开知识库">${icon("book", 13)}<span class="topbar-action-label">知识库</span></button>
+    <button class="btn" type="button" data-action="nav" data-path="/guide" aria-label="打开使用说明">${icon("help", 13)}<span class="topbar-action-label">使用说明</span></button>
   `;
   if (route.name === "chat" && activeConv) {
     kicker = "CONVERSATION / 已保存本机";
     title = activeConv.title || "教学对话";
     center = "知识库基线 · " + KB_VERSION;
     actions = `
-      ${activeConv.latestArtifact ? `<button class="btn btn-ghost" type="button" data-action="edit-params">${icon("sliders", 13)}<span class="topbar-action-label">调整参数</span></button>` : ""}
-      <button class="btn btn-ghost rail-mobile-btn" type="button" data-action="toggle-rail">${icon("shield", 13)}<span class="topbar-action-label">依据 · 自检</span></button>
-      <button class="btn btn-solid" type="button" data-action="new-chat">${icon("plus", 13)}<span class="topbar-action-label">新对话</span></button>
+      ${activeConv.latestArtifact ? `<button class="btn btn-ghost" type="button" data-action="edit-params" aria-label="调整任务参数">${icon("sliders", 13)}<span class="topbar-action-label">调整参数</span></button>` : ""}
+      <button class="btn btn-ghost rail-mobile-btn" type="button" data-action="toggle-rail" aria-label="打开依据与合规自检">${icon("shield", 13)}<span class="topbar-action-label">依据 · 自检</span></button>
+      <button class="btn btn-solid" type="button" data-action="new-chat" aria-label="新建对话">${icon("plus", 13)}<span class="topbar-action-label">新对话</span></button>
     `;
   } else if (route.name === "kb") {
     kicker = "KNOWLEDGE BASE / 知识库";
     title = "有依据，才回答";
     center = "全部材料可检索 · 引用可回溯";
-    actions = `<button class="btn" type="button" data-action="nav" data-path="/">${icon("arrowLeft", 13)}<span class="topbar-action-label">返回工作台</span></button>`;
+    actions = `<button class="btn" type="button" data-action="nav" data-path="/" aria-label="返回工作台">${icon("arrowLeft", 13)}<span class="topbar-action-label">返回工作台</span></button>`;
   } else if (route.name === "templates") {
     kicker = "TEMPLATE LIBRARY / 模板库";
     title = "把稳定性做进起点";
     center = "模板只是约束，不是答案";
-    actions = `<button class="btn" type="button" data-action="nav" data-path="/">${icon("arrowLeft", 13)}<span class="topbar-action-label">返回工作台</span></button>`;
+    actions = `<button class="btn" type="button" data-action="nav" data-path="/" aria-label="返回工作台">${icon("arrowLeft", 13)}<span class="topbar-action-label">返回工作台</span></button>`;
   } else if (route.name === "history") {
     kicker = "ARCHIVE / 本机记录";
     title = "历史对话与使用小结";
     center = "自动保存在当前浏览器 · 可随时删除";
-    actions = `<button class="btn" type="button" data-action="nav" data-path="/">${icon("arrowLeft", 13)}<span class="topbar-action-label">返回工作台</span></button>`;
+    actions = `<button class="btn" type="button" data-action="nav" data-path="/" aria-label="返回工作台">${icon("arrowLeft", 13)}<span class="topbar-action-label">返回工作台</span></button>`;
   } else if (route.name === "guide") {
     kicker = "MANUAL / 使用说明";
     title = "能力、边界与扩展方式";
     center = "默认本地运行 · 人工审核是最后一道工序";
-    actions = `<button class="btn" type="button" data-action="nav" data-path="/">${icon("arrowLeft", 13)}<span class="topbar-action-label">返回工作台</span></button>`;
+    actions = `<button class="btn" type="button" data-action="nav" data-path="/" aria-label="返回工作台">${icon("arrowLeft", 13)}<span class="topbar-action-label">返回工作台</span></button>`;
   }
   topbarEl.innerHTML = `
     <button class="mobile-menu" type="button" data-action="toggle-sidebar" aria-label="打开导航">${icon("menu", 16)}</button>
@@ -533,7 +576,7 @@ function renderTopbar(activeConv) {
   `;
 }
 
-function renderView(activeConv, options, previousChatScroll) {
+function renderView(activeConv, options, previousChatScroll, previousViewScroll) {
   const route = state.route;
   viewEl.removeAttribute("class");
   viewEl.className = "view";
@@ -578,7 +621,7 @@ function renderView(activeConv, options, previousChatScroll) {
         : route.name === "guide"
           ? renderGuidePage()
           : renderHomePage();
-  viewEl.scrollTop = 0;
+  viewEl.scrollTop = options.preserveScroll ? previousViewScroll || 0 : 0;
   state.pendingScroll = "auto";
   document.querySelectorAll("[data-role='composer-input']").forEach(autoResize);
 }
@@ -902,7 +945,7 @@ function renderDocSection(section, sources, messageId, docId) {
       <div class="doc-section-head">
         <span class="section-index">${escapeHtml(section.no)}</span>
         <h3 class="section-title-text">${escapeHtml(section.title)}</h3>
-        <button class="section-copy" type="button" data-action="copy-section" data-message="${escapeAttr(messageId)}" data-doc="${escapeAttr(docId)}" data-section="${escapeAttr(section.id)}" title="复制本节">${icon("copy", 10)}<span>复制</span></button>
+        <button class="section-copy" type="button" data-action="copy-section" data-message="${escapeAttr(messageId)}" data-doc="${escapeAttr(docId)}" data-section="${escapeAttr(section.id)}" title="复制本节" aria-label="复制本节 ${escapeAttr(section.title)}">${icon("copy", 10)}<span>复制</span></button>
       </div>
       <div class="doc-section-body">
         ${renderBlocks(section.blocks)}
@@ -1334,7 +1377,7 @@ function renderGuidePage() {
           <strong>当前版本</strong>
           V1.0 · ${escapeHtml(KB_VERSION.replace(" · 校本示例版", ""))} 基线<br>
           本地工作流 / 无后端<br>
-          固定地址由 GitHub Pages 发布
+          在线：<a href="https://htfyu.github.io/jiangbei-teacher/" target="_blank" rel="noopener">htfyu.github.io/jiangbei-teacher</a>
         </div>
       </div>
 
@@ -1437,7 +1480,7 @@ function renderGuidePage() {
               是否愿意继续使用：□是　□不确定　□否　　试用者签名（可选）：________
             </div>
             <div class="btn-row" style="margin-top:9px">
-              <button class="btn" type="button" data-action="copy-trial-template">${icon("copy", 12)}复制反馈模板</button>
+              <button class="btn" type="button" data-action="copy-trial-template" aria-label="复制试用反馈模板">${icon("copy", 12)}复制反馈模板</button>
               <button class="btn btn-ghost" type="button" data-action="nav" data-path="/history">查看本机使用统计</button>
             </div>
           </section>
@@ -1621,11 +1664,17 @@ function openSceneForm(sceneId, options = {}) {
   if (sceneId === "safety" && !prefill.focus) prefill.focus = "上电与接线安全";
   if (sceneId === "observe" && !prefill.focus) prefill.focus = "综合诊断";
   const mode = options.mode === "regenerate" && active ? "regenerate" : "new";
+  const reuseConvId = mode === "regenerate"
+    ? active.id
+    : options.fromActive && active
+      ? active.id
+      : "";
   state.modal = {
     kind: "form",
     sceneId,
     mode,
     convId: mode === "regenerate" ? active.id : "",
+    reuseConvId,
     prefill
   };
   renderModal();
@@ -1652,7 +1701,7 @@ function renderFormModal() {
           <div>
             <div class="modal-kicker">PARAMETERS / ${escapeHtml(scene.no)} ${isEdit ? "· 重新生成" : "· 先问清再生成"}</div>
             <h2 class="modal-title" id="modal-title">${isEdit ? "调整任务条件" : `配置任务 · ${escapeHtml(scene.label)}`}</h2>
-            <p class="modal-sub">${isEdit ? "保留本对话记录与已生成内容，按新条件再生成一份。其余参数会保留。" : escapeHtml(scene.long)}</p>
+            <p class="modal-sub">${isEdit ? "保留本对话记录与已生成内容，按新条件再生成一份。其余参数会保留。" : state.modal.reuseConvId ? "继续当前对话，把新成果追加在同一任务记录中；专业、课程、任务等条件会带入。" : escapeHtml(scene.long)}</p>
           </div>
           <button class="modal-close" type="button" data-action="close-modal" aria-label="关闭">${icon("close", 13)}</button>
         </div>
@@ -1880,8 +1929,15 @@ function validateTaskForm(form) {
   required.forEach((control) => {
     const field = control.closest(".field");
     const value = control.value.trim();
-    if (!value) {
+    const tooShortObservation = control.name === "observation" && value.length > 0 && value.length < 20;
+    if (!value || tooShortObservation) {
       field?.classList.add("has-error");
+      const error = field?.querySelector(".field-error");
+      if (error) {
+        error.textContent = tooShortObservation
+          ? "听课记录太短，请至少提供 20 个字的课堂事实（请先脱敏）"
+          : `请${control.tagName === "SELECT" ? "选择" : "填写"}${field?.querySelector("label")?.textContent.replace(/必填|选填/g, "").trim() || "该字段"}`;
+      }
       control.setAttribute("aria-invalid", "true");
       if (!firstInvalid) firstInvalid = control;
     } else {
@@ -1958,17 +2014,28 @@ function submitTaskForm(form) {
   const sceneId = state.modal?.sceneId;
   const mode = state.modal?.mode || "new";
   const convId = state.modal?.convId;
+  const reuseConvId = state.modal?.reuseConvId;
   const params = collectFormParams(form);
   const combined = Object.values(params).map((value) => String(value || "")).join("\n");
   const risks = detectInputRisk(combined);
   if (risks.length) {
-    showToast(`检测到疑似${risks.join("、")}，请先删除或脱敏后再生成`);
+    showToast(`检测到${risks.join("、")}，请先删除或脱敏后再生成`);
     return;
   }
-  let conv = mode === "regenerate" && convId ? findConversation(convId) : null;
+  let conv = mode === "regenerate" && convId
+    ? findConversation(convId)
+    : reuseConvId
+      ? findConversation(reuseConvId)
+      : null;
+  const continuedConversation = Boolean(conv);
+  const previousScene = conv?.scene || "";
   if (!conv) conv = createConversation();
   conv.scene = sceneId;
-  conv.title = mode === "regenerate" && conv.title ? conv.title : conversationTitle(sceneId, params);
+  if (!continuedConversation || !conv.title) {
+    conv.title = conversationTitle(sceneId, params);
+  } else if (previousScene && previousScene !== sceneId) {
+    conv.title = `教学任务 · ${truncate(params.task || params.course || params.venue || "多成果任务", 30)}`;
+  }
   const userMessage = {
     id: uid("msg"),
     role: "user",
@@ -2121,7 +2188,7 @@ async function submitChat(text) {
   }
   const combinedRisk = detectInputRisk(`${rawText}\n${attachmentContext}`);
   if (combinedRisk.length) {
-    showToast(`检测到疑似${combinedRisk.join("、")}，请先删除或脱敏`);
+    showToast(`检测到${combinedRisk.join("、")}，请先删除或脱敏`);
     return;
   }
 
@@ -2298,7 +2365,7 @@ async function handleFiles(fileList) {
       const text = await file.text();
       const risks = detectInputRisk(text);
       if (risks.length) {
-        showToast(`${file.name} 中检测到疑似${risks.join("、")}，请先脱敏再添加`);
+        showToast(`${file.name} 中检测到${risks.join("、")}，请先脱敏再添加`);
         continue;
       }
       state.attachments.push({
@@ -2325,12 +2392,12 @@ function showToast(message, mark = "✓") {
   const toast = document.createElement("div");
   toast.className = "toast";
   toast.innerHTML = `<span class="toast-mark">${escapeHtml(mark)}</span><span>${escapeHtml(message)}</span>`;
-  toastRoot.appendChild(toast);
-  while (toastRoot.children.length > 3) toastRoot.firstElementChild.remove();
+  // Replace the previous transient message instead of stacking over the evidence panel.
+  toastRoot.replaceChildren(toast);
   setTimeout(() => {
     toast.classList.add("is-out");
     setTimeout(() => toast.remove(), 220);
-  }, 3300);
+  }, 3000);
 }
 
 async function copyWithFeedback(text, message = "已复制到剪贴板") {
@@ -2400,9 +2467,20 @@ function handleAction(action, el, event) {
       break;
     }
     case "toggle-rail": {
-      state.railOpen = !state.railOpen;
-      const workspace = document.querySelector(".workspace");
-      if (workspace) workspace.classList.toggle("rail-open", state.railOpen);
+      if (window.matchMedia("(max-width: 960px)").matches) {
+        state.railOpen = !state.railOpen;
+        const workspace = document.querySelector(".workspace");
+        if (workspace) workspace.classList.toggle("rail-open", state.railOpen);
+      } else {
+        const rail = document.querySelector(".context-rail");
+        if (rail) {
+          rail.scrollTo({ top: 0, behavior: "smooth" });
+          rail.classList.remove("rail-focus");
+          void rail.offsetWidth;
+          rail.classList.add("rail-focus");
+          setTimeout(() => rail.classList.remove("rail-focus"), 1100);
+        }
+      }
       break;
     }
     case "toggle-sources": {

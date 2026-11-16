@@ -209,7 +209,8 @@ export function downloadWord(artifact, activeDocId) {
   .doc-kicker { font-family: Consolas, monospace; font-size: 8pt; letter-spacing: 1px; color: #777; border-bottom: 1px solid #111; padding-bottom: 5pt; margin-bottom: 12pt; }
   h1 { font-family: SimSun, serif; font-size: 22pt; line-height: 1.35; margin: 0 0 10pt; font-weight: bold; }
   h2 { font-family: SimSun, serif; font-size: 14pt; margin: 16pt 0 7pt; padding-bottom: 3pt; border-bottom: 1px solid #ccc; font-weight: bold; }
-  p { margin: 0 0 6pt; }
+  p { margin: 0 0 6pt; white-space: pre-wrap; }
+  .callout p { white-space: pre-wrap; }
   ul, ol { margin: 4pt 0 7pt 18pt; padding: 0; }
   li { margin: 2pt 0; }
   table { width: 100%; border-collapse: collapse; margin: 6pt 0 9pt; font-size: 9pt; }
@@ -259,7 +260,8 @@ function printStyles() {
     .doc-kicker { font-family: Consolas, monospace; font-size: 7.5pt; color: #666; border-bottom: 1px solid #111; padding-bottom: 3mm; margin-bottom: 5mm; }
     h2 { font-family: SimSun, serif; font-size: 14pt; margin: 6mm 0 2mm; padding-bottom: 1mm; border-bottom: 1px solid #ccc; }
     h3 { font-size: 10pt; margin: 3mm 0 1mm; }
-    p { margin: 0 0 2mm; }
+    p { margin: 0 0 2mm; white-space: pre-wrap; }
+    .callout p { white-space: pre-wrap; }
     ul, ol { margin: 1mm 0 3mm 5mm; padding: 0; }
     li { margin: 0.5mm 0; }
     table { width: 100%; border-collapse: collapse; margin: 2mm 0 4mm; font-size: 8.5pt; page-break-inside: auto; }

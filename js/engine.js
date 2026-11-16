@@ -32,7 +32,8 @@ const DOMAIN_WORDS = [
   "学生", "教师", "老师", "听课", "评课", "设备", "班级", "目标", "课程", "电工", "PLC", "数控",
   "汽车", "机器人", "加工", "编程", "考试", "作业", "教研", "培养", "技能", "知识点", "教材",
   "教具", "课堂", "讲授", "学习", "学情", "备课", "工学一体化", "教学流程", "课件", "思政",
-  "制动", "电机", "电动机", "接线", "调试", "故障", "工位", "量具", "工艺"
+  "制动", "电机", "电动机", "接线", "调试", "故障", "工位", "量具", "工艺",
+  "成绩", "评语", "评价表", "课堂观察", "互锁", "接触器", "电气", "线路", "原理图", "任务书", "工艺卡"
 ];
 
 const OUT_OF_SCOPE_RULES = [
@@ -60,6 +61,26 @@ const OUT_OF_SCOPE_RULES = [
     test: /(泄露|偷看|查一下).*(成绩|信息|隐私)|(学生|家长).*(身份证|手机号|住址|家庭信息)|(爬取|导出).*学生.*(数据|信息)/,
     reply: "这类请求涉及学生个人信息与隐私，我不能协助查询、导出或处理。\n\n请遵守学院数据安全规定：只使用经批准、脱敏、最小化的数据；学生姓名、证件号、联系方式、家庭信息不应进入本工具或任何第三方模型。",
     tag: "隐私与敏感数据"
+  },
+  {
+    test: /((万用表|示波器|兆欧表|钳形表|电烙铁|数控车床|数控铣床|加工中心|举升机|工业机器人|焊机).*(怎么用|如何使用|使用步骤|操作步骤|操作说明|说明书|参数怎么设|怎么调|如何操作))|((怎么用|如何使用|操作步骤|操作说明).*(万用表|示波器|兆欧表|钳形表|电烙铁|数控车床|数控铣床|加工中心|举升机|工业机器人|焊机))/i,
+    reply: "知识库**没有收录具体设备的完整操作步骤或参数设定**，我不能编造一份设备操作说明。\n\n建议：查阅设备说明书，或咨询设备管理员、实训指导教师；涉及上电、调试和异常处置时，请按现场安全交底执行。\n\n如果您要查电工 / PLC 实训室的安全规程，可以明确场所和操作，我会只返回知识库有依据的条款；如果要设计教学任务，我可以按已知条件生成教案或工作页。",
+    tag: "设备操作说明"
+  },
+  {
+    test: /(批改|阅卷|组卷|命题|出题|考试题|试卷|排课|调课|课程表|监考|成绩录入|学籍|评教统计|行政报表|会议记录|工作总结|教学总结|工作计划|汇报材料|PPT|课件制作|课件美化|论文|课题申报)/i,
+    reply: "这类教务、行政或材料制作任务**不在我的能力范围内**。我只做工学一体化备课：教案、学习任务单、工作页、评价表、实训安全查询和听评课整理。\n\n建议：作业批改、命题组卷请使用学院指定的教学平台或联系教研组；排课、成绩录入、学籍等请咨询教务处；行政材料、汇报 / PPT、论文与课题请咨询学院办公室或科研管理部门。\n\n如果您需要为本节课设计评价表、任务单或教学流程，我可以继续。",
+    tag: "教务行政与材料制作"
+  },
+  {
+    test: /(课堂纪律|上课.*(睡觉|玩手机|说话|讲话|迟到|旷课)|学生.*(不听|违纪|打架|早恋|玩手机|睡觉|顶撞|逃课|迟到)|班级管理|家校沟通|家长沟通|家长会|班会|课堂游戏|破冰游戏|班规)/,
+    reply: "学生行为管理、家校沟通和班级活动组织**不在我的知识范围内**，我不能替代班主任或学生工作部门做判断。\n\n建议：请联系班主任、学生工作部门或心理健康中心，根据学院制度处理；涉及学生个人情况时请勿在对话中提供姓名、联系方式等可识别信息。\n\n如果您想从教学设计角度提高参与度，可以提供课程与工作任务，我可以帮您设计分层任务、学习任务单或课堂评价表。",
+    tag: "学生管理与家校沟通"
+  },
+  {
+    test: /(成绩分析|分数分析|答题情况分析|正确率统计|分析.*(成绩|分数|答题)|学生.*成绩.*(分析|统计))/,
+    reply: "我不能接收或分析学生个人成绩、答题明细等数据，也不能据此给学生画像或排名。\n\n建议：使用学院批准的教学平台做聚合分析，只在脱敏、聚合后查看班级层面的正确率；如果要做评价改进，我可以帮您设计评价维度、评分细则或分层练习框架，但不需要输入学生个人成绩。",
+    tag: "学生成绩数据"
   }
 ];
 
@@ -85,7 +106,12 @@ function normalize(text) {
 }
 
 function cjkTokens(text) {
-  const value = normalize(text);
+  // Remove question scaffolding so that “互锁是什么” does not retrieve every
+  // section that happens to contain the characters “是什么”.
+  const value = normalize(text).replace(
+    /(是什么|什么是|为什么|怎么样|怎么办|怎么做|怎么|怎样|如何|哪些|哪个|请问|帮我|告诉我|一下|能不能|可不可以|可以吗|是否|什么意思)/g,
+    " "
+  );
   const tokens = new Set();
   const ascii = value.match(/[a-z0-9][a-z0-9+._-]{1,}/g) || [];
   ascii.forEach((word) => tokens.add(word));
@@ -316,7 +342,7 @@ export function normalizeContext(scene, raw = {}) {
   const lessonType = usesLessonShape ? raw.lessonType || "一体化" : "";
   let template = null;
   if (scene === "lesson") {
-    template = LESSON_TEMPLATES.find((item) => item.id === (raw.template || "standard")) || LESSON_TEMPLATES[0];
+    template = LESSON_TEMPLATES.find((item) => item.id === (raw.template || raw.templateId || "standard")) || LESSON_TEMPLATES[0];
   } else if (usesEvaluationShape) {
     template = EVAL_TEMPLATES.find((item) => item.id === (raw.evalTemplate || "process")) || EVAL_TEMPLATES[0];
   } else if (scene === "observe") {
@@ -709,10 +735,34 @@ function buildLesson(ctx) {
     refs: ["KB-02-6", "KB-09-3"]
   });
 
+  let finalSections = sections;
+  if (ctx.templateId === "task-driven") {
+    const byId = Object.fromEntries(sections.map((section) => [section.id, section]));
+    const learnerPrep = {
+      ...byId.learners,
+      id: "learners-preparation",
+      title: "学情分析与教学准备",
+      blocks: [
+        ...byId.learners.blocks,
+        ...byId.preparation.blocks
+      ],
+      refs: Array.from(new Set([...(byId.learners.refs || []), ...(byId.preparation.refs || [])]))
+    };
+    finalSections = [
+      byId.context,
+      byId.objectives,
+      learnerPrep,
+      byId.keypoints,
+      { ...byId.flow, title: "任务链与教学流程" },
+      byId.assessment,
+      { ...byId.safety, title: "安全与收尾" }
+    ].map((section, index) => ({ ...section, no: String(index + 1).padStart(2, "0") }));
+  }
+
   return {
     docs: [{
       id: "lesson-plan",
-      label: "教案",
+      label: ctx.templateId === "task-driven" ? "简案" : "教案",
       title: `${ctx.task} · 教学设计`,
       filename: `教案_${ctx.task}`,
       meta: [
@@ -721,7 +771,7 @@ function buildLesson(ctx) {
         { label: "学时", value: `${ctx.hours} 学时` },
         { label: "模板", value: ctx.templateName }
       ],
-      sections
+      sections: finalSections
     }],
     meta: {
       major: ctx.major,
@@ -771,7 +821,8 @@ function buildMaterials(ctx) {
           ["课时", `${ctx.hours} 学时（${totalMinutes(ctx.hours)} 分钟）`],
           ["组别", "第 ____ 组（请勿填写姓名）"],
           ["指导教师", "____________"]
-        ])
+        ]),
+        ...(ctx.notes ? [callout("note", "任务补充说明", ctx.notes)] : [])
       ],
       refs: ["KB-03-1"]
     },
@@ -898,6 +949,7 @@ function buildMaterials(ctx) {
           ["组别", "第 ____ 组"]
         ]),
         p("本工作页按「资讯—计划—决策—实施—检查—评价」六步组织。每一步都要留下你的思考或操作证据；空白不是问题，编造答案才是问题。"),
+        ...(ctx.notes ? [callout("note", "任务补充说明", ctx.notes)] : []),
         callout("warn", "安全先行", "进入工位前完成教师的安全交底与准入确认。工作页中的安全提示不能替代现场交底。")
       ],
       refs: ["KB-04-1", "KB-04-2"]
@@ -1082,7 +1134,15 @@ function buildEvaluation(ctx) {
         ["评价反馈", "15", "标准明确、证据充分、自评互评有效、反馈可改"],
         ["安全规范", "10", "安全交底、防护到位、风险预控、5S 落实"]
       ]
-    : baseDims;
+    : isOutcome
+      ? [
+          ["成果完整性", "25", "交付物齐全，符合任务书要求，能够正常使用或运行"],
+          ["规范与质量", "30", "符合给定工艺 / 操作规范，质量指标达到验收标准"],
+          ["检测与说明", "20", "检测方法正确，能依据数据说明结果与偏差原因"],
+          ["安全与 5S", "15", "全过程遵守安全要求，工位整理与记录完整"],
+          ["自检与改进", "10", "能发现问题并提出有依据的修正方案"]
+        ]
+      : baseDims;
   const title = isClassroom
     ? `${ctx.task} · 课堂观察评价表`
     : isOutcome
@@ -1110,7 +1170,9 @@ function buildEvaluation(ctx) {
           ["满分 / 等级", "100 分；优秀 90—100 / 良好 80—89 / 合格 60—79 / 待改进 <60"]
         ]),
         callout("warn", "使用边界", "本表为教学辅助示例。正式执行前请对齐学院现行评价制度、课程实施方案与安全规定，并由任课教师审核。"),
-        ...(isClassroom ? [p("课堂观察评分必须附课堂证据。未观察到的指标写“未观察到/待确认”，不要凭印象给分。")] : [])
+        ...(isClassroom ? [p("课堂观察评分必须附课堂证据。未观察到的指标写“未观察到/待确认”，不要凭印象给分。")] : []),
+        ...(ctx.learners ? [callout("info", "学情 / 评价背景", ctx.learners)] : []),
+        ...(ctx.notes ? [callout("note", "教师补充要求", ctx.notes)] : [])
       ],
       refs: isClassroom ? ["KB-06-1"] : ["KB-08-1", "KB-02-5"]
     },
@@ -1133,7 +1195,9 @@ function buildEvaluation(ctx) {
         p(`合计：${dims.reduce((sum, row) => sum + Number(row[1]), 0)} 分。`),
         ...(isClassroom
           ? [p("建议记录每个维度的观察事实与时间点，评语引用事实而不评价人格。")]
-          : [p("成绩构成建议：过程性评价 60%，终结性评价 40%。权重如需调整，应提前向学生公布。")]),
+          : isOutcome
+            ? [p("本表聚焦终结性成果。若课程采用过程性 + 终结性综合评定，请按课程方案与过程性成绩合并计算，并在课前公布权重。")]
+            : [p("成绩构成建议：过程性评价 60%，终结性评价 40%。权重如需调整，应提前向学生公布。")]),
         callout("note", "先定标准再评价", "评分前确认学生知道标准；评分时先记录证据，再给分；评分后给出至少一条可执行的改进建议。")
       ],
       refs: isClassroom ? ["KB-06-2", "KB-06-3", "KB-06-4", "KB-06-5", "KB-06-6"] : ["KB-08-2"]
@@ -1231,7 +1295,7 @@ function buildSafety(ctx) {
   const venue = ctx.venue || "未指定实训场所";
   const operation = ctx.operation || "";
   const supported = /电工|PLC|电气|电机|控制线路/i.test(venue);
-  const query = `${venue} ${operation} 安全 规程 上电 接线 调试 准入 防护 应急`;
+  const query = `${venue} ${operation} ${ctx.notes} 安全 规程 上电 接线 调试 准入 防护 应急`;
   const retrieval = retrieve(query, { scene: "safety", limit: 12 });
   const relevant = retrieval.results.filter((source) => source.docId === "KB-05" || source.docId === "KB-09");
   const template = [];
@@ -1252,7 +1316,8 @@ function buildSafety(ctx) {
           "核对设备说明书中与本次操作相关的防护、锁定/挂牌和异常处置条款。",
           "在专项规程补齐前，不开展缺乏依据的高风险操作。"
         ]),
-        p(`如需查询电工或 PLC 实训室的安全规程，可把场所切换为“电工实训室 / PLC 实训室”。当前操作描述：${operation || "未填写"}。`)
+        p(`如需查询电工或 PLC 实训室的安全规程，可把场所切换为“电工实训室 / PLC 实训室”。当前操作描述：${operation || "未填写"}。`),
+        ...(ctx.notes ? [callout("note", "教师补充条件", ctx.notes)] : [])
       ],
       refs: [boundary?.ref, compliance?.ref].filter(Boolean)
     });
@@ -1294,7 +1359,8 @@ function buildSafety(ctx) {
     blocks: [
       callout("danger", "不是设备操作票", `以下是知识库《电工与 PLC 实训室安全规程》中的教学提醒，适用于「${venue}」，不能替代现场安全交底、设备说明书和学校应急预案。`),
       p(`你的查询：${operation || "未指定具体操作"}。在知识库范围内，最需要先确认的是：断电/停机与验电确认、上电前教师检查、操作监护以及异常时的立即断电与报告。`),
-      p("请先核对：本次操作是否属于教学允许范围？设备状态是否完好？现场是否有具备资质的教师监护？三项任一不满足，应停止操作并报告。")
+      p("请先核对：本次操作是否属于教学允许范围？设备状态是否完好？现场是否有具备资质的教师监护？三项任一不满足，应停止操作并报告。"),
+      ...(ctx.notes ? [callout("note", "教师补充条件", ctx.notes)] : [])
     ],
     refs: ["KB-05-1", "KB-05-3"]
   });
@@ -1489,7 +1555,8 @@ function buildObservation(ctx) {
           ["基本原则", "只基于提供的记录作判断；未观察到就标注“待确认”，不虚构课堂事实"]
         ]),
         callout("warn", "请先确认脱敏", "如果您提供的记录中包含教师或学生姓名、班级、联系方式，请先删除后再用于评课或分享。本工具不会上传内容，但仍建议遵守最小化原则。"),
-        p("以下整理不替代现场听课与教研讨论。没有证据支撑的指标，不给出分数。")
+        p("以下整理不替代现场听课与教研讨论。没有证据支撑的指标，不给出分数。"),
+        ...(ctx.notes ? [callout("note", "教师补充要求", ctx.notes)] : [])
       ],
       refs: ["KB-07-1", "KB-09-1"]
     },
@@ -1559,19 +1626,134 @@ function buildObservation(ctx) {
       refs: ["KB-06-7", "KB-07-3", "KB-09-1"]
     }
   ];
+
+  let finalSections = sections;
+  let docLabel = "评课意见";
+  let docTitle = `${ctx.task} · 听评课意见`;
+  let filename = `听评课意见_${ctx.task}`;
+
+  if (ctx.observationTemplate === "coaching") {
+    const strongestAction = recommendations[0] || "下一次只调整一个最有影响的动作，并提前约定观察证据。";
+    finalSections = [
+      {
+        ...sections[0],
+        title: "观察边界与记录",
+        blocks: [
+          ...sections[0].blocks,
+          callout("note", "反馈风格", "教练式反馈：先确认有效做法，再聚焦一个可执行改进点，不堆叠问题清单。")
+        ]
+      },
+      {
+        id: "coach-effective",
+        no: "02",
+        title: "有效做法与证据",
+        blocks: [
+          ...sections[1].blocks,
+          ...(strengthEvidence.length ? [ul(strengths)] : [callout("note", "暂不生成亮点", strengths[0])])
+        ],
+        refs: ["KB-07-2", "KB-07-3"]
+      },
+      {
+        id: "coach-focus",
+        no: "03",
+        title: "一个关键改进点",
+        blocks: [
+          p("只聚焦一个高杠杆动作，避免把反馈变成问题清单。"),
+          callout("note", "建议优先改进", strongestAction),
+          ...(gaps.length ? [p("支撑判断的证据缺口："), ul(gaps.slice(0, 2))] : [])
+        ],
+        refs: ["KB-07-3", "KB-07-4"]
+      },
+      {
+        id: "coach-actions",
+        no: "04",
+        title: "下一次的具体动作",
+        blocks: [
+          table(["动作", "完成标准", "验证证据"], recommendations.slice(0, 3).map((item, index) => [
+            `建议 ${index + 1}`,
+            item,
+            "下一次课堂观察 / 学生成果 / 评价记录"
+          ])),
+          p("建议授课教师只选择其中一项作为下一轮改进目标，避免同时改变过多变量。")
+        ],
+        refs: ["KB-07-4"]
+      },
+      {
+        id: "coach-script",
+        no: "05",
+        title: "教练式反馈话术",
+        blocks: [
+          p(`我观察到：${strengthEvidence[0] || segments[0] || "（请补充一个具体课堂事实）"}。`),
+          p("这节课值得保留的做法是：……（引用上面的有效证据，并说明它对应的评价指标）。"),
+          p(`下一次建议只调整一件事：${strongestAction}`),
+          p("我们可以用约定好的观察证据来验证是否有效；如果没有改善，再一起分析原因。"),
+          callout("warn", "不评分", "当前记录不足以支撑 100 分制评分；教练式反馈以改进行动为中心，不给出无依据的分数。")
+        ],
+        refs: ["KB-06-7", "KB-07-4", "KB-09-1"]
+      }
+    ].map((section, index) => ({ ...section, no: String(index + 1).padStart(2, "0") }));
+    docLabel = "教练反馈";
+    docTitle = `${ctx.task} · 教练式反馈`;
+    filename = `教练式反馈_${ctx.task}`;
+  } else if (ctx.observationTemplate === "teaching-research") {
+    finalSections = [
+      sections[0],
+      sections[1],
+      {
+        id: "tr-discussion",
+        no: "03",
+        title: "问题研讨",
+        blocks: [
+          ...(strengthEvidence.length ? [p("可先确认的有效做法："), ul(strengths)] : []),
+          p("需要进一步确认的证据缺口："),
+          ul(gaps),
+          p("教研讨论只基于记录中的事实；没有证据的判断应标注“待确认”，不作为教师评价结论。")
+        ],
+        refs: ["KB-07-3", "KB-06-1"]
+      },
+      {
+        id: "tr-consensus",
+        no: "04",
+        title: "改进共识",
+        blocks: [
+          ol(recommendations.slice(0, 3)),
+          p("建议教研组只选一个共性问题作为下一轮跟进目标，并明确验证方式。")
+        ],
+        refs: ["KB-07-4"]
+      },
+      {
+        id: "tr-followup",
+        no: "05",
+        title: "跟进安排",
+        blocks: [
+          table(["跟进事项", "责任人", "时间", "验证证据"], [
+            ["补齐课堂证据记录", "", "", ""],
+            ["落实一个改进动作", "", "", ""],
+            ["下一次听课验证", "", "", ""]
+          ]),
+          p("本记录用于校内教研改进，不用于教师排名或奖惩；分享前请脱敏。")
+        ],
+        refs: ["KB-07-5", "KB-09-1"]
+      }
+    ].map((section, index) => ({ ...section, no: String(index + 1).padStart(2, "0") }));
+    docLabel = "教研记录";
+    docTitle = `${ctx.task} · 教研记录`;
+    filename = `教研记录_${ctx.task}`;
+  }
+
   return {
     docs: [{
       id: "observation",
-      label: "评课意见",
-      title: `${ctx.task} · 听评课意见`,
-      filename: `听评课意见_${ctx.task}`,
+      label: docLabel,
+      title: docTitle,
+      filename,
       meta: [
         { label: "课程", value: ctx.course },
         { label: "观察重点", value: focus },
         { label: "反馈风格", value: template?.name || "证据型评课" },
         { label: "评分", value: "证据不足，暂不评分" }
       ],
-      sections
+      sections: finalSections
     }],
     meta: {
       course: ctx.course,
@@ -1806,11 +1988,14 @@ function scopeReply(text) {
   }
   const hasDomain = DOMAIN_WORDS.some((word) => text.includes(word));
   if (!hasDomain) {
-    return {
-      type: "chat",
-      text: "这个问题**不在我的知识范围内**。我只服务工学一体化课程备课、学习任务设计、评价与实训安全查询。\n\n如果它属于学生事务，建议咨询班主任或学生工作部门；属于人事/财务/法务，建议咨询对应职能部门。\n\n您可以换一种方式问我，例如：\n- “帮我生成一份正反转控制线路的教案”\n- “电工实训室上电前要确认什么？”\n- “把这段听课记录整理成评课意见”",
-      sources: []
-    };
+    const probe = retrieve(text, { limit: 1 });
+    if (!probe.results.length || probe.results[0].score < 5) {
+      return {
+        type: "chat",
+        text: "这个问题**不在我的知识范围内**。我只服务工学一体化课程备课、学习任务设计、评价与实训安全查询。\n\n如果它属于学生事务，建议咨询班主任或学生工作部门；属于人事/财务/法务，建议咨询对应职能部门。\n\n您可以换一种方式问我，例如：\n- “帮我生成一份正反转控制线路的教案”\n- “电工实训室上电前要确认什么？”\n- “把这段听课记录整理成评课意见”",
+        sources: []
+      };
+    }
   }
   return null;
 }
@@ -1879,9 +2064,17 @@ function unsupportedSafetyReply(text) {
   };
 }
 
+function inferRetrievalScene(text) {
+  if (/(安全|规程|上电|接线|触电|急停|防护|准入|应急)/.test(text)) return "safety";
+  if (/(听课|评课|课堂观察|教研记录)/.test(text)) return "observe";
+  if (/(评价|评分|权重|评语|成绩)/.test(text)) return "evaluate";
+  if (/(任务单|工作页)/.test(text)) return "materials";
+  if (/(教案|教学流程|教学目标|重难点|备课)/.test(text)) return "lesson";
+  return "";
+}
+
 function kbAnswer(text) {
-  const query = `${text} 教学 知识库`;
-  const { results } = retrieve(query, { limit: 4 });
+  const { results } = retrieve(text, { limit: 5, scene: inferRetrievalScene(text) });
   const strong = results.filter((item) => item.score >= 3);
   const selected = (strong.length ? strong : results).slice(0, 3);
   if (!selected.length) {
@@ -1918,49 +2111,72 @@ export function detectInputRisk(text) {
 export function detectParamEdits(text, context = {}) {
   const changes = {};
   const labels = [];
-  let hoursMatch = text.match(/(\d{1,2})\s*(?:个)?学时/);
-  if (!hoursMatch) hoursMatch = text.match(/(?:学时|课时)[^0-9]{0,8}(\d{1,2})/);
-  if (hoursMatch && /(改|换|调整|变成|设为|改为|改成|用)/.test(text)) {
-    const hours = clamp(Number.parseInt(hoursMatch[1], 10), 1, 24);
-    if (hours !== context.hours) {
-      changes.hours = String(hours);
-      labels.push(`学时 → ${hours}`);
+  const scene = context.scene || "";
+  const supportsLessonTiming = scene === "lesson" || scene === "materials";
+
+  if (supportsLessonTiming) {
+    let hoursMatch = text.match(/(\d{1,2})\s*(?:个)?学时/);
+    if (!hoursMatch) hoursMatch = text.match(/(?:学时|课时)[^0-9]{0,8}(\d{1,2})/);
+    if (hoursMatch && /(改|换|调整|变成|设为|改为|改成|用)/.test(text)) {
+      const hours = clamp(Number.parseInt(hoursMatch[1], 10), 1, 24);
+      if (hours !== context.hours) {
+        changes.hours = String(hours);
+        labels.push(`学时 → ${hours}`);
+      }
+    }
+    if (/(课型|类型)/.test(text) && /(改|换|调整|变成|设为|改为|改成)/.test(text)) {
+      const type = ["一体化", "实训", "理论"].find((item) => text.includes(item));
+      if (type && type !== context.lessonType) {
+        changes.lessonType = type;
+        labels.push(`课型 → ${type}`);
+      }
     }
   }
-  if (/(课型|类型)/.test(text) && /(改|换|调整|变成|设为|改为|改成)/.test(text)) {
-    const type = ["一体化", "实训", "理论"].find((item) => text.includes(item));
-    if (type && type !== context.lessonType) {
-      changes.lessonType = type;
-      labels.push(`课型 → ${type}`);
+
+  if (/(模板|样式|风格)/.test(text) && /(改|换|调整|变成|设为|用)/.test(text)) {
+    if (scene === "lesson") {
+      const template = LESSON_TEMPLATES.find((item) => text.includes(item.name) || (item.id === "standard" && text.includes("标准")) || (item.id === "task-driven" && text.includes("任务驱动")) || (item.id === "showcase" && /公开课|展示/.test(text)));
+      if (template && template.id !== context.templateId) {
+        changes.template = template.id;
+        labels.push(`模板 → ${template.name}`);
+      }
+    } else if (scene === "evaluate") {
+      const template = EVAL_TEMPLATES.find((item) => text.includes(item.name) || (item.id === "classroom" && /课堂观察/.test(text)) || (item.id === "outcome" && /成果/.test(text)) || (item.id === "process" && /过程/.test(text)));
+      if (template && template.id !== context.evalTemplate) {
+        changes.evalTemplate = template.id;
+        labels.push(`评价模板 → ${template.name}`);
+      }
+    } else if (scene === "observe") {
+      const template = OBSERVATION_TEMPLATES.find((item) => text.includes(item.name) || (item.id === "coaching" && /教练/.test(text)) || (item.id === "teaching-research" && /教研/.test(text)) || (item.id === "evidence" && /证据/.test(text)));
+      if (template && template.id !== context.observationTemplate) {
+        changes.observationTemplate = template.id;
+        labels.push(`反馈风格 → ${template.name}`);
+      }
     }
   }
-  if (/(模板|样式)/.test(text) && /(改|换|调整|变成|设为|用)/.test(text)) {
-    const template = LESSON_TEMPLATES.find((item) => text.includes(item.name) || (item.id === "standard" && text.includes("标准")) || (item.id === "task-driven" && text.includes("任务驱动")) || (item.id === "showcase" && /公开课|展示/.test(text)));
-    if (template && template.id !== context.templateId) {
-      changes.template = template.id;
-      labels.push(`模板 → ${template.name}`);
+
+  if (scene !== "safety") {
+    const majorMatch = text.match(/专业\s*(?:改成|改为|换成|调整为|设为)\s*[：: ]?([^\n，。；]{2,30})/);
+    if (majorMatch) {
+      changes.major = majorMatch[1].trim();
+      labels.push(`专业 → ${changes.major}`);
     }
-  }
-  const majorMatch = text.match(/专业\s*(?:改成|改为|换成|调整为|设为)\s*[：: ]?([^\n，。；]{2,30})/);
-  if (majorMatch) {
-    changes.major = majorMatch[1].trim();
-    labels.push(`专业 → ${changes.major}`);
-  }
-  const courseMatch = text.match(/课程\s*(?:改成|改为|换成|调整为|设为)\s*[：: ]?([^\n，。；]{2,40})/);
-  if (courseMatch) {
-    changes.course = courseMatch[1].trim();
-    labels.push(`课程 → ${changes.course}`);
-  }
-  const taskMatch = text.match(/(?:工作任务|学习任务|任务)\s*(?:改成|改为|换成|调整为|设为)\s*[：: ]?([^\n，。；]{3,60})/);
-  if (taskMatch) {
-    changes.task = taskMatch[1].trim();
-    labels.push(`工作任务 → ${changes.task}`);
-  }
-  if (/(补充|加入|增加|加上|注意)/.test(text) && /(要求|安全|思政|注意|强调|不能)/.test(text) && text.length < 260) {
-    const note = text.replace(/^(补充|加入|增加|加上)[:：，,\s]*/, "").trim();
-    if (note.length >= 4) {
-      changes.notes = [context.notes, note].filter(Boolean).join("；");
-      labels.push("补充要求已加入");
+    const courseMatch = text.match(/课程\s*(?:改成|改为|换成|调整为|设为)\s*[：: ]?([^\n，。；]{2,40})/);
+    if (courseMatch) {
+      changes.course = courseMatch[1].trim();
+      labels.push(`课程 → ${changes.course}`);
+    }
+    const taskMatch = text.match(/(?:工作任务|学习任务|任务)\s*(?:改成|改为|换成|调整为|设为)\s*[：: ]?([^\n，。；]{3,60})/);
+    if (taskMatch) {
+      changes.task = taskMatch[1].trim();
+      labels.push(`工作任务 → ${changes.task}`);
+    }
+    if (/(补充|加入|增加|加上|注意)/.test(text) && /(要求|安全|思政|注意|强调|不能)/.test(text) && text.length < 260) {
+      const note = text.replace(/^(补充|加入|增加|加上)[:：，,\s]*/, "").trim();
+      if (note.length >= 4) {
+        changes.notes = [context.notes, note].filter(Boolean).join("；");
+        labels.push("补充要求已加入");
+      }
     }
   }
   return { changes, labels };
@@ -1998,7 +2214,7 @@ export function chatReply(text, conversation = {}) {
       sources: []
     };
   }
-  if (/(知识库|材料|依据|资料来源|几份)/.test(input)) {
+  if (/(知识库.*(什么|哪些|几份|覆盖|介绍)|哪些材料|几份材料|资料来源|知识库[？?]?$)/.test(input)) {
     return {
       type: "chat",
       text: `当前使用的是「匠备 · ${KB_VERSION}」示例知识库，共 **${KB_DOCS.length} 份材料、${totalSections()} 个可检索片段**，覆盖：\n\n- 课程与课标：KB-01；\n- 教案 / 任务单 / 工作页：KB-02—KB-04；\n- 实训安全：KB-05（仅电工 / PLC 实训室）；\n- 课堂与学业评价：KB-06—KB-08；\n- 听课评课：KB-07；\n- 数据合规与 AI 边界：KB-09。\n\n每个回答的来源会显示在消息下方；点击可查看原文片段。知识库是示例版，正式使用需替换为学院现行文件。`,
@@ -2018,6 +2234,20 @@ export function chatReply(text, conversation = {}) {
         text: `收到，我会把以下条件更新到本次任务：**${edits.labels.join("；")}**。其余条件保持不变，然后按新参数重新生成。`,
         changes: edits.changes,
         labels: edits.labels,
+        sources: []
+      };
+    }
+    if (contextScene === "safety" && /(改|换|调整|变成|设为)/.test(input)) {
+      return {
+        type: "chat",
+        text: "当前结果是**实训安全核查**，学时、课型和教案模板不适用于这个任务。\n\n请点结果上方或右侧的「调整参数」，修改实训场所、具体操作、人员或关注重点；如果要生成教案，请从「生成教案」场景重新开始。",
+        sources: []
+      };
+    }
+    if ((contextScene === "observe" || contextScene === "evaluate") && /(学时|课型|教案模板)/.test(input) && /(改|换|调整|变成|设为)/.test(input)) {
+      return {
+        type: "chat",
+        text: `当前结果是**${contextScene === "observe" ? "听课评课" : "评价表"}**，学时和课型不适用于这个任务。\n\n您可以继续调整课程、任务或反馈风格；如果要修改学时 / 课型，请先切换到教案或任务单场景。`,
         sources: []
       };
     }
