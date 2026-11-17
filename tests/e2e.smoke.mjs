@@ -158,7 +158,7 @@ async function main() {
 
     await page.goto(`${base}#/studio`, { waitUntil: "networkidle" });
     await page.waitForTimeout(350);
-    check("智能备课中心", (await page.locator(".page-title").innerText()).includes("教学资源开发中心"));
+    check("智能备课中心", await page.locator(".work-studio").count() === 1 && (await page.locator(".work-studio .page-title").innerText()).includes("PLC"));
     check("课程知识准备", await page.locator(".studio-readiness").count() === 1);
     check("三个标杆课程包", await page.locator(".studio-benchmark-chip").count() === 3);
     await page.locator(".studio-benchmark-chip").nth(1).click();

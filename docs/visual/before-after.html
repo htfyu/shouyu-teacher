@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>授渔 · 原版与新版视觉对照</title>
+<style>
+  :root { --ink:#30332f; --muted:#71736f; --line:#e7e5dd; --paper:#fff; --canvas:#f7f6f1; --brand:#4a5f52; }
+  * { box-sizing: border-box; }
+  body { margin:0; padding:30px 34px; background:var(--canvas); color:var(--ink); font-family:"Source Han Sans SC","Noto Sans SC","Microsoft YaHei",system-ui,sans-serif; }
+  header { display:flex; justify-content:space-between; align-items:flex-end; padding-bottom:14px; border-bottom:1px solid var(--line); margin-bottom:20px; }
+  h1 { margin:4px 0 4px; font-family:"Noto Serif SC","Source Han Serif SC","Songti SC",serif; font-size:34px; letter-spacing:-.03em; }
+  .eyebrow { color:var(--brand); font-size:11px; letter-spacing:.14em; font-weight:700; }
+  .sub { margin:0; color:var(--muted); font-size:12px; }
+  .legend { display:flex; gap:12px; color:var(--muted); font-size:11px; }
+  .legend b { color:var(--ink); }
+  .row { margin-bottom:20px; }
+  .row-head { display:flex; justify-content:space-between; align-items:center; margin-bottom:7px; }
+  .row-head h2 { margin:0; font-size:14px; }
+  .row-head span { color:var(--muted); font-size:11px; }
+  .pair { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  figure { margin:0; border:1px solid var(--line); background:var(--paper); }
+  figure img { display:block; width:100%; aspect-ratio:1440/1000; object-fit:cover; object-position:top; }
+  figcaption { display:flex; justify-content:space-between; padding:7px 10px; border-top:1px solid var(--line); color:var(--muted); font-size:10px; }
+  figcaption b { color:var(--ink); font-weight:600; }
+  .note { margin-top:14px; padding:10px 12px; border-left:2px solid var(--brand); background:var(--paper); color:var(--muted); font-size:11px; line-height:1.65; }
+</style>
+</head>
+<body>
+  <header>
+    <div>
+      <div class="eyebrow">SHOUYU · WORK UI REFACTOR</div>
+      <h1>从展示型页面，到教师工作空间。</h1>
+      <p class="sub">同一批真实功能，不同的信息组织方式：减少宣传 Hero、系统统计卡和卡片墙，把真实工作内容放到主视觉。</p>
+    </div>
+    <div class="legend"><span><b>左</b> 改造前</span><span><b>右</b> 改造后</span></div>
+  </header>
+
+  <section class="row">
+    <div class="row-head"><h2>教学工作台</h2><span>宣传 Hero → 日期问候与继续备课</span></div>
+    <div class="pair">
+      <figure><img src="before/home.png" alt="改造前首页"><figcaption><b>改造前</b><span>大标题 + 四张系统统计卡 + 功能卡</span></figcaption></figure>
+      <figure><img src="../screenshots/home.png" alt="改造后首页"><figcaption><b>改造后</b><span>问候 + 继续上次 + 最近编辑 + 今日待处理</span></figcaption></figure>
+    </div>
+  </section>
+
+  <section class="row">
+    <div class="row-head"><h2>智能备课中心</h2><span>单栏结果页 → 上下文 + 配置 + 文档 + 资料</span></div>
+    <div class="pair">
+      <figure><img src="before/studio.png" alt="改造前备课"><figcaption><b>改造前</b><span>页面头部与四张统计卡占主视觉</span></figcaption></figure>
+      <figure><img src="../screenshots/studio.png" alt="改造后备课"><figcaption><b>改造后</b><span>课程上下文、左侧配置、中文档、右知识资料</span></figcaption></figure>
+    </div>
+  </section>
+
+  <section class="row">
+    <div class="row-head"><h2>质量检测</h2><span>报告卡片列表 → 问题、原文、建议三栏审阅</span></div>
+    <div class="pair">
+      <figure><img src="before/quality.png" alt="改造前质检"><figcaption><b>改造前</b><span>报告卡 + 大分数 + 统计条</span></figcaption></figure>
+      <figure><img src="../screenshots/quality.png" alt="改造后质检"><figcaption><b>改造后</b><span>问题清单 + 原文定位 + 修改建议与人工审核</span></figcaption></figure>
+    </div>
+  </section>
+
+  <section class="row">
+    <div class="row-head"><h2>专业知识库</h2><span>彩色卡片网格 → 分类、列表、阅读</span></div>
+    <div class="pair">
+      <figure><img src="before/kb.png" alt="改造前知识库"><figcaption><b>改造前</b><span>资料卡 + 需要弹窗阅读</span></figcaption></figure>
+      <figure><img src="../screenshots/kb.png" alt="改造后知识库"><figcaption><b>改造后</b><span>分类导航 + 资料列表 + 正文阅读区</span></figcaption></figure>
+    </div>
+  </section>
+
+  <p class="note">截图来自实际运行，不是设计稿。改造前截图对应 2026-11-17 上一版界面；改造后截图对应工作型 UI。两者使用同一浏览器、同一 1440×1000 视口，数据内容可能因本地演示成果不同而略有差异。</p>
+</body>
+</html>

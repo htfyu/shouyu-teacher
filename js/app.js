@@ -523,6 +523,24 @@ function findConversation(id) {
 
 const AI_LOCAL_KEY = "jiangbei.ai.v1";
 const QUALITY_WEIGHT_KEY = "shouyu.quality.weights.v1";
+const QUALITY_IGNORED_KEY = "shouyu.quality.ignored.v1";
+
+function loadQualityIgnored() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(QUALITY_IGNORED_KEY) || "{}");
+    return raw && typeof raw === "object" && !Array.isArray(raw) ? raw : {};
+  } catch (error) {
+    return {};
+  }
+}
+
+function saveQualityIgnored() {
+  try {
+    localStorage.setItem(QUALITY_IGNORED_KEY, JSON.stringify(state.qualityIgnored || {}));
+  } catch (error) {
+    console.warn("质检忽略记录保存失败", error);
+  }
+}
 
 function loadQualityWeights() {
   try {
@@ -655,6 +673,7 @@ const state = {
   studioConditions: "PLC 实训室；物料分拣教学工作站；设备型号与台套数以现场为准",
   studioObjectiveExtra: "",
   studioBundle: null,
+  studioAsideOpen: true,
   studioDocId: "design",
   studioBusy: false,
   studioQuality: null,
@@ -663,6 +682,11 @@ const state = {
   impactBusy: false,
   impactImportPayload: null,
   qualityWeights: loadQualityWeights(),
+  qualitySelectedId: "",
+  qualityIssueIndex: 0,
+  qualityDocId: "lesson",
+  qualityIgnored: loadQualityIgnored(),
+  kbSelectedDocId: "",
   graphCourseId: "course-0010",
   graphNodeId: "",
   demoStep: 0,
@@ -1168,95 +1192,111 @@ function renderHomePage() {
       <span class="scene-card-foot"><span class="scene-dot"></span>${escapeHtml(scene.output)}</span>
     </button>
   `).join("");
-  const recentHtml = recent.length
-    ? recent.map((bundle) => `
-      <button class="workbench-recent" type="button" data-action="portfolio-open" data-id="${escapeAttr(bundle.id)}">
-        <span class="workbench-recent-main">
-          <strong>${escapeHtml(bundle.title)}</strong>
-          <small>${escapeHtml(bundle.context?.course || "")} · ${escapeHtml(bundle.context?.task || "")} · v${bundle.version || 1}</small>
-        </span>
-        <span class="workbench-recent-score">${bundle.quality?.overall ? `${bundle.quality.overall}` : "未检"}</span>
-      </button>
-    `).join("")
-    : `<button class="workbench-empty" type="button" data-action="home-start-studio">${icon("spark", 15)} 还没有资源包，先从演示课程试试</button>`;
+  const now = new Date();
+  const dateText = new Intl.DateTimeFormat("zh-CN", { month: "long", day: "numeric", weekday: "long" }).format(now);
+  const greeting = now.getHours() < 11 ? "上午好" : now.getHours() < 14 ? "中午好" : now.getHours() < 18 ? "下午好" : "晚上好";
+  const last = recent[0];
+  const pendingQuality = recent.reduce((sum, bundle) => sum + (bundle.quality?.problems?.filter((problem) => problem.severity === "high").length || 0), 0);
+  const recentFiles = (state.files || []).slice(0, 4);
 
   return `
-    <div class="home workbench-home">
-      <section class="workbench-hero" aria-labelledby="hero-title">
+    <div class="page work-home">
+      <header class="work-home-head">
         <div>
-          <div class="page-kicker">TEACHING WORKBENCH / 教学工作台</div>
-          <h1 class="hero-title" id="hero-title">把下一节课，做成可审核的教学成果。</h1>
-          <p class="hero-subtitle">从专业课程知识包出发，完成教学资源开发、质量检测、教师审核和标准化导出。</p>
-          <div class="workbench-actions">
-            <button class="btn btn-solid" type="button" data-action="home-start-studio">${icon("spark", 13)} 开始一次工学一体化备课</button>
-            <button class="btn btn-ghost" type="button" data-action="nav" data-path="/programs">${icon("book", 13)} 专业体系</button>
-            <button class="btn btn-ghost" type="button" data-action="nav" data-path="/demo">${icon("play", 13)} 竞赛演示</button>
-          </div>
+          <p class="work-date">${escapeHtml(dateText)}</p>
+          <h1 class="hero-title" id="hero-title">${greeting}，老师。</h1>
+          <p class="work-home-sub">${studioStats.total ? `你有 ${studioStats.pending} 份成果待审核，${studioStats.thisWeek} 份本周更新。` : "工作区已经准备好，可以从一门课开始备课。"}</p>
         </div>
-        <div class="workbench-hero-note">
-          <span class="status-dot"></span>
-          ${studioStats.pending ? `${studioStats.pending} 份成果待审核` : "今天没有待审核的成果"} · ${getStudioStorageMode() === "indexeddb" ? "本机工作区已就绪" : "本机兼容存储"}
-          <small class="workbench-impact-line">应用成效：${impactStats.hasData ? `${impactStats.recordCount} 条真实记录` : "尚未采集真实试用数据"}</small>
+        <div class="work-home-actions">
+          <button class="btn btn-solid" type="button" data-action="home-start-studio">${icon("plus", 13)} 新建备课</button>
+          <button class="btn" type="button" data-action="nav" data-path="/programs">课程目录</button>
         </div>
-      </section>
+      </header>
 
-      <section class="workbench-grid" aria-label="今日工作概览">
-        <div class="workbench-card workbench-card-wide">
-          <div class="workbench-card-head"><span>${icon("archive", 13)} 最近编辑</span><span>${studioStats.thisWeek} 份本周更新</span></div>
-          <div class="workbench-recent-list">${recentHtml}</div>
-        </div>
-        <button class="workbench-card" type="button" data-action="nav" data-path="/quality">
-          <div class="workbench-card-head"><span>${icon("shield", 13)} 待审核 / 质检</span><span>${studioStats.pending}</span></div>
-          <strong class="workbench-number">${studioStats.pending || "0"}</strong>
-          <p>${studioStats.pending ? "质检通过后提交教师审核，避免直接进入正式教学。" : "资源生成后自动进入质量检测；规则评分可解释、可定位。"}</p>
-          <span class="workbench-link">打开质量检测中心 →</span>
-        </button>
-        <button class="workbench-card" type="button" data-action="nav" data-path="/programs">
-          <div class="workbench-card-head"><span>${icon("book", 13)} 专业课程目录</span><span>${PROGRAM_DATA.meta.counts.majors} 专业</span></div>
-          <strong class="workbench-number">${PROGRAM_DATA.meta.counts.courses}</strong>
-          <p>条目录记录；完整知识包 ${builtPacks} 门（${pendingPacks} 待审核、${approvedPacks} 已审核）。目录记录不等于已建知识包，也不等于学院已审核。${featured ? `当前代表课程：${escapeHtml(featured.title)}。` : ""}</p>
-          <span class="workbench-link">查看专业数据库 →</span>
-        </button>
-        <button class="workbench-card" type="button" data-action="nav" data-path="/kb">
-          <div class="workbench-card-head"><span>${icon("layers", 13)} 知识库基线</span><span>${stats.docs} 份材料</span></div>
-          <strong class="workbench-number">${stats.sections}</strong>
-          <p>可检索片段；引用到章节。专业课程知识包与校本示例、来源表分开标注，不混淆官方与参考。</p>
-          <span class="workbench-link">查看知识与依据 →</span>
-        </button>
-      </section>
+      <div class="work-home-layout">
+        <main class="work-home-main">
+          <section class="work-section">
+            <div class="work-section-head">
+              <h2>继续上次的备课</h2>
+              <span>${last ? `最近更新 ${escapeHtml(last.updatedAt ? last.updatedAt.slice(0, 10) : "本机")}` : "还没有历史成果"}</span>
+            </div>
+            ${last ? `
+              <div class="work-continue">
+                <div class="work-continue-main">
+                  <span class="work-label">${escapeHtml(last.context?.course || "")} · ${escapeHtml(last.context?.task || "")}</span>
+                  <h3>${escapeHtml(last.title)}</h3>
+                  <p>v${last.version || 1} · ${last.quality ? `质检 ${last.quality.overall} 分` : "尚未质检"} · ${escapeHtml(last.reviewStatus || "待审核")} · ${last.history?.length ? `${last.history.length} 个历史版本` : "当前版本"}</p>
+                </div>
+                <div class="work-continue-actions">
+                  <button class="btn btn-solid" type="button" data-action="studio-open-editor" data-id="${escapeAttr(last.id)}">继续编辑</button>
+                  <button class="btn" type="button" data-action="portfolio-history" data-id="${escapeAttr(last.id)}">版本</button>
+                </div>
+              </div>
+            ` : `
+              <div class="work-empty-row">
+                <div><strong>还没有进行中的备课</strong><p>选择课程和典型工作任务，生成第一套可审核的资源包。</p></div>
+                <button class="btn btn-solid" type="button" data-action="home-start-studio">开始备课</button>
+              </div>
+            `}
+          </section>
 
-      <div class="composer-wrap workbench-composer">
-        <div class="section-row">
-          <div><h2 class="section-title">直接描述任务，或从下方选一个入口。</h2></div>
-          <span class="workbench-inline-note">本地优先；使用增强模式前会做隐私检查</span>
-        </div>
-        ${renderComposer(false)}
-      </div>
+          <section class="work-section">
+            <div class="work-section-head">
+              <h2>最近编辑</h2>
+              <button class="btn-link" type="button" data-action="nav" data-path="/portfolio">全部成果 →</button>
+            </div>
+            ${recent.length ? `<div class="work-list">${recent.map((bundle) => `
+              <button class="work-row" type="button" data-action="portfolio-open" data-id="${escapeAttr(bundle.id)}">
+                <span class="work-row-main"><strong>${escapeHtml(bundle.title)}</strong><small>${escapeHtml(bundle.context?.course || "")} · ${escapeHtml(bundle.context?.task || "")} · v${bundle.version || 1}</small></span>
+                <span class="work-row-meta">${bundle.quality ? `质检 ${bundle.quality.overall}` : "未质检"}<small>${escapeHtml(bundle.updatedAt ? bundle.updatedAt.slice(0, 10) : "")}</small></span>
+              </button>`).join("")}</div>` : `<p class="work-muted">还没有教学成果。完成一次备课后会出现在这里。</p>`}
+          </section>
 
-      <section class="scenes" aria-labelledby="scene-title">
-        <div class="section-row">
-          <div>
-            <h2 class="section-title" id="scene-title">快速生成一个已有场景。</h2>
-          </div>
-          <button class="btn-link" type="button" data-action="nav" data-path="/guide">怎么用 →</button>
-        </div>
-        <div class="scene-grid">${sceneCards}</div>
-      </section>
+          <section class="work-section">
+            <div class="work-section-head">
+              <h2>我的常用课程</h2>
+              <span>${builtPacks} 门有完整知识包 · ${pendingPacks} 门待教研组审核</span>
+            </div>
+            <div class="work-list">
+              ${CURRICULUM_PACKS.map((pack) => `
+                <button class="work-row" type="button" data-action="home-open-pack" data-id="${escapeAttr(pack.id)}">
+                  <span class="work-row-main"><strong>${escapeHtml(pack.title)}</strong><small>${escapeHtml(PROGRAM_DATA.majors.find((major) => major.id === pack.majorId)?.name || pack.majorId || "")} · ${pack.chapters.length} 章 · ${(pack.chapters || []).reduce((sum, chapter) => sum + (chapter.knowledgePoints || []).length, 0)} 知识点</small></span>
+                  <span class="work-row-meta">${escapeHtml(pack.statusLabel || "待审核")}<small>打开备课 →</small></span>
+                </button>`).join("")}
+            </div>
+          </section>
 
-      <div class="home-bottom">
-        <div class="kb-strip-left">
-          <div class="kb-stack" aria-hidden="true">
-            ${KB_DOCS.slice(0, 4).map((doc) => `<i>${doc.id.slice(-2)}</i>`).join("")}
-          </div>
-          <div class="kb-strip-copy">
-            <div class="kb-strip-title">知识库基线 · ${stats.docs} 份材料 / ${stats.sections} 个可检索片段</div>
-            <div class="kb-strip-meta">课程标准 · 教案 · 任务单 · 工作页 · 安全规程 · 评价 · 合规 · ${stats.version}</div>
-          </div>
-        </div>
-        <div class="home-legal">
-          默认本地处理，不上传输入 · 生成内容仅供参考，正式使用前须人工审核<br>
-          <a href="#/kb" data-action="nav" data-path="/kb">查看知识库与依据 →</a>
-        </div>
+          <section class="work-section work-quick">
+            <div class="work-section-head">
+              <h2>快速开始</h2>
+              <button class="btn-link" type="button" data-action="nav" data-path="/guide">使用说明 →</button>
+            </div>
+            <div class="quick-grid">${sceneCards}</div>
+          </section>
+        </main>
+
+        <aside class="work-home-side">
+          <section class="work-side-block">
+            <h2>今日待处理</h2>
+            <ul class="work-tasks">
+              <li><button type="button" data-action="nav" data-path="/quality"><span>待审核成果</span><b>${studioStats.pending}</b></button></li>
+              <li><button type="button" data-action="nav" data-path="/quality"><span>必须修改的问题</span><b>${pendingQuality}</b></button></li>
+              <li><button type="button" data-action="nav" data-path="/programs"><span>待审核课程知识包</span><b>${pendingPacks}</b></button></li>
+              <li><button type="button" data-action="nav" data-path="/impact"><span>真实应用成效</span><b>${impactStats.hasData ? `${impactStats.recordCount} 条` : "尚未采集"}</b></button></li>
+            </ul>
+          </section>
+
+          <section class="work-side-block">
+            <h2>最近文件</h2>
+            ${recentFiles.length ? `<div class="work-file-list">${recentFiles.map((file) => `<button type="button" data-action="nav" data-path="/files"><span>${escapeHtml(file.name)}</span><small>${escapeHtml(String(file.ext || "").toUpperCase())}</small></button>`).join("")}</div>` : `<p class="work-muted">还没有上传文件。<button class="btn-link" type="button" data-action="nav" data-path="/files">去资料中心 →</button></p>`}
+          </section>
+
+          <section class="work-side-block work-reminder">
+            <h2>提醒</h2>
+            <p>知识包均为校本示例，设备参数、安全条款和来源编号仍需教研组确认。</p>
+            <button class="btn btn-ghost" type="button" data-action="nav" data-path="/kb">查看依据</button>
+          </section>
+        </aside>
       </div>
     </div>
   `;
@@ -1731,59 +1771,76 @@ function renderKnowledgePage() {
   const generalCats = categories.filter((cat) => cat === "全部" || !cat.startsWith("专业·"));
   const specialtyCats = categories.filter((cat) => cat.startsWith("专业·"));
   return `
-    <div class="page">
-      <div class="page-head">
+    <div class="page kb-page work-kb">
+      <header class="work-context-head">
         <div>
-          <div class="page-kicker">KNOWLEDGE BASE / 真实性优先</div>
-          <h1 class="page-title">有依据，才回答。</h1>
-          <p class="page-intro">所有回答都从这里的材料检索。材料没有覆盖的问题，助手会明确说“不知道”，而不是编一个看起来很真的答案。当前收录 ${KB_DOCS.length} 份示例材料，覆盖 12 个专业方向；正式使用时请替换为学院现行文件。你可以新增、导入、编辑或删除自己的材料。</p>
+          <p class="work-breadcrumb">专业知识库 / 资料检索与阅读</p>
+          <h1 class="page-title">专业知识库</h1>
+          <p class="work-context-path">${stats.docs} 份材料 · ${stats.sections} 个可检索片段 · ${cats.length} 个分类 · ${escapeHtml(stats.version)}</p>
         </div>
-        <div class="page-head-side">
-          <strong>知识库管理</strong>
-          12 个专业包 · 关键词 + 概念扩展（本地混合检索）<br>
-          自定义材料支持新增 / 导入 / 删除<br>
-          <div class="page-head-actions">
-            <button class="btn btn-ghost" type="button" data-action="toggle-kb-manage">${state.kbManageMode ? "退出管理" : "管理知识库"}</button>
-            <button class="btn btn-solid" type="button" data-action="new-kb-doc">${icon("plus", 11)} 新增材料</button>
-          </div>
+        <div class="work-context-actions">
+          <button class="btn" type="button" data-action="toggle-kb-manage">${state.kbManageMode ? "退出管理" : "管理"}</button>
+          <button class="btn btn-solid" type="button" data-action="new-kb-doc">${icon("plus", 12)} 新增材料</button>
         </div>
-      </div>
-      <div class="page-stats">
-        <div class="stat"><div class="stat-value">${String(stats.docs).padStart(2, "0")}</div><div class="stat-label">DOCUMENTS / 材料</div></div>
-        <div class="stat"><div class="stat-value">${String(stats.sections).padStart(2, "0")}</div><div class="stat-label">SECTIONS / 可检索片段</div></div>
-        <div class="stat"><div class="stat-value">${String(cats.length).padStart(2, "0")}</div><div class="stat-label">CATEGORIES / 分类</div></div>
-        <div class="stat"><div class="stat-value" style="font-size:15px;line-height:1.4">${escapeHtml(stats.version)}</div><div class="stat-label">LOCAL BASELINE / 当前基线</div></div>
-      </div>
-      <div class="kb-toolbar">
+      </header>
+
+      <div class="kb-toolbar work-kb-toolbar">
         <div class="kb-search-row">
           <div class="search-field">
             ${icon("search", 15)}
             <input type="search" placeholder="搜索“互锁”“过程性评价”“上电前检查”…" value="${escapeAttr(state.kbQuery)}" data-role="kb-search" aria-label="搜索知识库">
           </div>
-          <span class="kb-search-meta">${escapeHtml(state.kbCategory === "全部" ? "全部材料" : state.kbCategory)} · 本地混合检索</span>
+          <span class="kb-search-meta">${escapeHtml(state.kbCategory === "全部" ? "全部材料" : state.kbCategory)} · 本地检索</span>
         </div>
-        <div class="kb-filter-groups">
+        <label class="kb-mobile-cat"><span>分类</span><select data-role="kb-category-select">${categories.map((cat) => `<option value="${escapeAttr(cat)}" ${state.kbCategory === cat ? "selected" : ""}>${escapeHtml(cat.replace(/^专业·/, "专业 · "))}</option>`).join("")}</select></label>
+      </div>
+
+      <div class="kb-workspace">
+        <aside class="kb-category-pane">
           <div class="filter-group">
             <span class="filter-label">通用分类</span>
-            <div class="filter-row" role="group" aria-label="通用知识分类">
+            <div class="filter-row filter-row-vertical" role="group" aria-label="通用知识分类">
               ${generalCats.map((cat) => `<button class="filter-btn${state.kbCategory === cat ? " is-active" : ""}" type="button" data-action="set-kb-cat" data-cat="${escapeAttr(cat)}">${escapeHtml(cat)}</button>`).join("")}
             </div>
           </div>
           <div class="filter-group filter-group-specialty">
             <span class="filter-label">专业方向</span>
-            <div class="filter-row" role="group" aria-label="专业知识分类">
+            <div class="filter-row filter-row-vertical" role="group" aria-label="专业知识分类">
               ${specialtyCats.map((cat) => `<button class="filter-btn filter-btn-specialty${state.kbCategory === cat ? " is-active" : ""}" type="button" data-action="set-kb-cat" data-cat="${escapeAttr(cat)}">${escapeHtml(cat.replace(/^专业·/, ""))}</button>`).join("")}
             </div>
           </div>
-        </div>
+        </aside>
+        <div id="kb-grid" class="kb-grid-work">${renderKbGrid()}</div>
       </div>
-      <div id="kb-grid">${renderKbGrid()}</div>
+
       ${state.kbManageMode ? renderKbManagePanel() : ""}
-      <div class="kb-note">
-        <strong>为什么仍标注示例？</strong> 12 个专业包是教学参考结构，不是学院正式制度，也没有伪造标准号。材料可由教师新增 / 导入 / 编辑，引用会自动回溯到章节。<br>
-        操作级安全查询仍只提供电工 / PLC 专项规程；其他专业包提供教学安全提示，但不能替代现场规程、设备说明书和安全交底。
-      </div>
+      <p class="work-footnote"><strong>边界：</strong>内置材料是校本示例，不是学院正式文件；自定义材料未经学校审核。操作级安全查询仍只提供电工 / PLC 专项规程，其他专业包不能替代现场规程和安全交底。</p>
     </div>
+  `;
+}
+
+function renderKbReader(doc, hitSectionId = "") {
+  if (!doc) {
+    return `<aside class="kb-reader kb-reader-empty"><p>从左侧选择一份材料开始阅读。</p></aside>`;
+  }
+  return `
+    <aside class="kb-reader">
+      <div class="kb-reader-head">
+        <div><span>${escapeHtml(doc.id)} · ${escapeHtml(doc.category)}</span><h2>${escapeHtml(doc.title)}</h2></div>
+        <button class="btn btn-ghost" type="button" data-action="open-doc" data-doc="${escapeAttr(doc.id)}">打开全文</button>
+      </div>
+      <div class="kb-reader-meta">
+        <span>${escapeHtml(doc.version || "v1")}</span>
+        <span>更新 ${escapeHtml(doc.updated || "未标注")}</span>
+        <span>${doc.sections.length} 节</span>
+        <span>${doc.builtin ? "校本示例 · 待审核" : "教师自建 · 未审核"}</span>
+      </div>
+      <p class="kb-reader-summary">${escapeHtml(doc.summary)}</p>
+      ${(doc.specialty || doc.course || doc.source) ? `<div class="kb-reader-facts">${doc.specialty ? `<span>专业：${escapeHtml(doc.specialty)}</span>` : ""}${doc.course ? `<span>课程：${escapeHtml(doc.course)}</span>` : ""}${doc.source ? `<span>来源：${escapeHtml(doc.source)}</span>` : ""}</div>` : ""}
+      <div class="kb-reader-body">
+        ${doc.sections.map((section) => `<section class="${section.id === hitSectionId ? "is-hit" : ""}"><h3><span>${escapeHtml(section.no)}</span>${escapeHtml(section.title)}</h3><p>${escapeHtml(section.text)}</p>${(section.bullets || []).length ? `<ul>${section.bullets.map((bullet) => `<li>${escapeHtml(bullet)}</li>`).join("")}</ul>` : ""}</section>`).join("")}
+      </div>
+    </aside>
   `;
 }
 
@@ -1799,24 +1856,24 @@ function renderKbGrid() {
       </div>
     `;
   }
-  return `<div class="kb-grid">${docs.map((doc, index) => {
-    const hit = matches?.find((item) => item.docId === doc.id);
-    return `
-      <button class="kb-card" type="button" data-action="open-doc" data-doc="${escapeAttr(doc.id)}" data-section="${escapeAttr(hit?.sectionId || "")}">
-        <div class="kb-card-top">
-          <span>${doc.id} / ${String(index + 1).padStart(2, "0")}</span>
-          <span class="kb-card-cat">${escapeHtml(doc.category)}</span>
-        </div>
-        <h2 class="kb-card-title">${escapeHtml(doc.title)}</h2>
-        <p class="kb-card-summary">${hit ? `命中「${escapeHtml(hit.sectionTitle)}」：${escapeHtml(hit.snippet)}` : escapeHtml(doc.summary)}</p>
-        <div class="tag-row">${(doc.tags || []).slice(0, 3).map((tag) => `<span class="tag">${escapeHtml(tag)}</span>`).join("")}</div>
-        <div class="kb-card-foot">
-          <span class="btn-link">阅读全文 →</span>
-          <span class="meta">${doc.sections.length} 节 · ${escapeHtml(doc.updated)}</span>
-        </div>
-      </button>
-    `;
-  }).join("")}</div>`;
+  const selected = docs.find((doc) => doc.id === state.kbSelectedDocId) || docs[0];
+  const hit = matches?.find((item) => item.docId === selected.id);
+  return `
+    <div class="kb-list-pane">
+      <div class="kb-list-head"><span>${docs.length} 份材料</span><span>按当前筛选</span></div>
+      <div class="kb-list">
+        ${docs.map((doc, index) => {
+          const rowHit = matches?.find((item) => item.docId === doc.id);
+          return `<button class="kb-row${doc.id === selected.id ? " is-active" : ""}" type="button" data-action="kb-select" data-doc="${escapeAttr(doc.id)}">
+            <span class="kb-row-no">${String(index + 1).padStart(2, "0")}</span>
+            <span class="kb-row-main"><strong>${escapeHtml(doc.title)}</strong><small>${escapeHtml(doc.category)} · ${escapeHtml(doc.version || "v1")} · ${escapeHtml(doc.updated || "")}</small>${rowHit ? `<em>命中：${escapeHtml(rowHit.sectionTitle)}</em>` : ""}</span>
+            <span class="kb-row-meta">${doc.sections.length} 节<br>${doc.builtin ? "示例" : "自建"}</span>
+          </button>`;
+        }).join("")}
+      </div>
+    </div>
+    ${renderKbReader(selected, hit?.sectionId || "")}
+  `;
 }
 
 function renderKbManagePanel() {
@@ -2664,7 +2721,7 @@ function renderProgramsPage() {
       <div class="page-head">
         <div>
           <div class="page-kicker">PROGRAM DATABASE / 原始数据 + 本机修订</div>
-          <h1 class="page-title">专业体系与课程资源。</h1>
+          <h1 class="page-title">专业体系</h1>
           <p class="page-intro">从专业系、专业组、专业逐级进入课程；原表已有的官方简介与来源优先展示，缺失部分标注“待完善”，并提供明确标注的行业通用备课参考。</p>
         </div>
         <div class="page-head-side">
@@ -3496,52 +3553,108 @@ function renderStudioResult(bundle) {
   `;
 }
 
+function renderStudioEmpty(ctx) {
+  return `
+    <div class="studio-work-empty">
+      <div class="studio-empty-copy">
+        <h2>${escapeHtml(ctx.course.name)} · ${escapeHtml(ctx.task.title)}</h2>
+        <p>左侧已带入课程、章节和典型工作任务。确认教学对象、学时和教学条件后，生成 10 类共享同一任务上下文的教学资源。</p>
+        <dl class="studio-empty-facts">
+          <div><dt>课程</dt><dd>${escapeHtml(ctx.course.name)}</dd></div>
+          <div><dt>章节</dt><dd>${escapeHtml(ctx.chapter.title)}</dd></div>
+          <div><dt>典型任务</dt><dd>${escapeHtml(ctx.task.title)}</dd></div>
+          <div><dt>资源</dt><dd>10 类：教学设计、教案、工作页、信息页、任务书、实训指导书、活动策划、评价表、反思表、课件大纲</dd></div>
+        </dl>
+      </div>
+      <div class="studio-empty-actions">
+        <button class="btn btn-solid" type="submit" form="studio-config-form" ${state.studioBusy ? "disabled" : ""}>${icon("spark", 13)} 生成 10 类教学资源</button>
+        <button class="btn" type="button" data-action="nav" data-path="/demo">先看演示案例</button>
+      </div>
+    </div>
+  `;
+}
+
+function renderStudioAside(ctx, bundle) {
+  const { pack, chapter, course, task } = ctx;
+  const points = chapter.knowledgePoints || [];
+  const refs = Array.from(new Set(points.flatMap((point) => point.sourceRefs || [])));
+  const anomalies = programsSourceAnomalies(course, ctx.catalog);
+  const correction = getSourceCorrection(course.id);
+  const report = bundle?.quality;
+  return `
+    <aside class="studio-readiness studio-aside" aria-label="课程知识上下文">
+      <div class="studio-aside-head">
+        <span>课程知识包</span>
+        ${studioPackBadge(pack)}
+      </div>
+      <h2>${escapeHtml(pack.title)}</h2>
+      <p class="studio-aside-sub">${escapeHtml(pack.majorName || PROGRAM_DATA.majors.find((major) => major.id === pack.majorId)?.name || "")}</p>
+      <div class="studio-pack-meta"><span>版本 <b>${escapeHtml(pack.version || "1.0")}</b></span><span>更新 <b>${escapeHtml(pack.updatedAt || "未标注")}</b></span><span>审核人 <b>${escapeHtml(pack.reviewer || "未指定")}</b></span><span>状态 <b>${escapeHtml(pack.statusLabel || "待审核")}</b></span></div>
+
+      <section class="studio-aside-section">
+        <h3>本章知识点 <span>${points.length} 项</span></h3>
+        ${points.length ? `<ul class="studio-kp-list">${points.map((point) => `<li><span>${escapeHtml(point.title)}</span><small>${escapeHtml((point.sourceRefs || []).join("、") || "待补来源")}</small></li>`).join("")}</ul>` : `<p class="work-muted">本章暂无知识点。</p>`}
+      </section>
+
+      <section class="studio-aside-section">
+        <h3>来源与限制 <span>${refs.length} 条</span></h3>
+        <p class="studio-aside-note">${escapeHtml(pack.disclaimer)}</p>
+        ${anomalies.length ? `<div class="studio-source-audit"><b>来源核验</b><span>原表：${anomalies.map((item) => item.id).join("、")}</span><span>建议：${correction ? correction.corrected.join("、") : "待核对"}</span><span>${correction ? escapeHtml(correction.statusLabel) : "待教研组核对"}</span></div>` : ""}
+        <button class="btn btn-ghost" type="button" data-action="nav" data-path="/kb">查看知识库依据 →</button>
+      </section>
+
+      ${report ? `
+        <section class="studio-aside-section">
+          <h3>最近质检 <span>${report.overall} / 100</span></h3>
+          <p class="studio-aside-note">${escapeHtml(report.statusLabel)} · ${report.problems.length} 个规则问题 · ${report.layers?.knowledge?.reviewItems?.length || 0} 项待教师核对</p>
+          <button class="btn btn-ghost" type="button" data-action="nav" data-path="/quality">打开审阅工作区 →</button>
+        </section>
+      ` : ""}
+    </aside>
+  `;
+}
+
 function renderStudioPage() {
   let ctx;
   try {
     ctx = studioEnsureContext();
   } catch (error) {
-    return `<div class="page"><div class="programs-empty"><strong>教学资源开发中心尚未就绪</strong><p>${escapeHtml(error.message)}</p></div></div>`;
+    return `<div class="page"><div class="programs-empty"><strong>智能备课中心尚未就绪</strong><p>${escapeHtml(error.message)}</p></div></div>`;
   }
   const bundle = state.studioBundle;
   const stats = getStudioBundleStats();
   return `
-    <div class="page studio-page">
-      <div class="page-head">
+    <div class="page studio-page work-studio">
+      <header class="work-context-head">
         <div>
-          <div class="page-kicker">STUDIO / 专业知识驱动</div>
-          <h1 class="page-title">工学一体化教学资源开发中心。</h1>
-          <p class="page-intro">选择专业、课程、章节和典型工作任务，系统从课程知识包装配 10 类资源共享上下文，再进入质检、审核和导出。</p>
+          <p class="work-breadcrumb">智能备课中心 / ${escapeHtml(ctx.department?.name || "")} / ${escapeHtml(ctx.group?.name || "")} / ${escapeHtml(ctx.major?.name || "")}</p>
+          <h1 class="page-title">${escapeHtml(ctx.course.name)}</h1>
+          <p class="work-context-path">${escapeHtml(ctx.chapter.title)} · ${escapeHtml(ctx.task.title)} · ${escapeHtml(ctx.course.category || "专业核心课")}</p>
         </div>
-        <div class="page-head-side">
-          <strong>当前知识包</strong>
-          ${escapeHtml(ctx.pack.title)}<br>
-          状态：${escapeHtml(ctx.pack.statusLabel)}<br>
-          资源包：${stats.total} 份 · 待审核 ${stats.pending} 份
-          <div class="page-head-actions">
-            <button class="btn btn-ghost" type="button" data-action="nav" data-path="/portfolio">成果管理</button>
-            <button class="btn btn-ghost" type="button" data-action="nav" data-path="/demo">竞赛演示</button>
-          </div>
+        <div class="work-context-actions">
+          <button class="btn btn-solid" type="submit" form="studio-config-form" ${state.studioBusy ? "disabled" : ""}>${state.studioBusy ? "正在生成…" : "生成资源"}</button>
+          ${bundle ? `<button class="btn" type="button" data-action="studio-open-editor" data-id="${escapeAttr(bundle.id)}">编辑</button><button class="btn" type="button" data-action="studio-quality" data-id="${escapeAttr(bundle.id)}">质检</button><button class="btn" type="button" data-action="studio-export-docx" data-id="${escapeAttr(bundle.id)}">导出</button>` : `<button class="btn" type="button" data-action="nav" data-path="/demo">演示案例</button>`}
+          <button class="btn" type="button" data-action="studio-toggle-aside">${state.studioAsideOpen ? "收起资料" : "展开资料"}</button>
         </div>
+      </header>
+      <div class="studio-work-status">
+        <span>${escapeHtml(ctx.pack.statusLabel)}</span>
+        <span>${ctx.pack.chapters.length} 章 · ${ctx.pack.tasks.length} 个任务 · 10 类资源</span>
+        <span>${stats.total} 份成果 · ${stats.pending} 份待审核</span>
       </div>
-      <div class="page-stats">
-        <div class="stat"><div class="stat-value">${ctx.pack.chapters.length}</div><div class="stat-label">CHAPTERS / 章节</div></div>
-        <div class="stat"><div class="stat-value">${ctx.pack.tasks.length}</div><div class="stat-label">TASKS / 典型任务</div></div>
-        <div class="stat"><div class="stat-value">10</div><div class="stat-label">RESOURCES / 资源类型</div></div>
-        <div class="stat"><div class="stat-value">${bundle?.quality?.overall ?? "—"}</div><div class="stat-label">QUALITY / 最近质检</div></div>
+      <div class="studio-flow is-compact" aria-label="备课流程">
+        <span class="is-done">选课程</span><i></i>
+        <span class="is-done">定任务</span><i></i>
+        <span class="${bundle ? "is-done" : "is-current"}">生成资源</span><i></i>
+        <span class="${bundle?.quality ? "is-done" : bundle ? "is-current" : ""}">检查质量</span><i></i>
+        <span>审核导出</span>
       </div>
-      <div class="studio-flow" aria-label="备课流程">
-        <span class="is-done">01 选课程</span><i></i>
-        <span class="is-done">02 定任务</span><i></i>
-        <span class="${bundle ? "is-done" : "is-current"}">03 生成资源</span><i></i>
-        <span class="${bundle?.quality ? "is-done" : bundle ? "is-current" : ""}">04 检查质量</span><i></i>
-        <span>05 审核导出</span>
-      </div>
-      <div class="studio-layout">
+      <div class="studio-workspace${state.studioAsideOpen ? "" : " is-aside-closed"}">
         <aside class="studio-config-column">${renderStudioConfig(ctx)}</aside>
-        <section class="studio-main-column" id="studio-main">${bundle ? renderStudioResult(bundle) : renderStudioReadiness(ctx)}</section>
+        <section class="studio-editor-column" id="studio-main">${bundle ? renderStudioResult(bundle) : renderStudioEmpty(ctx)}</section>
+        ${state.studioAsideOpen ? renderStudioAside(ctx, bundle) : ""}
       </div>
-      <p class="programs-footnote">“${escapeHtml(ctx.pack.statusLabel)}”不是学院正式课程标准。教师必须审核设备、参数、安全条款和教学内容；规则或增强模式生成的内容不能直接作为学校官方文件。</p>
+      <p class="work-footnote">“${escapeHtml(ctx.pack.statusLabel)}”不是学院正式课程标准。设备参数、I/O 地址、安全条款与来源编号仍须教师和教研组确认。</p>
     </div>
   `;
 }
@@ -3587,6 +3700,9 @@ async function generateStudioBundle(form) {
     state.studioBusy = false;
     showToast(`已生成 10 类资源 · 质检 ${report.overall} 分`);
     renderApp({ preserveScroll: true });
+    if (window.matchMedia("(max-width: 900px)").matches) {
+      requestAnimationFrame(() => document.getElementById("studio-main")?.scrollIntoView({ block: "start" }));
+    }
   } catch (error) {
     state.studioBusy = false;
     renderApp({ preserveScroll: true });
@@ -3732,6 +3848,7 @@ async function openStudioInEditor(bundleId) {
     await saveStudioBundle(bundle);
     showToast("已打开成果编辑器；修改会保存到对话");
     navigate(`/chat/${conv.id}`);
+    requestAnimationFrame(() => openArtifactEditor(message.id));
   } catch (error) {
     showToast(error.message || "无法打开编辑器");
   }
@@ -3847,6 +3964,10 @@ function openQualityDetail(bundleId) {
   });
 }
 
+function qualitySeverityRank(severity) {
+  return severity === "high" ? 0 : severity === "medium" ? 1 : 2;
+}
+
 function renderQualityPage() {
   const bundles = getStudioBundles();
   const stats = getStudioBundleStats();
@@ -3856,30 +3977,113 @@ function renderQualityPage() {
     if (highB !== highA) return highB - highA;
     return a.quality.overall - b.quality.overall;
   });
+  if (!reports.length) {
+    return `
+      <div class="page quality-page work-quality">
+        <header class="work-context-head">
+          <div><p class="work-breadcrumb">质量检测 / 教学文件审阅</p><h1 class="page-title">质量检测</h1><p class="work-context-path">生成一套教学资源包后，规则检测结果会在这里按问题列出。</p></div>
+          <div class="work-context-actions"><button class="btn btn-solid" type="button" data-action="nav" data-path="/studio">去备课</button></div>
+        </header>
+        <div class="quality-empty"><strong>当前没有质检报告</strong><p>先到智能备课中心生成资源包；生成后系统会自动运行结构、专业知识和教师审核三层检测。</p><button class="btn" type="button" data-action="nav" data-path="/quality">刷新</button></div>
+      </div>
+    `;
+  }
+
+  const selected = reports.find((bundle) => bundle.id === state.qualitySelectedId) || reports[0];
+  const report = selected.quality;
+  const allProblems = report.problems.slice().sort((a, b) => qualitySeverityRank(a.severity) - qualitySeverityRank(b.severity));
+  const ignoredMessages = new Set(state.qualityIgnored[selected.id] || []);
+  const problems = allProblems.filter((problem) => !ignoredMessages.has(problem.message));
+  const ignoredCount = allProblems.length - problems.length;
+  const issueIndex = Math.max(0, Math.min(Number(state.qualityIssueIndex) || 0, Math.max(0, problems.length - 1)));
+  const issue = problems[issueIndex] || null;
+  const reviewItems = report.layers?.knowledge?.reviewItems || [];
+  const docs = selected.artifact?.docs || [];
+  const doc = docs.find((item) => item.id === state.qualityDocId) || docs.find((item) => item.id === "lesson") || docs[0];
+  const flagged = (section) => Boolean(issue && String(issue.location || "").includes(section.title));
+  const counts = {
+    high: problems.filter((problem) => problem.severity === "high").length,
+    medium: problems.filter((problem) => problem.severity === "medium").length,
+    low: problems.filter((problem) => problem.severity === "low").length
+  };
+  const selectedDocId = doc?.id || "";
   return `
-    <div class="page quality-page">
-      <div class="page-head"><div><div class="page-kicker">QUALITY / 质量检测</div><h1 class="page-title">教学质量智能检测中心。</h1><p class="page-intro">按 A 结构规则、B 专业知识、C 教师专家三层检测：检查目标、任务、实训、安全、评价和跨文档一致性，也逐项列出知识点来源、设备与参数供教师核对。分数来自规则和证据，不是模型随口打分，也不等于事实正确率。</p></div><div class="page-head-side"><strong>质量基线</strong>${reports.length} 份报告<br>平均 ${stats.averageQuality || "—"} 分 · 待审核 ${stats.pending} 份<br><div class="page-head-actions"><button class="btn btn-ghost" type="button" data-action="quality-weights">权重设置</button><button class="btn btn-ghost" type="button" data-action="nav" data-path="/studio">去开发资源</button></div></div></div>
-      <div class="page-stats">
-        <div class="stat"><div class="stat-value">${stats.total}</div><div class="stat-label">BUNDLES / 资源包</div></div>
-        <div class="stat"><div class="stat-value">${reports.length}</div><div class="stat-label">REPORTS / 质检报告</div></div>
-        <div class="stat"><div class="stat-value">${stats.averageQuality || "—"}</div><div class="stat-label">AVERAGE / 平均分</div></div>
-        <div class="stat"><div class="stat-value">${stats.pending}</div><div class="stat-label">REVIEW / 待审核</div></div>
+    <div class="page quality-page work-quality">
+      <header class="work-context-head">
+        <div>
+          <p class="work-breadcrumb">质量检测 / 教学文件审阅</p>
+          <h1 class="page-title">${escapeHtml(selected.context?.course || "教学文件")} · ${escapeHtml(selected.context?.task || "")}</h1>
+          <p class="work-context-path">${escapeHtml(report.statusLabel)} · ${problems.length} 个规则问题${ignoredCount ? `（已忽略 ${ignoredCount}）` : ""} · ${reviewItems.length} 项待教师核对 · 分数 ${report.overall} / 100</p>
+        </div>
+        <div class="work-context-actions">
+          <button class="btn" type="button" data-action="quality-weights">权重</button>
+          <button class="btn" type="button" data-action="quality-rerun" data-id="${escapeAttr(selected.id)}">重新检测</button>
+          <button class="btn" type="button" data-action="quality-detail" data-id="${escapeAttr(selected.id)}">完整报告</button>
+        </div>
+      </header>
+
+      <div class="quality-report-card quality-file-strip">
+        <span class="quality-strip-label">待审文件</span>
+        <div class="quality-file-tabs">${reports.map((bundle) => `<button class="${bundle.id === selected.id ? "is-active" : ""}" type="button" data-action="quality-select-report" data-id="${escapeAttr(bundle.id)}">${escapeHtml(bundle.context?.course || "课程")} · ${escapeHtml(bundle.context?.task || "")}</button>`).join("")}</div>
+        <div class="quality-strip-score"><strong>${report.overall}</strong><span>${report.level} · ${counts.high} 必须修改 / ${counts.medium} 建议完善</span></div>
       </div>
-      <div class="quality-rule-panel">
-        <div><div class="page-kicker">RULES / 评分规则</div><h2>10 个维度，权重可配置，问题可定位。</h2><p>教学目标完整性、可评价性、内容准确性、专业匹配、任务真实性、活动合理性、实训完整性、安全规范、评价匹配、资源一致性。每项都返回证据、问题等级、原文位置和修改建议；不能自动判断的内容标记为“需人工审核”。</p></div>
-        <div class="quality-weight-list">${Object.entries(DEFAULT_QUALITY_WEIGHTS).map(([key, fallback]) => `<span><b>${state.qualityWeights[key] ?? fallback}</b>${escapeHtml(QUALITY_WEIGHT_LABELS[key])}</span>`).join("")}</div>
+
+      <div class="quality-workspace">
+        <aside class="quality-issues-pane">
+          <div class="quality-pane-head"><h2>问题清单</h2><span>${problems.length} 条</span></div>
+          <div class="quality-severity-summary"><span class="is-high">必须修改 ${counts.high}</span><span class="is-medium">建议完善 ${counts.medium}</span><span class="is-low">提示 ${counts.low}</span>${ignoredCount ? `<button class="quality-restore-ignored" type="button" data-action="quality-restore-ignored" data-id="${escapeAttr(selected.id)}">恢复已忽略 ${ignoredCount}</button>` : ""}</div>
+          <div class="quality-issue-list">
+            ${problems.length ? problems.map((problem, index) => `<button class="quality-issue-row is-${escapeAttr(problem.severity)}${index === issueIndex ? " is-active" : ""}" type="button" data-action="quality-select-issue" data-id="${escapeAttr(selected.id)}" data-index="${index}" data-location="${escapeAttr(problem.location)}"><span>${escapeHtml(problem.severityLabel)}</span><strong>${escapeHtml(problem.message)}</strong><small>${escapeHtml(problem.location)}</small></button>`).join("") : `<p class="work-muted">规则检查未发现明显问题。仍需教师确认专业内容。</p>`}
+          </div>
+          ${reviewItems.length ? `<div class="quality-pane-head quality-review-head"><h2>待教师确认</h2><span>${reviewItems.length} 项</span></div><div class="quality-review-list">${reviewItems.slice(0, 8).map((item) => `<div><span>${escapeHtml(item.type)}</span><strong>${escapeHtml(item.label)}</strong><small>${escapeHtml(item.location)}</small></div>`).join("")}</div>` : ""}
+        </aside>
+
+        <section class="quality-document-pane">
+          <div class="quality-doc-toolbar">
+            <div class="quality-doc-tabs">${docs.map((item) => `<button class="${item.id === selectedDocId ? "is-active" : ""}" type="button" data-action="quality-select-doc" data-id="${escapeAttr(selected.id)}" data-doc="${escapeAttr(item.id)}">${escapeHtml(item.label)}</button>`).join("")}</div>
+            ${issue ? `<span class="quality-locate">定位：${escapeHtml(issue.location)}</span>` : `<span class="quality-locate">未发现规则问题</span>`}
+          </div>
+          <article class="quality-document">
+            ${doc ? `<div class="quality-document-head"><span>${escapeHtml(doc.label)}</span><h2>${escapeHtml(doc.title)}</h2><div class="quality-document-meta">${(doc.meta || []).map((item) => `<span>${escapeHtml(item.label)}：${escapeHtml(item.value)}</span>`).join("")}</div></div>${doc.sections.map((section) => `<section class="quality-doc-section${flagged(section) ? " is-flagged" : ""}"><h3>${escapeHtml(section.no)} ${escapeHtml(section.title)}</h3>${renderBlocks(section.blocks)}${(section.refs || []).length ? `<p class="quality-doc-refs">依据：${section.refs.map(escapeHtml).join("；")}</p>` : ""}</section>`).join("")}` : `<p class="work-muted">该资源包没有可预览文档。</p>`}
+          </article>
+        </section>
+
+        <aside class="quality-suggestion-pane">
+          ${issue ? `
+            <div class="quality-suggestion-head"><span class="quality-severity is-${escapeAttr(issue.severity)}">${escapeHtml(issue.severityLabel)}</span><small>问题 ${issueIndex + 1} / ${problems.length}</small></div>
+            <h2>${escapeHtml(issue.message)}</h2>
+            <dl class="quality-issue-facts">
+              <div><dt>位置</dt><dd>${escapeHtml(issue.location)}</dd></div>
+              <div><dt>检查规则</dt><dd>${escapeHtml(issue.basis)}</dd></div>
+              <div><dt>修改建议</dt><dd>${escapeHtml(issue.suggestion)}</dd></div>
+            </dl>
+            <div class="quality-suggestion-actions">
+              <button class="btn btn-solid" type="button" data-action="studio-open-editor" data-id="${escapeAttr(selected.id)}">在编辑器中修改</button>
+              <button class="btn" type="button" data-action="studio-fix" data-id="${escapeAttr(selected.id)}">应用结构修复</button>
+              <button class="btn" type="button" data-action="quality-prev" data-id="${escapeAttr(selected.id)}" ${issueIndex === 0 ? "disabled" : ""}>上一条</button>
+              <button class="btn" type="button" data-action="quality-next" data-id="${escapeAttr(selected.id)}" ${issueIndex >= problems.length - 1 ? "disabled" : ""}>下一条</button>
+              ${issue.severity !== "high" ? `<button class="btn btn-ghost" type="button" data-action="quality-ignore" data-id="${escapeAttr(selected.id)}" data-key="${escapeAttr(issue.message)}">忽略此提醒</button>` : ""}
+            </div>
+            <p class="quality-suggestion-note">系统只提示规则可定位的问题，不自动改写教师内容。设备参数、安全条款与专业表述必须由教师确认。</p>
+          ` : `
+            <div class="quality-suggestion-head"><span class="quality-severity is-pass">通过</span></div>
+            <h2>规则检查未发现明显问题</h2>
+            <p class="quality-suggestion-note">这不等于专业事实已认证。请继续核对 ${reviewItems.length} 项知识点、设备与参数，并完成教师审核。</p>
+            <div class="quality-suggestion-actions"><button class="btn btn-solid" type="button" data-action="studio-review" data-id="${escapeAttr(selected.id)}">提交教师审核</button></div>
+          `}
+          <section class="quality-review-status">
+            <h3>人工审核</h3>
+            <p>${escapeHtml(report.layers?.expert?.statusLabel || "未提交教师专业审核")}${report.layers?.expert?.reviewer ? ` · ${escapeHtml(report.layers.expert.reviewer)}` : ""}</p>
+            <button class="btn btn-ghost" type="button" data-action="studio-review" data-id="${escapeAttr(selected.id)}">逐项确认（${reviewItems.length} 项）</button>
+          </section>
+          <section class="quality-review-status">
+            <h3>三层检测</h3>
+            <p>A 结构 ${report.layers?.structural?.score ?? "—"} · B 专业 ${report.layers?.knowledge?.score ?? "—"} · C ${escapeHtml(report.layers?.expert?.statusLabel || "未审核")}</p>
+            <button class="btn btn-ghost" type="button" data-action="quality-detail" data-id="${escapeAttr(selected.id)}">查看完整报告</button>
+          </section>
+        </aside>
       </div>
-      <div class="quality-report-list">
-        ${reports.length ? reports.map((bundle) => {
-          const report = bundle.quality;
-          return `<div class="quality-report-card">
-            <div class="quality-report-score ${report.overall < 80 ? "is-low" : ""}"><strong>${report.overall}</strong><span>${report.level}</span></div>
-            <div class="quality-report-main"><div class="page-kicker">${escapeHtml(bundle.context?.course || "")} / ${escapeHtml(bundle.context?.task || "")}</div><h3>${escapeHtml(bundle.title)}</h3><p>${escapeHtml(report.statusLabel)} · ${report.problems.length} 个问题 · ${report.summary.passedDimensions}/${report.summary.totalDimensions} 维度通过 · ${report.layers?.knowledge?.reviewItems?.length || 0} 项待核对</p><div class="quality-report-bars">${report.dimensions.map((item) => `<span class="${item.score < 80 ? "is-low" : ""}" title="${escapeAttr(item.label)} ${item.score}">${item.score}</span>`).join("")}</div><div class="quality-report-layers"><span>A 结构 ${report.layers?.structural?.score ?? "—"}</span><span>B 知识 ${report.layers?.knowledge?.score ?? "—"}</span><span class="${report.layers?.expert?.approved ? "is-approved" : ""}">C ${escapeHtml(report.layers?.expert?.statusLabel || "未审核")}</span></div></div>
-            <div class="quality-report-actions"><button class="btn btn-ghost" type="button" data-action="quality-open" data-id="${escapeAttr(bundle.id)}">查看成果</button><button class="btn btn-ghost" type="button" data-action="quality-detail" data-id="${escapeAttr(bundle.id)}">完整报告</button><button class="btn btn-ghost" type="button" data-action="quality-rerun" data-id="${escapeAttr(bundle.id)}">重新质检</button><button class="btn btn-ghost" type="button" data-action="quality-report-md" data-id="${escapeAttr(bundle.id)}">报告</button></div>
-          </div>`;
-        }).join("") : `<div class="programs-empty"><strong>还没有质检报告</strong><p>先到智能备课中心生成一套资源包，系统会自动运行质量检测。</p><button class="btn btn-solid" type="button" data-action="nav" data-path="/studio">开始开发</button></div>`}
-      </div>
-      <p class="programs-footnote">质检不是学校官方认定；报告中的“需人工审核”项必须由课程负责人/教研组确认。权重可在代码/后续配置中调整。</p>
+      <p class="work-footnote">质检不是学校官方认定；来源覆盖率不等于事实正确率。规则发现问题用于定位，最终结论必须由课程负责人/教研组确认。</p>
     </div>
   `;
 }
@@ -3889,7 +4093,7 @@ function renderPortfolioPage() {
   const stats = getStudioBundleStats();
   return `
     <div class="page portfolio-page">
-      <div class="page-head"><div><div class="page-kicker">PORTFOLIO / 成果管理</div><h1 class="page-title">教学成果管理中心。</h1><p class="page-intro">统一保存教学资源包、版本、质检结果与教师审核状态；可打开编辑器、导出标准文档，或回到开发中心调整。</p></div><div class="page-head-side"><strong>成果库</strong>${stats.total} 份资源包<br>${stats.pending} 份待审核 · ${stats.approved} 份已通过<br><div class="page-head-actions"><button class="btn btn-ghost" type="button" data-action="nav" data-path="/studio">新建资源包</button></div></div></div>
+      <div class="page-head"><div><div class="page-kicker">PORTFOLIO / 成果管理</div><h1 class="page-title">教学成果</h1><p class="page-intro">统一保存教学资源包、版本、质检结果与教师审核状态；可打开编辑器、导出标准文档，或回到开发中心调整。</p></div><div class="page-head-side"><strong>成果库</strong>${stats.total} 份资源包<br>${stats.pending} 份待审核 · ${stats.approved} 份已通过<br><div class="page-head-actions"><button class="btn btn-ghost" type="button" data-action="nav" data-path="/studio">新建资源包</button></div></div></div>
       <div class="page-stats">
         <div class="stat"><div class="stat-value">${stats.total}</div><div class="stat-label">BUNDLES / 成果</div></div>
         <div class="stat"><div class="stat-value">${stats.thisWeek}</div><div class="stat-label">THIS WEEK / 本周更新</div></div>
@@ -3973,7 +4177,7 @@ function renderImpactPage() {
   const stats = aggregate;
   return `
     <div class="page impact-page">
-      <div class="page-head"><div><div class="page-kicker">IMPACT / 教学应用成效</div><h1 class="page-title">真实教学应用记录。</h1><p class="page-intro">只记录教师实际测量的备课时间、生成资源、人工修改比例、教师评价和专家审核结果。没有数据就显示“尚未采集”，不预填、不模拟、不把试用记录包装成学校认证。</p></div><div class="page-head-side"><strong>数据状态</strong>${stats.hasData ? `${stats.recordCount} 条真实记录 · 本机 ${getImpactStorageMode() === "indexeddb" ? "IndexedDB" : "兼容存储"}` : "尚未采集"}<br>${stats.latestMeasuredAt ? `最近记录：${escapeHtml(stats.latestMeasuredAt.slice(0, 10))}` : "等待教师录入或导入"}<div class="page-head-actions"><button class="btn btn-solid" type="button" data-action="impact-add">${icon("plus", 12)} 新增真实记录</button><button class="btn btn-ghost" type="button" data-action="impact-import-button">导入 JSON</button></div></div></div>
+      <div class="page-head"><div><div class="page-kicker">IMPACT / 教学应用成效</div><h1 class="page-title">教学应用成效</h1><p class="page-intro">只记录教师实际测量的备课时间、生成资源、人工修改比例、教师评价和专家审核结果。没有数据就显示“尚未采集”，不预填、不模拟、不把试用记录包装成学校认证。</p></div><div class="page-head-side"><strong>数据状态</strong>${stats.hasData ? `${stats.recordCount} 条真实记录 · 本机 ${getImpactStorageMode() === "indexeddb" ? "IndexedDB" : "兼容存储"}` : "尚未采集"}<br>${stats.latestMeasuredAt ? `最近记录：${escapeHtml(stats.latestMeasuredAt.slice(0, 10))}` : "等待教师录入或导入"}<div class="page-head-actions"><button class="btn btn-solid" type="button" data-action="impact-add">${icon("plus", 12)} 新增真实记录</button><button class="btn btn-ghost" type="button" data-action="impact-import-button">导入 JSON</button></div></div></div>
       <div class="page-stats">
         <div class="stat"><div class="stat-value">${stats.hasData ? stats.participants : "—"}</div><div class="stat-label">TEACHERS / 参与教师</div></div>
         <div class="stat"><div class="stat-value">${stats.hasData ? stats.courses : "—"}</div><div class="stat-label">COURSES / 试用课程</div></div>
@@ -4106,7 +4310,7 @@ function renderDemoRunStatus() {
 function renderDemoPage() {
   return `
     <div class="page demo-page">
-      <div class="page-head"><div><div class="page-kicker">COMPETITION DEMO / 演示模式</div><h1 class="page-title">一套可重复验证的教学资源开发流程。</h1><p class="page-intro">固定演示案例：机电一体化技术 · PLC技术及应用 · 物料分拣站 I/O 分配与接线检查。演示数据来自校本示例 PK-PLC-01/02，课程身份来自专业数据库；不是学院官方课程标准。</p></div><div class="page-head-side"><strong>演示状态</strong>本地可运行<br>无需模型密钥 · 可离线<br>${getStudioBundleStats().total} 份成果已保存</div></div>
+      <div class="page-head"><div><div class="page-kicker">COMPETITION DEMO / 演示模式</div><h1 class="page-title">竞赛演示</h1><p class="page-intro">固定演示案例：机电一体化技术 · PLC技术及应用 · 物料分拣站 I/O 分配与接线检查。演示数据来自校本示例 PK-PLC-01/02，课程身份来自专业数据库；不是学院官方课程标准。</p></div><div class="page-head-side"><strong>演示状态</strong>本地可运行<br>无需模型密钥 · 可离线<br>${getStudioBundleStats().total} 份成果已保存</div></div>
       ${renderDemoRunStatus()}
       <div class="demo-steps">
         ${[
@@ -4240,7 +4444,7 @@ function renderGraphPage() {
   const nodeHtml = nodes.map((node) => `<g class="graph-node is-${node.type}${selected?.id === node.id ? " is-selected" : ""}" data-action="graph-node" data-id="${escapeAttr(node.id)}" tabindex="0"><title>${escapeHtml(node.label)}</title><rect x="${node.x}" y="${node.y}" width="170" height="44" rx="7"></rect><text x="${node.x + 8}" y="${node.y + 18}">${escapeHtml(truncate(node.label, node.type === "task" ? 15 : node.type === "kp" ? 16 : 18))}</text><text class="graph-node-type" x="${node.x + 8}" y="${node.y + 34}">${node.type === "course" ? "课程" : node.type === "chapter" ? "章节" : node.type === "kp" ? "知识点" : "工作任务"}</text></g>`).join("");
   return `
     <div class="page graph-page">
-      <div class="page-head"><div><div class="page-kicker">KNOWLEDGE GRAPH / 知识关联</div><h1 class="page-title">专业知识关联网络。</h1><p class="page-intro">只画有数据支撑的边：课程 → 章节 → 知识点 → 典型工作任务。每个节点可查看来源与审核状态；没有建立知识包的课程不伪造关系。</p></div><div class="page-head-side"><strong>当前案例</strong>${escapeHtml(pack.title)}<br>${pack.chapters.length} 章节 · ${kpNodes.length} 知识点 · ${taskNodes.length} 工作任务<br>${escapeHtml(pack.statusLabel)}</div></div>
+      <div class="page-head"><div><div class="page-kicker">KNOWLEDGE GRAPH / 知识关联</div><h1 class="page-title">知识图谱</h1><p class="page-intro">只画有数据支撑的边：课程 → 章节 → 知识点 → 典型工作任务。每个节点可查看来源与审核状态；没有建立知识包的课程不伪造关系。</p></div><div class="page-head-side"><strong>当前案例</strong>${escapeHtml(pack.title)}<br>${pack.chapters.length} 章节 · ${kpNodes.length} 知识点 · ${taskNodes.length} 工作任务<br>${escapeHtml(pack.statusLabel)}</div></div>
       <div class="graph-toolbar"><label>课程<select data-role="graph-course">${packs.map((item) => `<option value="${escapeAttr(item.courseId)}" ${item.courseId === pack.courseId ? "selected" : ""}>${escapeHtml(item.title)}</option>`).join("")}</select></label><span>${escapeHtml(pack.statusLabel)} · 实线表示有明确数据/任务关联，不生成装饰性连线</span></div>
       <div class="graph-layout">
         <div class="graph-canvas"><svg viewBox="0 0 ${width} ${height}" role="img" aria-label="课程知识图谱">${edgeHtml}${nodeHtml}</svg><div class="graph-legend"><span><i class="is-course"></i>课程</span><span><i class="is-chapter"></i>章节</span><span><i class="is-kp"></i>知识点</span><span><i class="is-task"></i>工作任务</span></div></div>
@@ -4262,6 +4466,21 @@ function handleStudioAction(action, el) {
       state.studioQuality = null;
       navigate("/studio");
       break;
+    case "studio-toggle-aside":
+      state.studioAsideOpen = !state.studioAsideOpen;
+      renderApp({ preserveScroll: true });
+      break;
+    case "home-open-pack": {
+      const pack = CURRICULUM_PACKS.find((item) => item.id === id);
+      if (!pack) break;
+      state.studioCourseId = pack.courseId;
+      state.studioChapterId = pack.chapters[0]?.id || state.studioChapterId;
+      state.studioTaskId = pack.tasks.find((task) => (task.chapterId || pack.chapters[0]?.id) === state.studioChapterId)?.id || pack.tasks[0]?.id || state.studioTaskId;
+      state.studioBundle = null;
+      state.studioQuality = null;
+      navigate("/studio");
+      break;
+    }
     case "demo-start":
     case "demo-resume":
       runStudioDemo();
@@ -4379,6 +4598,51 @@ function handleStudioAction(action, el) {
     case "studio-export-pdf":
       studioExport(id, "pdf");
       break;
+    case "quality-select-report":
+      state.qualitySelectedId = id;
+      state.qualityIssueIndex = 0;
+      state.qualityDocId = "lesson";
+      renderApp({ preserveScroll: true });
+      break;
+    case "quality-select-issue": {
+      state.qualitySelectedId = id;
+      state.qualityIssueIndex = Number(el.dataset.index) || 0;
+      const location = el.dataset.location || "";
+      const selectedBundle = getStudioBundle(id);
+      const matchedDoc = selectedBundle?.artifact?.docs?.find((doc) => location.includes(doc.label));
+      if (matchedDoc) state.qualityDocId = matchedDoc.id;
+      renderApp({ preserveScroll: true });
+      break;
+    }
+    case "quality-select-doc":
+      state.qualityDocId = el.dataset.doc || "lesson";
+      renderApp({ preserveScroll: true });
+      break;
+    case "quality-prev":
+      state.qualityIssueIndex = Math.max(0, Number(state.qualityIssueIndex || 0) - 1);
+      renderApp({ preserveScroll: true });
+      break;
+    case "quality-next":
+      state.qualityIssueIndex = Number(state.qualityIssueIndex || 0) + 1;
+      renderApp({ preserveScroll: true });
+      break;
+    case "quality-ignore": {
+      const key = el.dataset.key || "";
+      if (!id || !key) break;
+      state.qualityIgnored[id] = Array.from(new Set([...(state.qualityIgnored[id] || []), key]));
+      saveQualityIgnored();
+      state.qualityIssueIndex = 0;
+      showToast("已忽略这条提醒，不改变质检分数");
+      renderApp({ preserveScroll: true });
+      break;
+    }
+    case "quality-restore-ignored": {
+      delete state.qualityIgnored[id];
+      saveQualityIgnored();
+      showToast("已恢复被忽略的提醒");
+      renderApp({ preserveScroll: true });
+      break;
+    }
     case "quality-open":
       if (!bundle) break;
       state.studioBundle = bundle;
@@ -5163,7 +5427,7 @@ function renderFilesPage() {
       <div class="page-head">
         <div>
           <div class="page-kicker">RESOURCE CENTER / 资料中心</div>
-          <h1 class="page-title">长文档，也能被真正读懂。</h1>
+          <h1 class="page-title">资料中心</h1>
           <p class="page-intro">上传教学资料、设备说明、课程标准或听课记录。文件只在浏览器本机解析，不上传服务器；解析后可预览、分块、检查隐私，再决定是否加入知识库。</p>
         </div>
         <div class="page-head-side">
@@ -7383,7 +7647,7 @@ function getActiveDoc(artifact, messageId) {
 
 function handleAction(action, el, event) {
   if (action.startsWith("program-") && handleProgramsAction(action, el)) return;
-  if (action.startsWith("studio-") || action.startsWith("quality-") || action.startsWith("portfolio") || action.startsWith("graph-") || action.startsWith("demo-") || action === "home-start-studio") {
+  if (action.startsWith("studio-") || action.startsWith("quality-") || action.startsWith("portfolio") || action.startsWith("graph-") || action.startsWith("demo-") || action === "home-start-studio" || action === "home-open-pack") {
     if (handleStudioAction(action, el)) return;
   }
   if (action.startsWith("impact-") && handleImpactAction(action, el)) return;
@@ -7998,6 +8262,11 @@ function handleAction(action, el, event) {
       if (doc) copyWithFeedback(docMarkdown(doc), "知识库材料已复制");
       break;
     }
+    case "kb-select": {
+      state.kbSelectedDocId = el.dataset.doc || "";
+      refreshKbGrid();
+      break;
+    }
     case "set-kb-cat": {
       state.kbCategory = el.dataset.cat || "全部";
       refreshKbGrid();
@@ -8326,6 +8595,11 @@ document.addEventListener("input", (event) => {
   }
   if (target.matches("[data-role='kb-search']")) {
     state.kbQuery = target.value;
+    refreshKbGrid();
+    return;
+  }
+  if (target.matches("[data-role='kb-category-select']")) {
+    state.kbCategory = target.value || "全部";
     refreshKbGrid();
     return;
   }
