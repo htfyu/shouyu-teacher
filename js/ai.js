@@ -332,6 +332,34 @@ export async function streamAI({ messages, settings, signal, onDelta, onReasonin
 }
 
 /**
+ * 带一次自动重试的流式调用。
+ * 仅在尚未收到任何文本时重试，避免界面出现重复片段。
+ */
+export async function streamAIWithRetry(options, { attempts = 2, backoffMs = 900 } = {}) {
+  let received = false;
+  let lastError;
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    received = false;
+    try {
+      return await streamAI({
+        ...options,
+        onDelta: (delta, full) => {
+          if (delta) received = true;
+          options.onDelta?.(delta, full);
+        }
+      });
+    } catch (error) {
+      lastError = error;
+      const message = String(error?.message || "");
+      const aborted = /取消|cancelled|AbortError/i.test(message);
+      if (aborted || received || attempt >= attempts) throw error;
+      await new Promise((resolve) => setTimeout(resolve, backoffMs * attempt));
+    }
+  }
+  throw lastError || new Error("AI 请求失败");
+}
+
+/**
  * 连接检查：不发送教学正文，只检查服务可达性与鉴权。
  */
 export async function checkAIConnection(settings, { signal } = {}) {

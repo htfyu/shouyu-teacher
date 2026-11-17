@@ -255,6 +255,11 @@ function printStyles() {
     .kicker { font-family: Consolas, monospace; font-size: 7.5pt; letter-spacing: 1.2px; color: #666; }
     h1 { font-family: SimSun, serif; font-size: 22pt; margin: 3mm 0 2mm; }
     .intro { color: #555; font-size: 9pt; max-width: 150mm; }
+    .toc { page-break-after: always; }
+    .toc h2 { border-bottom: 0; }
+    .toc-list { display: grid; gap: 1.5mm; margin-top: 4mm; }
+    .toc-item { display: flex; justify-content: space-between; gap: 4mm; border-bottom: 0.2mm dotted #bbb; padding-bottom: 1mm; font-size: 9pt; }
+    .toc-item span { color: #777; font-size: 8pt; }
     .doc { page-break-after: always; }
     .doc:last-of-type { page-break-after: auto; }
     .doc-kicker { font-family: Consolas, monospace; font-size: 7.5pt; color: #666; border-bottom: 1px solid #111; padding-bottom: 3mm; margin-bottom: 5mm; }
@@ -302,6 +307,13 @@ export function printArtifact(artifact, activeDocId) {
       <span>引用：${artifact.sources?.length || 0} 处知识库依据</span>
     </div>
     <p class="intro">本文档由「授渔」辅助生成，仅作为教学草稿。正式使用前须由教师人工审核学习目标、设备参数、评价权重、安全条款与数据脱敏情况。</p>
+  </div>
+  <div class="toc">
+    <h2>文档目录</h2>
+    <div class="toc-list">
+      ${content.map((doc, index) => `<div class="toc-item"><span>${String(index + 1).padStart(2, "0")}　${escapeHtml(doc.label || "")} · ${escapeHtml(doc.title)}</span><span>${doc.sections?.length || 0} 节</span></div>`).join("")}
+    </div>
+    <p class="refs">PDF 页码由浏览器打印预览生成；DOCX 目录以文档顺序列出，可在 Word 中更新域。</p>
   </div>
   ${content.map((doc) => `
     <div class="doc">
@@ -492,8 +504,8 @@ function wmlTable(block) {
   return `
     <w:tbl>
       <w:tblPr><w:tblW w:w="5000" w:type="pct"/>${border}</w:tblPr>
-      <w:tr>${headers.map((value) => cell(value, { header: true })).join("")}</w:tr>
-      ${rows.map((row) => `<w:tr>${headers.map((_, index) => cell(row[index] ?? "")).join("")}</w:tr>`).join("")}
+      <w:tr><w:trPr><w:tblHeader/><w:cantSplit/></w:trPr>${headers.map((value) => cell(value, { header: true })).join("")}</w:tr>
+      ${rows.map((row) => `<w:tr><w:trPr><w:cantSplit/></w:trPr>${headers.map((_, index) => cell(row[index] ?? "")).join("")}</w:tr>`).join("")}
     </w:tbl>
     <w:p><w:pPr><w:spacing w:after="80"/></w:pPr></w:p>`;
 }
@@ -534,14 +546,38 @@ function buildDocxDocument(artifact, options = {}) {
   `).join("");
   const sourcesXml = artifact.sources?.length ? `
     ${wmlParagraph("附录：知识来源", { bold: true, size: 24, after: 100 })}
-    ${artifact.sources.map((source) => wmlParagraph(`${source.ref}  《${source.docTitle}》 / ${source.sectionTitle}`, { size: 18, after: 50 })).join("")}
+    ${artifact.sources.map((source) => wmlParagraph(`${source.ref}  《${source.docTitle}》 / ${source.sectionTitle}${source.url ? `  ${source.url}` : ""}`, { size: 18, after: 50 })).join("")}
   ` : "";
+  const coverXml = `
+    ${wmlParagraph("授渔 · 工学一体化教学成果", { size: 22, color: "666666", align: "center", after: 240 })}
+    ${wmlParagraph(title, { bold: true, size: 44, align: "center", after: 180 })}
+    ${wmlParagraph(artifact.sceneLabel || "教学成果", { size: 22, align: "center", after: 360 })}
+    ${wmlParagraph(`课程：${artifact.context?.course || artifact.context?.context || ""}`, { size: 21, align: "center", after: 80 })}
+    ${wmlParagraph(`任务：${artifact.context?.task || ""}`, { size: 21, align: "center", after: 80 })}
+    ${wmlParagraph(`版本：v${artifact.version || 1} · 生成时间：${generated}`, { size: 18, color: "666666", align: "center", after: 80 })}
+    ${wmlParagraph("教师审核：____________________    教研组审核：____________________", { size: 19, align: "center", after: 80 })}
+    ${wmlParagraph("本文件由授渔生成，含教师/教研组人工审核区；未经审核不得作为学校正式教学文件。", { size: 17, color: "666666", align: "center", after: 80 })}
+    <w:p><w:r><w:br w:type="page"/></w:r></w:p>
+  `;
+  const tocXml = `
+    ${wmlParagraph("文档目录", { bold: true, size: 28, after: 160 })}
+    ${docs.map((doc) => wmlParagraph(`${doc.label} · ${doc.title}`, { size: 21, after: 60 })).join("")}
+    ${wmlParagraph("说明：DOCX 目录按文档顺序生成；如需页码目录，可在 Word 中使用“更新域”或打印为 PDF 后核对。", { size: 16, color: "666666", after: 120 })}
+    <w:p><w:r><w:br w:type="page"/></w:r></w:p>
+  `;
+  const signatureXml = `
+    ${wmlParagraph("教师审核与签字", { bold: true, size: 24, after: 120 })}
+    ${wmlParagraph("任课教师：____________________    日期：________________", { size: 20, after: 100 })}
+    ${wmlParagraph("教研组/课程负责人：____________________    日期：________________", { size: 20, after: 100 })}
+    ${wmlParagraph("审核意见：________________________________________________________________", { size: 20, after: 100 })}
+    ${wmlParagraph("__________________________________________________________________________", { size: 20, after: 100 })}
+  `;
   const body = `
-    ${wmlParagraph(title, { bold: true, size: 38, align: "center", after: 160 })}
-    ${wmlParagraph(`授渔 · ${artifact.sceneLabel || "教学成果"}`, { size: 19, color: "666666", align: "center", after: 60 })}
-    ${wmlParagraph(`生成时间：${generated} · AI/本地辅助草稿，正式使用前须由教师人工审核`, { size: 17, color: "666666", align: "center", after: 240 })}
+    ${coverXml}
+    ${tocXml}
     ${docsXml}
     ${sourcesXml}
+    ${signatureXml}
     <w:sectPr>
       <w:footerReference w:type="default" r:id="rId2"/>
       <w:pgSz w:w="11906" w:h="16838"/>

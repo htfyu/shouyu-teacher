@@ -156,6 +156,28 @@ async function main() {
     await page.locator(".modal-close").click();
     await page.waitForTimeout(200);
 
+    await page.goto(`${base}#/studio`, { waitUntil: "networkidle" });
+    await page.waitForTimeout(350);
+    check("智能备课中心", (await page.locator(".page-title").innerText()).includes("教学资源开发中心"));
+    check("课程知识准备", await page.locator(".studio-readiness").count() === 1);
+    await page.locator('#studio-config-form button[type="submit"]').click();
+    await page.waitForTimeout(1200);
+    check("生成 10 类资源", await page.locator(".studio-doc-tab").count() === 10);
+    check("资源包质检得分", Number(await page.locator(".studio-score strong").innerText()) > 0);
+    check("质检维度 10 项", await page.locator(".studio-quality-bar").count() === 10);
+    await page.goto(`${base}#/quality`, { waitUntil: "networkidle" });
+    await page.waitForTimeout(300);
+    check("质量检测中心报告", await page.locator(".quality-report-card").count() >= 1);
+    await page.goto(`${base}#/portfolio`, { waitUntil: "networkidle" });
+    await page.waitForTimeout(300);
+    check("成果管理中心", await page.locator(".portfolio-card").count() >= 1);
+    await page.goto(`${base}#/graph`, { waitUntil: "networkidle" });
+    await page.waitForTimeout(300);
+    check("知识图谱节点", await page.locator(".graph-node").count() >= 20);
+    await page.goto(`${base}#/demo`, { waitUntil: "networkidle" });
+    await page.waitForTimeout(250);
+    check("竞赛演示步骤", await page.locator(".demo-step").count() >= 5);
+
     await page.goto(base, { waitUntil: "networkidle" });
     await page.waitForTimeout(200);
     await page.locator('.scene-card[data-scene="lesson"]').click();
@@ -206,6 +228,10 @@ async function main() {
     await page.waitForTimeout(300);
     check("移动端专业库无横向溢出", await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth) === 0);
     check("移动端专业库筛选", await page.locator(".programs-mobile-filters").isVisible());
+    await page.goto(`${base}#/studio`, { waitUntil: "networkidle" });
+    await page.waitForTimeout(300);
+    check("移动端智能备课无横向溢出", await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth) === 0);
+    check("移动端智能备课配置", await page.locator("#studio-config-form").isVisible());
     await page.locator(".mobile-menu").click();
     await page.waitForTimeout(250);
     check("移动端侧栏可打开", await page.locator(".sidebar").evaluate((el) => getComputedStyle(el).transform !== "none" || getComputedStyle(el).visibility !== "hidden"));

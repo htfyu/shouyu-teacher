@@ -59,7 +59,8 @@ import {
   hasValidConsent,
   normalizeAISettings,
   providerLabel,
-  streamAI
+  streamAI,
+  streamAIWithRetry
 } from "./ai.js";
 
 import {
@@ -97,6 +98,45 @@ import {
   buildCourseResource,
   getDomainProfileLabel
 } from "./programs-content.js";
+
+import {
+  buildTeachingBundle,
+  bundleSummary
+} from "./teaching-engine.js";
+
+import {
+  CURRICULUM_PACKS,
+  getCurriculumPack
+} from "./curriculum-data.js";
+
+import {
+  buildCurriculumSources,
+  curriculumCoverage,
+  resolveCurriculum
+} from "./curriculum.js";
+
+import {
+  DEFAULT_QUALITY_WEIGHTS,
+  applyAutoFixes,
+  inspectBundle,
+  qualityMarkdown
+} from "./quality-engine.js";
+
+import {
+  clearStudioStore,
+  deleteStudioBundle,
+  getStudioBundle,
+  getStudioBundleStats,
+  getStudioBundles,
+  getStudioStorageMode,
+  exportStudioState,
+  importStudioState,
+  loadStudioStore,
+  saveStudioBundle,
+  saveStudioQuality,
+  setStudioReview,
+  updateStudioBundle
+} from "./studio-store.js";
 
 import {
   detectSensitive,
@@ -139,6 +179,7 @@ const ICON_PATHS = {
   file: '<path d="M4 2.5h5l3 3v8H4v-11zM9 2.5v3h3M6 8h4M6 10.5h4"/>',
   building: '<path d="M3 13.5V3h6v10.5M9 7h4v6.5M5 5.5h2M5 8h2M5 10.5h2M11 9h.1M11 11.5h.1M2 13.5h12"/>',
   archive: '<path d="M2.5 4.5h11v9h-11zM2.5 4.5V2.8h11v1.7M5.2 8h5.6"/>',
+  play: '<path d="M5 3.2l7.5 4.8L5 12.8V3.2z"/>',
   upload: '<path d="M8 10.5V2.8M4.8 6L8 2.8 11.2 6M2.5 13.5h11"/>',
   shield: '<path d="M8 2.3l4.6 1.7v4.1c0 2.7-1.9 4.5-4.6 5.6-2.7-1.1-4.6-2.9-4.6-5.6V4L8 2.3z"/><path d="M5.9 8l1.5 1.5L10.3 6.6"/>',
   check: '<path d="M2.8 8.2l3.2 3.1 7.2-7.1"/>',
@@ -460,6 +501,82 @@ function findConversation(id) {
    ========================================================== */
 
 const AI_LOCAL_KEY = "jiangbei.ai.v1";
+const QUALITY_WEIGHT_KEY = "shouyu.quality.weights.v1";
+
+function loadQualityWeights() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(QUALITY_WEIGHT_KEY) || "{}");
+    const next = { ...DEFAULT_QUALITY_WEIGHTS };
+    for (const key of Object.keys(next)) {
+      if (Number.isFinite(Number(raw[key]))) next[key] = Math.max(0, Math.min(30, Number(raw[key])));
+    }
+    return next;
+  } catch (error) {
+    return { ...DEFAULT_QUALITY_WEIGHTS };
+  }
+}
+
+function saveQualityWeights(weights) {
+  try {
+    localStorage.setItem(QUALITY_WEIGHT_KEY, JSON.stringify(weights));
+  } catch (error) {
+    // 本地权重保存失败不影响单次质检。
+  }
+}
+
+const QUALITY_WEIGHT_LABELS = {
+  objectives_completeness: "教学目标完整性",
+  objectives_evaluable: "教学目标可评价性",
+  content_accuracy: "内容准确性",
+  professional_match: "专业匹配度",
+  task_authenticity: "任务真实性",
+  activity_reasonableness: "活动合理性",
+  practical_completeness: "实训完整性",
+  safety: "安全规范性",
+  assessment_alignment: "评价匹配度",
+  resource_consistency: "资源一致性"
+};
+
+function openQualityWeights() {
+  const total = Object.values(state.qualityWeights).reduce((sum, value) => sum + Number(value || 0), 0);
+  openModal({
+    kind: "confirm",
+    wide: true,
+    kicker: "QUALITY WEIGHTS / 质检权重",
+    title: "调整质检维度权重",
+    sub: "权重保存到本机，只影响授渔规则引擎的加权计算，不改变任何专业数据或官方标准。各项权重会按总和归一化。",
+    body: `
+      <form id="quality-weights-form" class="form-grid">
+        ${Object.entries(DEFAULT_QUALITY_WEIGHTS).map(([key, fallback]) => `<div class="field"><label for="qw-${escapeAttr(key)}">${escapeHtml(QUALITY_WEIGHT_LABELS[key])}</label><input id="qw-${escapeAttr(key)}" name="${escapeAttr(key)}" type="number" min="0" max="30" step="1" value="${state.qualityWeights[key] ?? fallback}"></div>`).join("")}
+      </form>
+      <p class="programs-footnote">当前总权重 ${total}（归一化计算，不要求等于 100）。建议保留内容准确性、专业匹配和安全规范的最低权重，避免只看表面完整度。</p>
+    `,
+    footer: `<button class="btn btn-ghost" type="button" data-action="close-modal">取消</button><span class="spacer"></span><button class="btn btn-ghost" type="button" data-action="quality-weights-reset">恢复默认</button><button class="btn btn-solid" type="submit" form="quality-weights-form">保存并重算</button>`
+  });
+}
+
+async function recalculateStudioQualityAll() {
+  for (const bundle of getStudioBundles()) {
+    if (!bundle.artifact?.docs?.length) continue;
+    bundle.quality = inspectStudioBundle(bundle);
+    await saveStudioQuality(bundle.id, bundle.quality).catch(() => null);
+  }
+  if (state.studioBundle) state.studioBundle = getStudioBundle(state.studioBundle.id) || state.studioBundle;
+}
+
+async function saveQualityWeightsForm(form) {
+  const data = Object.fromEntries(new FormData(form).entries());
+  const next = {};
+  for (const key of Object.keys(DEFAULT_QUALITY_WEIGHTS)) {
+    next[key] = Math.max(0, Math.min(30, Number(data[key]) || 0));
+  }
+  state.qualityWeights = next;
+  saveQualityWeights(next);
+  await recalculateStudioQualityAll();
+  closeModal();
+  showToast("质检权重已保存，报告已重算");
+  renderApp({ preserveScroll: true });
+}
 
 function loadAISettings() {
   try {
@@ -506,6 +623,26 @@ const state = {
   programCategory: "全部",
   programManageMode: false,
   programCourseId: "",
+  studioCourseId: "course-0010",
+  studioDept: "dept-01",
+  studioGroup: "group-01",
+  studioMajor: "major-008",
+  studioChapterId: "CH-PLC-01",
+  studioTaskId: "TASK-PLC-01",
+  studioLearners: "36 人（本专业教学班，基础待教师补充）",
+  studioHours: "4",
+  studioConditions: "PLC 实训室；物料分拣教学工作站；设备型号与台套数以现场为准",
+  studioObjectiveExtra: "",
+  studioBundle: null,
+  studioDocId: "design",
+  studioBusy: false,
+  studioQuality: null,
+  studioDemo: false,
+  studioAiText: "",
+  qualityWeights: loadQualityWeights(),
+  graphCourseId: "course-0010",
+  graphNodeId: "",
+  demoStep: 0,
   historyQuery: "",
   historyCategory: "全部",
   historySelected: [],
@@ -637,6 +774,11 @@ function parseRoute() {
     return { name: "notfound" };
   }
   if (raw === "/programs" || raw.startsWith("/programs")) return { name: "programs" };
+  if (raw === "/studio" || raw.startsWith("/studio")) return { name: "studio" };
+  if (raw === "/quality" || raw.startsWith("/quality")) return { name: "quality" };
+  if (raw === "/graph" || raw.startsWith("/graph")) return { name: "graph" };
+  if (raw === "/portfolio" || raw.startsWith("/portfolio")) return { name: "portfolio" };
+  if (raw === "/demo" || raw.startsWith("/demo")) return { name: "demo" };
   if (raw === "/kb" || raw.startsWith("/kb")) return { name: "kb" };
   if (raw === "/files" || raw.startsWith("/files")) return { name: "files" };
   if (raw === "/templates" || raw.startsWith("/templates")) return { name: "templates" };
@@ -725,20 +867,26 @@ function renderSidebar(activeConv) {
   const route = state.route;
   const recent = sortedConversations().slice(0, 5);
   const activeId = activeConv?.id;
+  const studioStats = getStudioBundleStats();
   const navItems = [
-    { key: "home", path: "/", icon: "grid", label: "备课工作台" },
-    { key: "programs", path: "/programs", icon: "book", label: "专业数据库", count: PROGRAM_DATA.courses.length },
-    { key: "kb", path: "/kb", icon: "layers", label: "知识库", count: KB_DOCS.length },
+    { key: "home", path: "/", icon: "grid", label: "教学工作台" },
+    { key: "programs", path: "/programs", icon: "book", label: "专业体系", count: PROGRAM_DATA.courses.length },
+    { key: "studio", path: "/studio", icon: "spark", label: "智能备课中心", count: studioStats.total },
+    { key: "quality", path: "/quality", icon: "shield", label: "质量检测中心", count: studioStats.pending },
+    { key: "kb", path: "/kb", icon: "layers", label: "专业知识库", count: KB_DOCS.length },
+    { key: "graph", path: "/graph", icon: "grid", label: "知识图谱" },
     { key: "files", path: "/files", icon: "file", label: "资料中心", count: state.files.length },
     { key: "templates", path: "/templates", icon: "layers", label: "模板库", count: LESSON_TEMPLATES.length + EVAL_TEMPLATES.length + OBSERVATION_TEMPLATES.length },
+    { key: "portfolio", path: "/portfolio", icon: "archive", label: "成果管理", count: studioStats.total },
     { key: "history", path: "/history", icon: "clock", label: "历史对话", count: db.conversations.length },
-    { key: "settings", path: "/settings", icon: "sliders", label: "AI 与数据设置" },
+    { key: "settings", path: "/settings", icon: "sliders", label: "系统设置" },
     { key: "guide", path: "/guide", icon: "help", label: "使用说明" }
   ];
   const navGroups = [
-    { label: "WORKSPACE / 工作区", items: navItems.slice(0, 5) },
-    { label: "ARCHIVE / 记录", items: navItems.slice(5, 6) },
-    { label: "SYSTEM / 系统", items: navItems.slice(6) }
+    { label: "TEACHING / 教学中心", items: navItems.slice(0, 4) },
+    { label: "KNOWLEDGE / 知识与资源", items: navItems.slice(4, 8) },
+    { label: "OUTCOMES / 成果与记录", items: navItems.slice(8, 10) },
+    { label: "SYSTEM / 系统", items: navItems.slice(10) }
   ];
   sidebarEl.innerHTML = `
     <a class="brand" href="#/" data-action="nav" data-path="/" aria-label="授渔首页">
@@ -830,6 +978,21 @@ function renderTopbar(activeConv) {
   } else if (route.name === "programs") {
     center = `学院专业体系 · ${PROGRAM_DATA.courses.length} 条课程记录`;
     actions = `${aiChip}<button class="btn" type="button" data-action="nav" data-path="/" aria-label="返回工作台">${icon("arrowLeft", 13)}<span class="topbar-action-label">返回工作台</span></button>`;
+  } else if (route.name === "studio") {
+    center = "任务驱动 · 10 类资源 · 质检闭环";
+    actions = `${aiChip}<button class="btn" type="button" data-action="nav" data-path="/" aria-label="返回工作台">${icon("arrowLeft", 13)}<span class="topbar-action-label">返回工作台</span></button>`;
+  } else if (route.name === "quality") {
+    center = "规则评分 · 证据定位 · 人工复核";
+    actions = `${aiChip}<button class="btn" type="button" data-action="nav" data-path="/" aria-label="返回工作台">${icon("arrowLeft", 13)}<span class="topbar-action-label">返回工作台</span></button>`;
+  } else if (route.name === "graph") {
+    center = "专业 · 课程 · 章节 · 知识点 · 任务";
+    actions = `${aiChip}<button class="btn" type="button" data-action="nav" data-path="/" aria-label="返回工作台">${icon("arrowLeft", 13)}<span class="topbar-action-label">返回工作台</span></button>`;
+  } else if (route.name === "portfolio") {
+    center = "版本 · 审核 · 质检 · 导出";
+    actions = `${aiChip}<button class="btn" type="button" data-action="nav" data-path="/" aria-label="返回工作台">${icon("arrowLeft", 13)}<span class="topbar-action-label">返回工作台</span></button>`;
+  } else if (route.name === "demo") {
+    center = "可重复 · 可核验 · 离线可运行";
+    actions = `${aiChip}<button class="btn" type="button" data-action="nav" data-path="/" aria-label="返回工作台">${icon("arrowLeft", 13)}<span class="topbar-action-label">返回工作台</span></button>`;
   } else if (route.name === "kb") {
     kicker = "KNOWLEDGE BASE / 知识库";
     title = "有依据，才回答";
@@ -916,7 +1079,17 @@ function renderView(activeConv, options, previousChatScroll, previousViewScroll)
     document.querySelectorAll("[data-role='composer-input']").forEach(autoResize);
     return;
   }
-  viewEl.innerHTML = route.name === "programs"
+  viewEl.innerHTML = route.name === "studio"
+    ? renderStudioPage()
+    : route.name === "quality"
+    ? renderQualityPage()
+    : route.name === "graph"
+    ? renderGraphPage()
+    : route.name === "portfolio"
+    ? renderPortfolioPage()
+    : route.name === "demo"
+    ? renderDemoPage()
+    : route.name === "programs"
     ? renderProgramsPage()
     : route.name === "kb"
     ? renderKnowledgePage()
@@ -943,6 +1116,12 @@ function renderView(activeConv, options, previousChatScroll, previousViewScroll)
 
 function renderHomePage() {
   const stats = knowledgeStats();
+  const studioStats = getStudioBundleStats();
+  const recent = getStudioBundles().slice(0, 3);
+  const featured = CURRICULUM_PACKS[0];
+  const builtPacks = CURRICULUM_PACKS.length;
+  const pendingPacks = CURRICULUM_PACKS.filter((pack) => pack.status === "pending").length;
+  const approvedPacks = CURRICULUM_PACKS.filter((pack) => pack.status === "approved").length;
   const sceneCards = SCENES.map((scene) => `
     <button class="scene-card" type="button" data-action="scene" data-scene="${scene.id}">
       <span class="scene-card-top">
@@ -954,22 +1133,74 @@ function renderHomePage() {
       <span class="scene-card-foot"><span class="scene-dot"></span>${escapeHtml(scene.output)}</span>
     </button>
   `).join("");
+  const recentHtml = recent.length
+    ? recent.map((bundle) => `
+      <button class="workbench-recent" type="button" data-action="portfolio-open" data-id="${escapeAttr(bundle.id)}">
+        <span class="workbench-recent-main">
+          <strong>${escapeHtml(bundle.title)}</strong>
+          <small>${escapeHtml(bundle.context?.course || "")} · ${escapeHtml(bundle.context?.task || "")} · v${bundle.version || 1}</small>
+        </span>
+        <span class="workbench-recent-score">${bundle.quality?.overall ? `${bundle.quality.overall}` : "未检"}</span>
+      </button>
+    `).join("")
+    : `<button class="workbench-empty" type="button" data-action="home-start-studio">${icon("spark", 15)} 还没有资源包，从演示课程开始</button>`;
 
   return `
-    <div class="home">
-      <section class="hero" aria-labelledby="hero-title">
-        <h1 class="hero-title" id="hero-title">Hey，老师！</h1>
-        <p class="hero-subtitle">今天我可以为您做点什么呢？</p>
+    <div class="home workbench-home">
+      <section class="workbench-hero" aria-labelledby="hero-title">
+        <div>
+          <div class="page-kicker">TEACHING WORKBENCH / 教学工作台</div>
+          <h1 class="hero-title" id="hero-title">把下一节课，做成一套可审核的教学成果。</h1>
+          <p class="hero-subtitle">从专业课程知识包出发，完成教学资源开发、质量检测、教师审核和标准化导出。</p>
+          <div class="workbench-actions">
+            <button class="btn btn-solid" type="button" data-action="home-start-studio">${icon("spark", 13)} 开始一次工学一体化备课</button>
+            <button class="btn btn-ghost" type="button" data-action="nav" data-path="/programs">${icon("book", 13)} 专业体系</button>
+            <button class="btn btn-ghost" type="button" data-action="nav" data-path="/demo">${icon("play", 13)} 竞赛演示</button>
+          </div>
+        </div>
+        <div class="workbench-hero-note">
+          <span class="status-dot"></span>
+          ${studioStats.pending ? `${studioStats.pending} 份成果待审核` : "当前没有待审核成果"} · ${getStudioStorageMode() === "indexeddb" ? "本机成果库已连接" : "本机兼容存储"}
+        </div>
       </section>
 
-      <div class="composer-wrap">
+      <section class="workbench-grid" aria-label="今日工作概览">
+        <div class="workbench-card workbench-card-wide">
+          <div class="workbench-card-head"><span>${icon("archive", 13)} 最近编辑</span><span>${studioStats.thisWeek} 份本周更新</span></div>
+          <div class="workbench-recent-list">${recentHtml}</div>
+        </div>
+        <button class="workbench-card" type="button" data-action="nav" data-path="/quality">
+          <div class="workbench-card-head"><span>${icon("shield", 13)} 待审核 / 质检</span><span>${studioStats.pending}</span></div>
+          <strong class="workbench-number">${studioStats.pending || "0"}</strong>
+          <p>${studioStats.pending ? "质检通过后提交教师审核，避免直接进入正式教学。" : "资源生成后自动进入质量检测；规则评分可解释、可定位。"}</p>
+          <span class="workbench-link">打开质量检测中心 →</span>
+        </button>
+        <button class="workbench-card" type="button" data-action="nav" data-path="/programs">
+          <div class="workbench-card-head"><span>${icon("book", 13)} 专业课程覆盖</span><span>${PROGRAM_DATA.meta.counts.majors} 专业</span></div>
+          <strong class="workbench-number">${PROGRAM_DATA.meta.counts.courses}</strong>
+          <p>课程记录；${builtPacks} 门课程已建立知识包（${pendingPacks} 门待审核、${approvedPacks} 门已审核）。${featured ? `当前代表课程：${escapeHtml(featured.title)}。` : ""}</p>
+          <span class="workbench-link">查看专业数据库 →</span>
+        </button>
+        <button class="workbench-card" type="button" data-action="nav" data-path="/kb">
+          <div class="workbench-card-head"><span>${icon("layers", 13)} 知识库基线</span><span>${stats.docs} 份材料</span></div>
+          <strong class="workbench-number">${stats.sections}</strong>
+          <p>可检索片段；引用到章节。专业课程知识包与校本示例、来源表分开标注，不混淆官方与参考。</p>
+          <span class="workbench-link">查看知识与依据 →</span>
+        </button>
+      </section>
+
+      <div class="composer-wrap workbench-composer">
+        <div class="section-row">
+          <div><h2 class="section-title">直接描述任务，或从下方选一个入口。</h2></div>
+          <span class="workbench-inline-note">本地模式优先；AI 增强前会做隐私检查</span>
+        </div>
         ${renderComposer(false)}
       </div>
 
       <section class="scenes" aria-labelledby="scene-title">
         <div class="section-row">
           <div>
-            <h2 class="section-title" id="scene-title">不要从空白对话框开始。选一个真实任务。</h2>
+            <h2 class="section-title" id="scene-title">快速生成一个已有场景。</h2>
           </div>
           <button class="btn-link" type="button" data-action="nav" data-path="/guide">怎么用 →</button>
         </div>
@@ -1946,6 +2177,15 @@ function programsSourceCount(ids) {
   return new Set(ids || []).size;
 }
 
+function programsSourceAnomalies(course, catalog) {
+  if (!course || !catalog) return [];
+  const major = catalog.majors.find((item) => item.id === course.majorId);
+  if (!major) return [];
+  return (course.sourceIds || [])
+    .map((id) => catalog.sourceMap.get(id) || catalog.sources.find((source) => source.id === id))
+    .filter((source) => source && source.major && source.major !== major.name);
+}
+
 function programsCourseTitle(course) {
   const name = String(course?.name || "").trim();
   if (!name || name === "暂无公开资料") {
@@ -2533,6 +2773,10 @@ function programsCourseModalBody(view) {
           </div>
           <div class="programs-aside-card">
             <div class="programs-kicker">SOURCES / 来源</div>
+            ${(() => {
+              const anomalies = programsSourceAnomalies(course, view.catalog || programsCatalog());
+              return anomalies.length ? `<div class="programs-pending-note">${icon("alert", 12)} 原表该课程行引用了 ${anomalies.map((item) => item.id).join("、")}，但在来源表中这些编号属于其他专业。系统保留原值、不擅自改写，也不把这些来源当作本课程知识包依据；正式建设时需教研组核对来源编号。</div>` : "";
+            })()}
             ${programsSourceCards(course.sourceIds, { sources: view.sources, sourceMap: new Map(view.sources.map((source) => [source.id, source])) }, 10)}
           </div>
           <div class="programs-aside-card is-note">
@@ -2969,6 +3213,876 @@ function handleProgramsAction(action, el) {
         showToast("修订已导入");
         renderApp({ preserveScroll: true });
       }).catch((error) => showToast(error.message || "导入失败"));
+      break;
+    default:
+      return false;
+  }
+  return true;
+}
+
+/* ==========================================================
+   Teaching studio
+   ========================================================== */
+
+function studioCatalog() {
+  return buildProgramCatalog();
+}
+
+function inspectStudioBundle(bundle) {
+  return inspectBundle(bundle, { weights: state.qualityWeights });
+}
+
+function studioEnsureContext() {
+  const catalog = studioCatalog();
+  let course = catalog.courses.find((item) => item.id === state.studioCourseId);
+  const fallback = catalog.courses.find((item) => item.id === "course-0010") || catalog.courses[0];
+  if (!course) course = fallback;
+  if (!course) throw new Error("专业数据库没有可用课程");
+  const major = catalog.majors.find((item) => item.id === course.majorId);
+  const group = catalog.groups.find((item) => item.id === course.groupId);
+  const department = catalog.departments.find((item) => item.id === course.deptId);
+  state.studioCourseId = course.id;
+  state.studioDept = department?.id || "";
+  state.studioGroup = group?.id || "";
+  state.studioMajor = major?.id || "";
+  const pack = resolveCurriculum(course, catalog);
+  if (!pack) throw new Error("课程知识包装配失败");
+  const chapter = pack.chapters.find((item) => item.id === state.studioChapterId) || pack.chapters[0];
+  const task = pack.tasks.find((item) => item.id === state.studioTaskId)
+    || pack.tasks.find((item) => (item.knowledgePointIds || []).some((id) => (chapter.knowledgePoints || []).some((point) => point.id === id)))
+    || pack.tasks[0];
+  state.studioChapterId = chapter?.id || "";
+  state.studioTaskId = task?.id || "";
+  return { catalog, course, major, group, department, pack, chapter, task };
+}
+
+function studioSelectOptions(items, selected, valueKey = "id", labelKey = "name") {
+  return items.map((item) => `<option value="${escapeAttr(item[valueKey])}" ${selected === item[valueKey] ? "selected" : ""}>${escapeHtml(item[labelKey] || "")}</option>`).join("");
+}
+
+function studioPackBadge(pack) {
+  if (pack.status === "approved") return programsBadge("已审核", "official");
+  if (pack.status === "pending") return programsBadge("待教研组审核", "pending");
+  return programsBadge("行业通用参考", "reference");
+}
+
+function studioQualityBars(report) {
+  if (!report) return "";
+  return `
+    <div class="studio-quality-bars">
+      ${report.dimensions.map((item) => `
+        <div class="studio-quality-bar">
+          <div><span>${escapeHtml(item.label)}</span><b>${item.score}</b></div>
+          <div class="studio-quality-track"><i style="width:${Math.max(2, item.score)}%" class="${item.score < 80 ? "is-low" : ""}"></i></div>
+          <small>${item.problems.length ? `${item.problems.length} 个问题` : "通过"}</small>
+        </div>
+      `).join("")}
+    </div>
+  `;
+}
+
+function studioQualityIssues(report) {
+  if (!report) return "";
+  return `
+    <div class="studio-quality-issues">
+      ${report.problems.length ? report.problems.slice(0, 8).map((problem) => `
+        <div class="studio-quality-issue is-${escapeAttr(problem.severity)}">
+          <span>${escapeHtml(problem.severityLabel)}</span>
+          <div><strong>${escapeHtml(problem.message)}</strong><small>${escapeHtml(problem.location)} · ${escapeHtml(problem.basis)}</small><p>${escapeHtml(problem.suggestion)}</p></div>
+        </div>
+      `).join("") : `<div class="studio-quality-pass">${icon("check", 13)} 规则检查未发现明显问题；专业内容仍需人工审核。</div>`}
+      ${report.problems.length > 8 ? `<p class="programs-muted">另有 ${report.problems.length - 8} 个问题，请在质量检测中心查看完整报告。</p>` : ""}
+    </div>
+  `;
+}
+
+function renderStudioConfig(ctx) {
+  const { catalog, course, major, group, department, pack, chapter, task } = ctx;
+  const groups = catalog.groups.filter((item) => item.deptId === department?.id);
+  const majors = catalog.majors.filter((item) => item.groupId === group?.id);
+  const courses = catalog.courses.filter((item) => item.majorId === major?.id);
+  return `
+    <form id="studio-config-form" class="studio-config">
+      <div class="studio-config-head">
+        <div><div class="page-kicker">RESOURCE DEVELOPMENT / 资源开发</div><h2>从一门课程开始</h2></div>
+        ${studioPackBadge(pack)}
+      </div>
+      <div class="studio-field-grid">
+        <label class="studio-field"><span>教学单位</span><select data-role="studio-dept">${studioSelectOptions(catalog.departments, department?.id)}</select></label>
+        <label class="studio-field"><span>专业组</span><select data-role="studio-group">${studioSelectOptions(groups, group?.id)}</select></label>
+        <label class="studio-field field-wide"><span>专业</span><select data-role="studio-major">${studioSelectOptions(majors, major?.id)}</select></label>
+        <label class="studio-field field-wide"><span>课程</span><select data-role="studio-course">${courses.map((item) => `<option value="${escapeAttr(item.id)}" ${course.id === item.id ? "selected" : ""}>${escapeHtml(programsCourseTitle(item))} · ${escapeHtml(item.category || "未分类")}</option>`).join("")}</select></label>
+        <label class="studio-field"><span>章节</span><select data-role="studio-chapter">${studioSelectOptions(pack.chapters, chapter?.id, "id", "title")}</select></label>
+        <label class="studio-field"><span>典型工作任务</span><select data-role="studio-task">${studioSelectOptions(pack.tasks, task?.id, "id", "title")}</select></label>
+        <label class="studio-field"><span>教学对象</span><input name="learners" value="${escapeAttr(state.studioLearners)}" placeholder="如：36 人，已学电工基础"></label>
+        <label class="studio-field"><span>建议学时</span><input name="hours" type="number" min="1" max="24" step="1" value="${escapeAttr(state.studioHours)}"></label>
+        <label class="studio-field field-wide"><span>教学条件</span><textarea name="conditions" rows="2">${escapeHtml(state.studioConditions)}</textarea></label>
+        <label class="studio-field field-wide"><span>教师补充目标（可选）</span><textarea name="objectiveExtra" rows="2" placeholder="只写可评价的补充目标；不写入官方标准">${escapeHtml(state.studioObjectiveExtra)}</textarea></label>
+      </div>
+      <div class="studio-config-actions">
+        <button class="btn btn-solid" type="submit" ${state.studioBusy ? "disabled" : ""}>${icon("spark", 13)} ${state.studioBusy ? "正在装配资源包…" : "生成 10 类教学资源"}</button>
+        <button class="btn btn-ghost" type="button" data-action="studio-reset">恢复演示课程</button>
+      </div>
+      <p class="studio-config-note">${icon("shield", 11)} 本地规则引擎生成；不调用外部模型也可运行。知识包为“${escapeHtml(pack.statusLabel)}”，不是学院官方课程标准。</p>
+    </form>
+  `;
+}
+
+function renderStudioReadiness(ctx) {
+  const { pack, course, chapter, task } = ctx;
+  const coverage = curriculumCoverage(pack);
+  const sources = buildCurriculumSources(pack, ctx.catalog);
+  return `
+    <div class="studio-readiness">
+      <div class="studio-readiness-top">
+        <div>
+          <div class="page-kicker">KNOWLEDGE READY / 知识准备</div>
+          <h2>${escapeHtml(pack.title)}</h2>
+          <p>${escapeHtml(pack.subtitle || "")}</p>
+        </div>
+        ${studioPackBadge(pack)}
+      </div>
+      <div class="studio-metrics">
+        <div><b>${coverage.chapters}</b><span>章节</span></div>
+        <div><b>${coverage.knowledgePoints}</b><span>知识点</span></div>
+        <div><b>${coverage.tasks}</b><span>典型工作任务</span></div>
+        <div><b>${coverage.citeRate}%</b><span>知识点来源覆盖</span></div>
+      </div>
+      <div class="studio-route">
+        <span>${escapeHtml(course.name)}</span>${icon("chevronRight", 11)}
+        <span>${escapeHtml(chapter.title)}</span>${icon("chevronRight", 11)}
+        <span>${escapeHtml(task.title)}</span>
+      </div>
+      <div class="notice-stack">
+        <div class="privacy-warning">${escapeHtml(pack.disclaimer)}</div>
+      </div>
+      <div class="studio-block-head"><h3>10 类资源将共享同一任务上下文</h3><span>不是复制同一段文字</span></div>
+      <div class="studio-resource-list">
+        ${["教学设计方案", "工学一体化教案", "教学工作页", "教学信息页", "学习任务书", "实训操作指导书", "教学活动策划", "学生评价表", "教学反思表", "课件内容大纲"].map((label, index) => `<div><b>${String(index + 1).padStart(2, "0")}</b><span>${label}</span></div>`).join("")}
+      </div>
+      <div class="studio-block-head"><h3>可追溯来源</h3><span>${sources.length} 条</span></div>
+      ${sources.length ? `<div class="studio-source-chips">${sources.slice(0, 8).map((source) => `<span title="${escapeAttr(source.snippet || "")}">${escapeHtml(source.ref)} · ${escapeHtml(source.docTitle)}</span>`).join("")}</div>` : `<p class="programs-pending-note">${icon("alert", 12)} 当前课程没有可引用来源，系统会标记为待完善，不会伪造官方依据。</p>`}
+      ${(() => {
+        const anomalies = programsSourceAnomalies(course, ctx.catalog);
+        return anomalies.length ? `<p class="programs-pending-note">${icon("alert", 12)} 原表课程行中的 ${anomalies.map((item) => item.id).join("、")} 在来源表中属于其他专业；本知识包未使用这些编号，专业身份只采用 S2/S3。</p>` : "";
+      })()}
+      <div class="studio-block-head"><h3>质检规则</h3><span>10 个维度 · 权重可配置</span></div>
+      <p class="studio-muted">教学目标完整性、可评价性、内容准确性、专业匹配、任务真实性、活动合理性、实训完整性、安全规范、评价匹配、资源一致性。评分由规则和证据生成，不调用模型打分。</p>
+    </div>
+  `;
+}
+
+function renderStudioResult(bundle) {
+  const report = bundle.quality || state.studioQuality;
+  const docs = bundle.artifact?.docs || [];
+  const selected = docs.find((doc) => doc.id === state.studioDocId) || docs[0];
+  return `
+    <div class="studio-result">
+      <div class="studio-result-head">
+        <div>
+          <div class="page-kicker">BUNDLE / 教学资源包 v${bundle.version || 1}</div>
+          <h2>${escapeHtml(bundle.title)}</h2>
+          <p>${escapeHtml(bundle.context?.course || "")} · ${escapeHtml(bundle.context?.task || "")} · ${escapeHtml(bundle.context?.hours || "")} 学时 · 知识包 ${escapeHtml(bundle.context?.reviewStatus || "待审核")} · 成果 ${escapeHtml(bundle.reviewStatus || "待审核")}</p>
+        </div>
+        <div class="studio-result-actions">
+          <button class="btn btn-solid" type="button" data-action="studio-open-editor" data-id="${escapeAttr(bundle.id)}">${icon("sliders", 12)} 在编辑器中修改</button>
+          <button class="btn btn-ghost" type="button" data-action="studio-ai-review" data-id="${escapeAttr(bundle.id)}">${icon("spark", 12)} AI 教研建议</button>
+          <button class="btn btn-ghost" type="button" data-action="studio-review" data-id="${escapeAttr(bundle.id)}">${icon("check", 12)} 提交审核</button>
+        </div>
+      </div>
+      <div class="studio-result-grid">
+        <div class="studio-quality-panel">
+          <div class="studio-score ${report && report.overall < 80 ? "is-low" : ""}">
+            <strong>${report ? report.overall : "未检"}</strong><span>/ 100</span><small>${report ? report.statusLabel : "等待质检"}</small>
+          </div>
+          <div class="studio-quality-copy">
+            <div class="studio-block-head"><h3>质量检测</h3><span>${report ? `${report.summary.passedDimensions}/${report.summary.totalDimensions} 维度通过` : "未运行"}</span></div>
+            ${report ? studioQualityBars(report) : `<p class="studio-muted">点击“重新质检”运行 10 个规则维度。</p>`}
+            <div class="studio-result-actions">
+              <button class="btn btn-ghost" type="button" data-action="studio-quality" data-id="${escapeAttr(bundle.id)}">${icon("refresh", 12)} 重新质检</button>
+              <button class="btn btn-ghost" type="button" data-action="studio-fix" data-id="${escapeAttr(bundle.id)}">一键修复结构问题</button>
+              <button class="btn btn-ghost" type="button" data-action="studio-quality-report" data-id="${escapeAttr(bundle.id)}">${icon("download", 12)} 下载报告</button>
+            </div>
+          </div>
+        </div>
+        ${report ? `<div class="studio-issues-panel"><div class="studio-block-head"><h3>问题与依据</h3><span>${report.problems.length} 条</span></div>${studioQualityIssues(report)}</div>` : ""}
+      </div>
+      <div class="studio-doc-tabs" role="tablist" aria-label="资源文档">
+        ${docs.map((doc) => `<button class="studio-doc-tab${selected?.id === doc.id ? " is-active" : ""}" type="button" data-action="studio-doc" data-id="${escapeAttr(doc.id)}">${escapeHtml(doc.label)}</button>`).join("")}
+      </div>
+      <div class="studio-doc-preview">
+        ${selected ? `
+          <div class="studio-doc-head"><div><span>${escapeHtml(selected.label)}</span><h3>${escapeHtml(selected.title)}</h3></div><span class="programs-muted">${selected.sections.length} 个章节</span></div>
+          ${(selected.meta || []).length ? `<div class="studio-doc-meta">${selected.meta.map((item) => `<span><b>${escapeHtml(item.label)}</b>${escapeHtml(item.value)}</span>`).join("")}</div>` : ""}
+          <div class="doc">${selected.sections.map((section) => `<section class="studio-doc-section"><h4>${escapeHtml(section.no)} ${escapeHtml(section.title)}</h4>${renderBlocks(section.blocks)}${(section.refs || []).length ? `<p class="programs-muted">依据：${section.refs.map(escapeHtml).join("；")}</p>` : ""}</section>`).join("")}</div>
+        ` : `<div class="programs-empty">资源包中没有文档。</div>`}
+      </div>
+      <div class="studio-export">
+        <div><strong>导出标准化成果</strong><span>DOCX / XLSX / Markdown / PDF（浏览器打印）</span></div>
+        <div class="studio-export-actions">
+          <button class="btn btn-solid" type="button" data-action="studio-export-docx" data-id="${escapeAttr(bundle.id)}">${icon("download", 12)} DOCX</button>
+          <button class="btn btn-ghost" type="button" data-action="studio-export-xlsx" data-id="${escapeAttr(bundle.id)}">Excel</button>
+          <button class="btn btn-ghost" type="button" data-action="studio-export-md" data-id="${escapeAttr(bundle.id)}">Markdown</button>
+          <button class="btn btn-ghost" type="button" data-action="studio-export-pdf" data-id="${escapeAttr(bundle.id)}">PDF</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function renderStudioPage() {
+  let ctx;
+  try {
+    ctx = studioEnsureContext();
+  } catch (error) {
+    return `<div class="page"><div class="programs-empty"><strong>教学资源开发中心尚未就绪</strong><p>${escapeHtml(error.message)}</p></div></div>`;
+  }
+  const bundle = state.studioBundle;
+  const stats = getStudioBundleStats();
+  return `
+    <div class="page studio-page">
+      <div class="page-head">
+        <div>
+          <div class="page-kicker">STUDIO / 专业知识驱动</div>
+          <h1 class="page-title">工学一体化教学资源开发中心。</h1>
+          <p class="page-intro">选择专业、课程、章节和典型工作任务，系统从课程知识包装配 10 类资源共享上下文，再进入质检、审核和导出。</p>
+        </div>
+        <div class="page-head-side">
+          <strong>当前知识包</strong>
+          ${escapeHtml(ctx.pack.title)}<br>
+          状态：${escapeHtml(ctx.pack.statusLabel)}<br>
+          资源包：${stats.total} 份 · 待审核 ${stats.pending} 份
+          <div class="page-head-actions">
+            <button class="btn btn-ghost" type="button" data-action="nav" data-path="/portfolio">成果管理</button>
+            <button class="btn btn-ghost" type="button" data-action="nav" data-path="/demo">竞赛演示</button>
+          </div>
+        </div>
+      </div>
+      <div class="page-stats">
+        <div class="stat"><div class="stat-value">${ctx.pack.chapters.length}</div><div class="stat-label">CHAPTERS / 章节</div></div>
+        <div class="stat"><div class="stat-value">${ctx.pack.tasks.length}</div><div class="stat-label">TASKS / 典型任务</div></div>
+        <div class="stat"><div class="stat-value">10</div><div class="stat-label">RESOURCES / 资源类型</div></div>
+        <div class="stat"><div class="stat-value">${bundle?.quality?.overall ?? "—"}</div><div class="stat-label">QUALITY / 最近质检</div></div>
+      </div>
+      <div class="studio-layout">
+        <aside class="studio-config-column">${renderStudioConfig(ctx)}</aside>
+        <section class="studio-main-column" id="studio-main">${bundle ? renderStudioResult(bundle) : renderStudioReadiness(ctx)}</section>
+      </div>
+      <p class="programs-footnote">“${escapeHtml(ctx.pack.statusLabel)}”不是学院正式课程标准。教师必须审核设备、参数、安全条款和教学内容；AI/规则生成内容不能直接作为学校官方文件。</p>
+    </div>
+  `;
+}
+
+async function generateStudioBundle(form) {
+  if (state.studioBusy) return;
+  const ctx = studioEnsureContext();
+  const data = form ? Object.fromEntries(new FormData(form).entries()) : {};
+  const learners = String(data.learners || state.studioLearners || "").trim();
+  const conditions = String(data.conditions || state.studioConditions || "").trim();
+  const objectiveExtra = String(data.objectiveExtra || state.studioObjectiveExtra || "").trim();
+  const hours = Math.max(1, Math.min(24, Number(data.hours) || Number(state.studioHours) || 4));
+  const combined = [learners, conditions, objectiveExtra].join("\n");
+  const risks = Array.from(new Set([...detectInputRisk(combined), ...privacyFindingLabels(detectSensitive(combined))]));
+  if (risks.length) {
+    showToast(`检测到${risks.join("、")}，请先脱敏后再生成`);
+    return;
+  }
+  state.studioBusy = true;
+  state.studioLearners = learners;
+  state.studioConditions = conditions;
+  state.studioObjectiveExtra = objectiveExtra;
+  state.studioHours = String(hours);
+  renderApp({ preserveScroll: true });
+  await sleep(80);
+  try {
+    const bundle = buildTeachingBundle({
+      courseId: ctx.course.id,
+      chapterId: ctx.chapter.id,
+      taskId: ctx.task.id,
+      learners,
+      hours,
+      conditions,
+      objectiveExtra
+    }, ctx.catalog);
+    const report = inspectStudioBundle(bundle);
+    bundle.quality = report;
+    const saved = await saveStudioBundle(bundle);
+    await saveStudioQuality(saved.id, report);
+    state.studioBundle = { ...saved, quality: report };
+    state.studioQuality = report;
+    state.studioDocId = "design";
+    state.studioBusy = false;
+    showToast(`已生成 10 类资源 · 质检 ${report.overall} 分`);
+    renderApp({ preserveScroll: true });
+  } catch (error) {
+    state.studioBusy = false;
+    renderApp({ preserveScroll: true });
+    showToast(error.message || "资源包生成失败");
+  }
+}
+
+async function runStudioQuality(bundleId) {
+  const bundle = getStudioBundle(bundleId) || state.studioBundle;
+  if (!bundle) return;
+  try {
+    const report = inspectStudioBundle(bundle);
+    bundle.quality = report;
+    await saveStudioQuality(bundle.id, report);
+    state.studioBundle = bundle;
+    state.studioQuality = report;
+    showToast(`质检完成：${report.overall} 分`);
+    renderApp({ preserveScroll: true });
+  } catch (error) {
+    showToast(error.message || "质检失败");
+  }
+}
+
+async function aiStudioReview(bundleId) {
+  const bundle = getStudioBundle(bundleId) || state.studioBundle;
+  if (!bundle) return;
+  if (!aiModeActive() || !hasValidConsent(state.ai)) {
+    openAIConsentModal(() => aiStudioReview(bundleId), state.ai.provider);
+    return;
+  }
+  const selected = bundle.artifact.docs.find((doc) => doc.id === state.studioDocId) || bundle.artifact.docs[0];
+  const excerpt = truncate(docToText(selected), 5200);
+  const messages = [
+    {
+      role: "system",
+      content: "你是中国技工院校工学一体化教研员。你只能依据用户提供的课程知识包、教学任务和资源包片段提出改进建议，不得编造学校未公开的课程标准、学时、教材版本或设备参数。输出中文 Markdown，分为：1) 3条最值得改进的地方；2) 每条给出定位和可执行改法；3) 1条需人工核对的风险。不要给空泛口号。"
+    },
+    {
+      role: "user",
+      content: `专业：${bundle.context.major}\n课程：${bundle.context.course}\n任务：${bundle.context.task}\n知识包状态：${bundle.curriculumStatus}\n当前文档：${selected.label}\n\n资源片段：\n${excerpt}`
+    }
+  ];
+  try {
+    showToast("AI 正在审阅当前资源包，请稍候");
+    const safeMessages = await prepareAIPayload(messages);
+    const response = await streamAIWithRetry({
+      messages: safeMessages,
+      settings: state.ai,
+      onDelta: () => {}
+    });
+    openModal({
+      kind: "confirm",
+      wide: true,
+      kicker: "AI REVIEW / 教研建议",
+      title: "AI 教研建议（不是官方结论）",
+      sub: "AI 只读取当前资源片段，不修改成果、不替代教师审核。建议中的设备、参数和安全条款必须人工核对。",
+      body: `<div class="programs-rich">${mdLite(response.text)}</div>`,
+      footer: `<button class="btn btn-ghost" type="button" data-action="close-modal">关闭</button><span class="spacer"></span><button class="btn btn-ghost" type="button" data-action="studio-ai-copy" data-id="${escapeAttr(bundle.id)}">复制建议</button>`
+    });
+    state.studioAiText = response.text;
+    await updateStudioBundle(bundle.id, { aiReviewAt: new Date().toISOString() }).catch(() => null);
+  } catch (error) {
+    showToast(error.message || "AI 教研建议失败，请回退本地模式");
+  }
+}
+
+async function applyStudioFixes(bundleId) {
+  const bundle = getStudioBundle(bundleId) || state.studioBundle;
+  if (!bundle) return;
+  const report = bundle.quality || inspectStudioBundle(bundle);
+  const fixed = applyAutoFixes(bundle, report);
+  if (!fixed.applied.length) {
+    showToast("没有可自动修复的结构问题，请按问题建议人工修改");
+    return;
+  }
+  fixed.bundle.quality = inspectStudioBundle(fixed.bundle);
+  fixed.bundle._contentChanged = true;
+  const saved = await saveStudioBundle(fixed.bundle);
+  await saveStudioQuality(saved.id, fixed.bundle.quality);
+  state.studioBundle = { ...saved, quality: fixed.bundle.quality };
+  state.studioQuality = fixed.bundle.quality;
+  showToast(`已应用 ${fixed.applied.length} 项结构修复，请复核`);
+  renderApp({ preserveScroll: true });
+}
+
+function buildStudioResult(bundle) {
+  return {
+    id: bundle.id,
+    scene: "studio",
+    sceneLabel: "工学一体化教学资源包",
+    title: bundle.title,
+    intro: bundle.artifact.intro,
+    context: bundle.context,
+    artifact: bundle.artifact,
+    sources: bundle.artifact.sources,
+    compliance: bundle.artifact.compliance,
+    workflow: [],
+    suggestions: [],
+    metaSummary: [bundle.context.major, bundle.context.course, bundle.context.task, `${bundle.context.hours} 学时`].filter(Boolean),
+    isLocal: true
+  };
+}
+
+async function openStudioInEditor(bundleId) {
+  const bundle = getStudioBundle(bundleId) || state.studioBundle;
+  if (!bundle) {
+    showToast("没有可编辑的资源包");
+    return;
+  }
+  try {
+    const conv = createConversation();
+    conv.title = truncate(`${bundle.context.course} · ${bundle.context.task}`, 40);
+    conv.scene = "studio";
+    conv.category = "教学资源包";
+    conv.context = bundle.context;
+    appendMessage(conv, {
+      id: uid("msg"),
+      role: "user",
+      kind: "params",
+      scene: "studio",
+      text: `基于课程知识包生成「${bundle.context.task}」的完整教学资源包。`,
+      createdAt: new Date().toISOString()
+    });
+    const result = buildStudioResult(bundle);
+    const message = {
+      id: uid("msg"),
+      role: "assistant",
+      kind: "result",
+      createdAt: new Date().toISOString(),
+      text: result.intro,
+      result,
+      sources: result.sources,
+      suggestions: [],
+      feedback: ""
+    };
+    appendMessage(conv, message);
+    conv.latestArtifact = bundle.artifact;
+    conv.latestResultMessageId = message.id;
+    conv.studioBundleId = bundle.id;
+    conv.updatedAt = new Date().toISOString();
+    saveDB();
+    bundle.conversationId = conv.id;
+    await saveStudioBundle(bundle);
+    showToast("已打开成果编辑器；修改会保存到对话");
+    navigate(`/chat/${conv.id}`);
+  } catch (error) {
+    showToast(error.message || "无法打开编辑器");
+  }
+}
+
+function studioExport(bundleId, type) {
+  const bundle = getStudioBundle(bundleId) || state.studioBundle;
+  if (!bundle) return;
+  try {
+    if (type === "docx") downloadDOCX(bundle.artifact, { title: bundle.title });
+    else if (type === "xlsx") downloadXLSX(bundle.artifact, { title: bundle.title });
+    else if (type === "md") downloadMarkdown(bundle.artifact);
+    else if (type === "pdf") printArtifact(bundle.artifact);
+  } catch (error) {
+    showToast(error.message || "导出失败");
+  }
+}
+
+function openStudioReview(bundleId) {
+  const bundle = getStudioBundle(bundleId) || state.studioBundle;
+  if (!bundle) return;
+  openModal({
+    kind: "confirm",
+    narrow: true,
+    kicker: "REVIEW / 教师审核",
+    title: "提交教学成果审核",
+    sub: "审核状态会写入本机成果库；不改变原始专业数据或课程知识包。",
+    body: `
+      <form id="studio-review-form" data-bundle-id="${escapeAttr(bundle.id)}" class="form-grid">
+        <div class="field field-full"><label for="studio-review-status">审核结论</label><select id="studio-review-status" name="status"><option value="待审核">待审核</option><option value="已通过">已通过</option><option value="退回修改">退回修改</option></select></div>
+        <div class="field field-full"><label for="studio-reviewer">审核人 / 教研组</label><input id="studio-reviewer" name="reviewer" value="${escapeAttr(bundle.reviewer || "")}" placeholder="填写真实审核人"></div>
+        <div class="field field-full"><label for="studio-review-note">审核意见</label><textarea id="studio-review-note" name="note" rows="3" placeholder="记录修改要求、依据或通过条件">${escapeHtml(bundle.reviewNote || "")}</textarea></div>
+      </form>
+    `,
+    footer: `<button class="btn btn-ghost" type="button" data-action="close-modal">取消</button><span class="spacer"></span><button class="btn btn-solid" type="submit" form="studio-review-form">保存审核</button>`
+  });
+}
+
+async function saveStudioReviewForm(form) {
+  const id = form.dataset.bundleId;
+  const data = Object.fromEntries(new FormData(form).entries());
+  if (!String(data.reviewer || "").trim()) {
+    showToast("请填写审核人或教研组");
+    return;
+  }
+  try {
+    await setStudioReview(id, {
+      status: String(data.status || "待审核"),
+      reviewer: String(data.reviewer || "").trim(),
+      note: String(data.note || "").trim()
+    });
+    const updated = getStudioBundle(id);
+    if (state.studioBundle?.id === id) state.studioBundle = updated;
+    closeModal();
+    showToast("审核状态已保存");
+    renderApp({ preserveScroll: true });
+  } catch (error) {
+    showToast(error.message || "审核保存失败");
+  }
+}
+
+function openQualityDetail(bundleId) {
+  const bundle = getStudioBundle(bundleId);
+  if (!bundle?.quality) {
+    showToast("这份成果还没有质检报告");
+    return;
+  }
+  const report = bundle.quality;
+  openModal({
+    kind: "confirm",
+    wide: true,
+    kicker: "QUALITY REPORT / 质检报告",
+    title: `${bundle.context?.course || ""} · ${bundle.context?.task || ""}`,
+    sub: `综合 ${report.overall} 分 · ${report.statusLabel} · 规则评测，不是学校官方认定`,
+    body: `
+      <div class="studio-quality-panel">
+        <div class="studio-score ${report.overall < 80 ? "is-low" : ""}"><strong>${report.overall}</strong><span>/ 100</span><small>${report.level}</small></div>
+        <div class="studio-quality-copy"><div class="studio-block-head"><h3>10 维得分</h3><span>${report.summary.passedDimensions}/${report.summary.totalDimensions} 通过</span></div>${studioQualityBars(report)}</div>
+      </div>
+      <div class="studio-block-head" style="margin-top:14px"><h3>问题、位置与建议</h3><span>${report.problems.length} 条</span></div>
+      ${studioQualityIssues({ ...report, problems: report.problems })}
+      <p class="programs-footnote">${escapeHtml(report.disclaimer)}</p>
+    `,
+    footer: `<button class="btn btn-ghost" type="button" data-action="close-modal">关闭</button><span class="spacer"></span><button class="btn btn-ghost" type="button" data-action="quality-report-md" data-id="${escapeAttr(bundle.id)}">下载 Markdown</button>`
+  });
+}
+
+function renderQualityPage() {
+  const bundles = getStudioBundles();
+  const stats = getStudioBundleStats();
+  const reports = bundles.filter((bundle) => bundle.quality);
+  return `
+    <div class="page quality-page">
+      <div class="page-head"><div><div class="page-kicker">QUALITY / 质量检测</div><h1 class="page-title">教学质量智能检测中心。</h1><p class="page-intro">以 10 个可解释维度检查教学目标、专业匹配、任务真实性、实训流程、安全、评价和跨文档一致性；分数来自规则和证据，不是模型随口打分。</p></div><div class="page-head-side"><strong>质量基线</strong>${reports.length} 份报告<br>平均 ${stats.averageQuality || "—"} 分 · 待审核 ${stats.pending} 份<br><div class="page-head-actions"><button class="btn btn-ghost" type="button" data-action="quality-weights">权重设置</button><button class="btn btn-ghost" type="button" data-action="nav" data-path="/studio">去开发资源</button></div></div></div>
+      <div class="page-stats">
+        <div class="stat"><div class="stat-value">${stats.total}</div><div class="stat-label">BUNDLES / 资源包</div></div>
+        <div class="stat"><div class="stat-value">${reports.length}</div><div class="stat-label">REPORTS / 质检报告</div></div>
+        <div class="stat"><div class="stat-value">${stats.averageQuality || "—"}</div><div class="stat-label">AVERAGE / 平均分</div></div>
+        <div class="stat"><div class="stat-value">${stats.pending}</div><div class="stat-label">REVIEW / 待审核</div></div>
+      </div>
+      <div class="quality-rule-panel">
+        <div><div class="page-kicker">RULES / 评分规则</div><h2>10 个维度，权重可配置，问题可定位。</h2><p>教学目标完整性、可评价性、内容准确性、专业匹配、任务真实性、活动合理性、实训完整性、安全规范、评价匹配、资源一致性。每项都返回证据、问题等级、原文位置和修改建议；不能自动判断的内容标记为“需人工审核”。</p></div>
+        <div class="quality-weight-list">${Object.entries(DEFAULT_QUALITY_WEIGHTS).map(([key, fallback]) => `<span><b>${state.qualityWeights[key] ?? fallback}</b>${escapeHtml(QUALITY_WEIGHT_LABELS[key])}</span>`).join("")}</div>
+      </div>
+      <div class="quality-report-list">
+        ${reports.length ? reports.map((bundle) => {
+          const report = bundle.quality;
+          return `<div class="quality-report-card">
+            <div class="quality-report-score ${report.overall < 80 ? "is-low" : ""}"><strong>${report.overall}</strong><span>${report.level}</span></div>
+            <div class="quality-report-main"><div class="page-kicker">${escapeHtml(bundle.context?.course || "")} / ${escapeHtml(bundle.context?.task || "")}</div><h3>${escapeHtml(bundle.title)}</h3><p>${escapeHtml(report.statusLabel)} · ${report.problems.length} 个问题 · ${report.summary.passedDimensions}/${report.summary.totalDimensions} 维度通过</p><div class="quality-report-bars">${report.dimensions.map((item) => `<span class="${item.score < 80 ? "is-low" : ""}" title="${escapeAttr(item.label)} ${item.score}">${item.score}</span>`).join("")}</div></div>
+            <div class="quality-report-actions"><button class="btn btn-ghost" type="button" data-action="quality-open" data-id="${escapeAttr(bundle.id)}">查看成果</button><button class="btn btn-ghost" type="button" data-action="quality-detail" data-id="${escapeAttr(bundle.id)}">完整报告</button><button class="btn btn-ghost" type="button" data-action="quality-rerun" data-id="${escapeAttr(bundle.id)}">重新质检</button><button class="btn btn-ghost" type="button" data-action="quality-report-md" data-id="${escapeAttr(bundle.id)}">报告</button></div>
+          </div>`;
+        }).join("") : `<div class="programs-empty"><strong>还没有质检报告</strong><p>先到智能备课中心生成一套资源包，系统会自动运行质量检测。</p><button class="btn btn-solid" type="button" data-action="nav" data-path="/studio">开始开发</button></div>`}
+      </div>
+      <p class="programs-footnote">质检不是学校官方认定；报告中的“需人工审核”项必须由课程负责人/教研组确认。权重可在代码/后续配置中调整。</p>
+    </div>
+  `;
+}
+
+function renderPortfolioPage() {
+  const bundles = getStudioBundles();
+  const stats = getStudioBundleStats();
+  return `
+    <div class="page portfolio-page">
+      <div class="page-head"><div><div class="page-kicker">PORTFOLIO / 成果管理</div><h1 class="page-title">教学成果管理中心。</h1><p class="page-intro">统一保存教学资源包、版本、质检结果与教师审核状态；可打开编辑器、导出标准文档，或回到开发中心调整。</p></div><div class="page-head-side"><strong>成果库</strong>${stats.total} 份资源包<br>${stats.pending} 份待审核 · ${stats.approved} 份已通过<br><div class="page-head-actions"><button class="btn btn-ghost" type="button" data-action="nav" data-path="/studio">新建资源包</button></div></div></div>
+      <div class="page-stats">
+        <div class="stat"><div class="stat-value">${stats.total}</div><div class="stat-label">BUNDLES / 成果</div></div>
+        <div class="stat"><div class="stat-value">${stats.thisWeek}</div><div class="stat-label">THIS WEEK / 本周更新</div></div>
+        <div class="stat"><div class="stat-value">${stats.pending}</div><div class="stat-label">PENDING / 待审核</div></div>
+        <div class="stat"><div class="stat-value">${stats.averageQuality || "—"}</div><div class="stat-label">QUALITY / 平均分</div></div>
+      </div>
+      <div class="portfolio-list">
+        ${bundles.length ? bundles.map((bundle) => `<div class="portfolio-card">
+          <div class="portfolio-card-main"><div class="page-kicker">${escapeHtml(bundle.context?.major || "")} · v${bundle.version || 1}</div><h3>${escapeHtml(bundle.title)}</h3><p>${escapeHtml(bundle.context?.course || "")} · ${escapeHtml(bundle.context?.task || "")} · ${escapeHtml(bundle.context?.hours || "")} 学时</p><div class="portfolio-tags"><span>${escapeHtml(bundle.reviewStatus || "待审核")}</span>${bundle.quality ? `<span>质检 ${bundle.quality.overall}</span>` : `<span>未质检</span>`}${bundle.history?.length ? `<span>${bundle.history.length} 个历史版本</span>` : ""}${bundle.demo ? `<span>演示数据</span>` : ""}</div></div>
+          <div class="portfolio-actions"><button class="btn btn-solid" type="button" data-action="portfolio-open" data-id="${escapeAttr(bundle.id)}">打开</button><button class="btn btn-ghost" type="button" data-action="portfolio-review" data-id="${escapeAttr(bundle.id)}">审核</button>${bundle.history?.length ? `<button class="btn btn-ghost" type="button" data-action="portfolio-history" data-id="${escapeAttr(bundle.id)}">版本</button>` : ""}<button class="btn btn-ghost" type="button" data-action="portfolio-export" data-id="${escapeAttr(bundle.id)}">DOCX</button><button class="btn btn-ghost" type="button" data-action="portfolio-delete" data-id="${escapeAttr(bundle.id)}">删除</button></div>
+        </div>`).join("") : `<div class="programs-empty"><strong>成果库还是空的</strong><p>完成一次智能备课，资源包、质检和版本会出现在这里。</p><button class="btn btn-solid" type="button" data-action="nav" data-path="/studio">去开发</button></div>`}
+      </div>
+    </div>
+  `;
+}
+
+function openVersionHistory(bundleId) {
+  const bundle = getStudioBundle(bundleId);
+  if (!bundle) return;
+  const history = bundle.history || [];
+  openModal({
+    kind: "confirm",
+    wide: true,
+    kicker: "VERSIONS / 历史版本",
+    title: "成果版本记录",
+    sub: "只保留最近 4 个内容版本；质检状态变化不单独生成内容版本。",
+    body: `
+      <div class="version-list">
+        <div class="version-row is-current"><div><strong>当前 · v${bundle.version || 1}</strong><small>${escapeHtml(bundle.updatedAt || "")} · ${escapeHtml(bundle.reviewStatus || "待审核")}</small></div><span>${bundle.quality ? `质检 ${bundle.quality.overall}` : "未质检"}</span></div>
+        ${history.slice().reverse().map((version, index) => `<div class="version-row"><div><strong>v${version.version || 1}</strong><small>${escapeHtml(version.updatedAt || "")} · ${escapeHtml(version.reviewStatus || "待审核")}</small></div><span>${version.quality ? `质检 ${version.quality.overall}` : "未质检"}</span><button class="btn btn-ghost" type="button" data-action="portfolio-restore-version" data-id="${escapeAttr(bundle.id)}" data-index="${history.length - 1 - index}">恢复此版本</button></div>`).join("")}
+      </div>
+      ${history.length ? "" : `<p class="programs-muted">编辑成果并自动保存后，旧内容会进入历史版本。</p>`}
+    `,
+    footer: `<button class="btn btn-ghost" type="button" data-action="close-modal">关闭</button>`
+  });
+}
+
+async function restoreStudioVersion(bundleId, index) {
+  const bundle = getStudioBundle(bundleId);
+  const version = bundle?.history?.[Number(index)];
+  if (!bundle || !version?.artifact) {
+    showToast("历史版本不可用");
+    return;
+  }
+  bundle.artifact = version.artifact;
+  bundle.quality = inspectStudioBundle(bundle);
+  bundle._contentChanged = true;
+  const saved = await saveStudioBundle(bundle);
+  await saveStudioQuality(saved.id, bundle.quality);
+  if (state.studioBundle?.id === saved.id) state.studioBundle = { ...saved, quality: bundle.quality };
+  closeModal();
+  showToast(`已恢复 v${version.version || 1}，并生成新的当前版本`);
+  renderApp({ preserveScroll: true });
+}
+
+function renderDemoPage() {
+  return `
+    <div class="page demo-page">
+      <div class="page-head"><div><div class="page-kicker">COMPETITION DEMO / 演示模式</div><h1 class="page-title">一套可重复验证的教学资源开发流程。</h1><p class="page-intro">固定演示案例：机电一体化技术 · PLC技术及应用 · 物料分拣站 I/O 分配与接线检查。演示数据来自校本示例 PK-PLC-01/02，课程身份来自专业数据库；不是学院官方课程标准。</p></div><div class="page-head-side"><strong>演示状态</strong>本地可运行<br>无需 AI Key · 可离线<br>${getStudioBundleStats().total} 份成果已保存</div></div>
+      <div class="demo-steps">
+        ${[
+          ["01", "选择课程", "从专业数据库选择“机电一体化技术 / PLC技术及应用”。"],
+          ["02", "选择任务", "选择“物料分拣站 I/O 分配与接线检查”，查看章节、知识点和来源。"],
+          ["03", "装配资源", "生成教学目标、教案、工作页、信息页、任务书、实训指导书、活动策划、评价表、反思表和课件大纲。"],
+          ["04", "质量检测", "运行 10 维规则检测，查看分数、问题、原文位置和修改建议。"],
+          ["05", "教师审核", "记录审核结论；待审核知识包不会被标成官方标准。"],
+          ["06", "保存与导出", "在编辑器中修改，导出 DOCX/XLSX/Markdown/PDF，并保留版本。"],
+          ["07", "讲解证据", "页面展示来源、审核状态、质检依据和演示数据边界。"]
+        ].map(([no, title, desc]) => `<div class="demo-step"><b>${no}</b><div><h3>${title}</h3><p>${desc}</p></div></div>`).join("")}
+      </div>
+      <div class="demo-actions"><button class="btn btn-solid" type="button" data-action="demo-start">${icon("play", 13)} 运行演示案例</button><button class="btn btn-ghost" type="button" data-action="nav" data-path="/studio">手动进入开发中心</button><button class="btn btn-ghost" type="button" data-action="nav" data-path="/graph">查看知识图谱</button></div>
+      <div class="demo-architecture">
+        <div><div class="page-kicker">ARCHITECTURE / 架构</div><h3>数据 → 装配 → 质检 → 审核 → 导出</h3><p>专业数据库提供课程身份；课程知识包提供章节、知识点、任务和来源；资源引擎装配 10 类共享上下文文档；规则质检给出证据与建议；教师审核后进入成果库与标准文档。</p></div>
+        <div><div class="page-kicker">INNOVATION / 创新</div><h3>不是“让 AI 写一篇教案”</h3><p>专业知识关联、10 类资源共享任务上下文、可解释质检、跨文档一致性和来源边界分层，构成本作品与普通 AI 教学助手的差异。</p></div>
+        <div><div class="page-kicker">VALUE / 应用价值</div><h3>把重复编写变成可审核的教研流程</h3><p>教师从“找资料、拼模板、反复改格式”转为“选任务、补条件、核证据、做判断”；学校获得可追溯、可复用、可质检的教学资源。</p></div>
+      </div>
+      <div class="demo-boundary">演示边界：本案例的知识包是“校本示例 · 待教研组审核”，不是学院正式课程标准；设备型号、I/O 地址、软件版本和安全权限以现场为准。演示不会声称已完成真实课堂试用。</div>
+    </div>
+  `;
+}
+
+async function runStudioDemo() {
+  try {
+    const ctx = studioEnsureContext();
+    const bundle = buildTeachingBundle({
+      courseId: "course-0010",
+      chapterId: "CH-PLC-01",
+      taskId: "TASK-PLC-01",
+      learners: "36 人（演示班级，基础待教师补充）",
+      hours: 4,
+      conditions: "PLC 实训室；物料分拣教学工作站；设备型号与台套数以现场为准"
+    }, ctx.catalog);
+    const report = inspectStudioBundle(bundle);
+    bundle.quality = report;
+    const saved = await saveStudioBundle(bundle);
+    await saveStudioQuality(saved.id, report);
+    state.studioCourseId = "course-0010";
+    state.studioChapterId = "CH-PLC-01";
+    state.studioTaskId = "TASK-PLC-01";
+    state.studioBundle = { ...saved, quality: report };
+    state.studioQuality = report;
+    state.studioDocId = "design";
+    showToast("演示资源包已生成，可查看质检与导出");
+    navigate("/studio");
+  } catch (error) {
+    showToast(error.message || "演示运行失败");
+  }
+}
+
+/* ==========================================================
+   Knowledge graph
+   ========================================================== */
+
+function renderGraphPage() {
+  const packs = CURRICULUM_PACKS;
+  const pack = packs.find((item) => item.courseId === state.graphCourseId) || packs[0];
+  if (!pack) return `<div class="page"><div class="programs-empty"><strong>尚未建立课程知识包</strong><p>请先在智能备课中心生成资源包。</p></div></div>`;
+  const chapterNodes = pack.chapters.map((chapter, index) => ({ id: chapter.id, type: "chapter", label: chapter.title, y: 60 + index * 155, x: 210, statement: chapter.summary, refs: [], status: pack.statusLabel }));
+  const kpNodes = pack.chapters.flatMap((chapter) => (chapter.knowledgePoints || []).map((point) => ({ id: point.id, type: "kp", label: point.title, statement: point.statement, refs: point.sourceRefs || [], status: point.reviewStatus === "pending" ? "待审核" : "已审核", chapterId: chapter.id })));
+  kpNodes.forEach((node, index) => { node.x = 390; node.y = 44 + index * 44; });
+  const taskNodes = pack.tasks.map((task, index) => ({ id: task.id, type: "task", label: task.title, statement: task.situation, refs: task.sourceRefs || [], status: pack.statusLabel, y: 70 + index * 120, x: 600 }));
+  const nodes = [
+    { id: "course", type: "course", label: pack.title, statement: pack.summary, refs: pack.officialBasis?.sourceIds || [], status: pack.statusLabel, x: 40, y: 250 },
+    ...chapterNodes,
+    ...kpNodes,
+    ...taskNodes
+  ];
+  const edges = [];
+  for (const chapter of pack.chapters) {
+    edges.push(["course", chapter.id]);
+    for (const point of chapter.knowledgePoints || []) edges.push([chapter.id, point.id]);
+  }
+  for (const task of pack.tasks) {
+    for (const kpId of task.knowledgePointIds || []) edges.push([kpId, task.id]);
+  }
+  const byId = new Map(nodes.map((node) => [node.id, node]));
+  const selected = byId.get(state.graphNodeId) || byId.get("course");
+  const width = 800;
+  const height = Math.max(620, ...kpNodes.map((node) => node.y + 60), ...taskNodes.map((node) => node.y + 60));
+  const edgeHtml = edges.map(([from, to]) => {
+    const a = byId.get(from);
+    const b = byId.get(to);
+    if (!a || !b) return "";
+    return `<line x1="${a.x + 170}" y1="${a.y + 22}" x2="${b.x}" y2="${b.y + 22}" class="graph-edge" />`;
+  }).join("");
+  const nodeHtml = nodes.map((node) => `<g class="graph-node is-${node.type}${selected?.id === node.id ? " is-selected" : ""}" data-action="graph-node" data-id="${escapeAttr(node.id)}" tabindex="0"><title>${escapeHtml(node.label)}</title><rect x="${node.x}" y="${node.y}" width="170" height="44" rx="7"></rect><text x="${node.x + 8}" y="${node.y + 18}">${escapeHtml(truncate(node.label, node.type === "task" ? 15 : node.type === "kp" ? 16 : 18))}</text><text class="graph-node-type" x="${node.x + 8}" y="${node.y + 34}">${node.type === "course" ? "课程" : node.type === "chapter" ? "章节" : node.type === "kp" ? "知识点" : "工作任务"}</text></g>`).join("");
+  return `
+    <div class="page graph-page">
+      <div class="page-head"><div><div class="page-kicker">KNOWLEDGE GRAPH / 知识关联</div><h1 class="page-title">专业知识关联网络。</h1><p class="page-intro">只画有数据支撑的边：课程 → 章节 → 知识点 → 典型工作任务。每个节点可查看来源与审核状态；没有建立知识包的课程不伪造关系。</p></div><div class="page-head-side"><strong>当前案例</strong>${escapeHtml(pack.title)}<br>${pack.chapters.length} 章节 · ${kpNodes.length} 知识点 · ${taskNodes.length} 工作任务<br>${escapeHtml(pack.statusLabel)}</div></div>
+      <div class="graph-toolbar"><label>课程<select data-role="graph-course">${packs.map((item) => `<option value="${escapeAttr(item.courseId)}" ${item.courseId === pack.courseId ? "selected" : ""}>${escapeHtml(item.title)}</option>`).join("")}</select></label><span>${escapeHtml(pack.statusLabel)} · 实线表示有明确数据/任务关联，不生成装饰性连线</span></div>
+      <div class="graph-layout">
+        <div class="graph-canvas"><svg viewBox="0 0 ${width} ${height}" role="img" aria-label="课程知识图谱">${edgeHtml}${nodeHtml}</svg><div class="graph-legend"><span><i class="is-course"></i>课程</span><span><i class="is-chapter"></i>章节</span><span><i class="is-kp"></i>知识点</span><span><i class="is-task"></i>工作任务</span></div></div>
+        <aside class="graph-detail"><div class="page-kicker">NODE / 节点详情</div>${selected ? `<h2>${escapeHtml(selected.label)}</h2><p>${escapeHtml(selected.statement || "")}</p><div class="programs-tags">${(selected.refs || []).map((ref) => `<span>${escapeHtml(ref)}</span>`).join("")}</div><div class="graph-status">${escapeHtml(selected.status || "")}</div>${selected.type === "task" ? `<div class="graph-related"><strong>设备与考核</strong>${(pack.tasks.find((item) => item.id === selected.id)?.equipment || []).map((item) => `<span>${escapeHtml(item)}</span>`).join("")}<span>评价：${pack.assessment.map((item) => `${item.dimension} ${item.weight}%`).join("；")}</span></div>` : ""}<div class="graph-related"><strong>相关任务</strong>${taskNodes.filter((task) => (pack.tasks.find((item) => item.id === task.id)?.knowledgePointIds || []).includes(selected.id)).map((task) => `<button class="btn-link" type="button" data-action="graph-node" data-id="${escapeAttr(task.id)}">${escapeHtml(task.label)}</button>`).join("") || `<span>${selected.type === "chapter" ? "该章节的任务通过知识点关联" : "该节点未直接关联任务"}</span>`}</div>` : ""}</aside>
+      </div>
+    </div>
+  `;
+}
+
+function handleStudioAction(action, el) {
+  const id = el.dataset.id || "";
+  const bundle = id ? getStudioBundle(id) : state.studioBundle;
+  switch (action) {
+    case "home-start-studio":
+      state.studioCourseId = "course-0010";
+      state.studioChapterId = "CH-PLC-01";
+      state.studioTaskId = "TASK-PLC-01";
+      state.studioBundle = null;
+      state.studioQuality = null;
+      navigate("/studio");
+      break;
+    case "demo-start":
+      runStudioDemo();
+      break;
+    case "portfolio":
+      navigate("/portfolio");
+      break;
+    case "portfolio-open":
+      if (!bundle) break;
+      state.studioBundle = bundle;
+      state.studioCourseId = bundle.courseId;
+      state.studioChapterId = bundle.chapterId;
+      state.studioTaskId = bundle.taskId;
+      state.studioQuality = bundle.quality;
+      state.studioDocId = bundle.artifact?.docs?.[0]?.id || "design";
+      navigate("/studio");
+      break;
+    case "portfolio-review":
+      openStudioReview(id);
+      break;
+    case "portfolio-export":
+      studioExport(id, "docx");
+      break;
+    case "portfolio-history":
+      openVersionHistory(id);
+      break;
+    case "portfolio-restore-version":
+      restoreStudioVersion(id, el.dataset.index);
+      break;
+    case "portfolio-delete":
+      if (!bundle) break;
+      openModal({
+        kind: "confirm",
+        narrow: true,
+        kicker: "DELETE / 成果管理",
+        title: `删除「${bundle.title}」？`,
+        sub: "只删除本机成果库中的资源包与质检记录，不影响专业数据库或课程知识包。",
+        body: `<p>删除后无法从原始表恢复；如需保留，请先导出 DOCX 或 Markdown。</p>`,
+        footer: `<button class="btn btn-ghost" type="button" data-action="close-modal">取消</button><span class="spacer"></span><button class="btn btn-solid" type="button" data-action="portfolio-delete-confirm" data-id="${escapeAttr(id)}">确认删除</button>`
+      });
+      break;
+    case "portfolio-delete-confirm":
+      deleteStudioBundle(id).then(() => {
+        if (state.studioBundle?.id === id) state.studioBundle = null;
+        closeModal();
+        showToast("成果已删除");
+        renderApp({ preserveScroll: true });
+      }).catch((error) => showToast(error.message || "删除失败"));
+      break;
+    case "studio-reset":
+      state.studioCourseId = "course-0010";
+      state.studioChapterId = "CH-PLC-01";
+      state.studioTaskId = "TASK-PLC-01";
+      state.studioBundle = null;
+      state.studioQuality = null;
+      state.studioDocId = "design";
+      renderApp({ preserveScroll: true });
+      break;
+    case "studio-doc":
+      state.studioDocId = id;
+      renderApp({ preserveScroll: true });
+      break;
+    case "studio-open-editor":
+      openStudioInEditor(id);
+      break;
+    case "studio-quality":
+      runStudioQuality(id);
+      break;
+    case "studio-ai-review":
+      aiStudioReview(id);
+      break;
+    case "studio-ai-copy":
+      if (state.studioAiText) copyWithFeedback(state.studioAiText, "AI 教研建议已复制");
+      break;
+    case "studio-fix":
+      applyStudioFixes(id);
+      break;
+    case "studio-quality-report":
+      if (!bundle?.quality) break;
+      downloadTextFile(`授渔-质检报告-${String(bundle.context?.course || "课程").replace(/[\\/:*?"<>|]/g, "-")}.md`, qualityMarkdown(bundle, bundle.quality), "text/markdown;charset=utf-8");
+      break;
+    case "studio-review":
+      openStudioReview(id);
+      break;
+    case "studio-export-docx":
+      studioExport(id, "docx");
+      break;
+    case "studio-export-xlsx":
+      studioExport(id, "xlsx");
+      break;
+    case "studio-export-md":
+      studioExport(id, "md");
+      break;
+    case "studio-export-pdf":
+      studioExport(id, "pdf");
+      break;
+    case "quality-open":
+      if (!bundle) break;
+      state.studioBundle = bundle;
+      state.studioCourseId = bundle.courseId;
+      state.studioChapterId = bundle.chapterId;
+      state.studioTaskId = bundle.taskId;
+      state.studioQuality = bundle.quality;
+      navigate("/studio");
+      break;
+    case "quality-detail":
+      openQualityDetail(id);
+      break;
+    case "quality-weights":
+      openQualityWeights();
+      break;
+    case "quality-weights-reset":
+      state.qualityWeights = { ...DEFAULT_QUALITY_WEIGHTS };
+      saveQualityWeights(state.qualityWeights);
+      recalculateStudioQualityAll().then(() => {
+        closeModal();
+        showToast("已恢复默认权重并重算报告");
+        renderApp({ preserveScroll: true });
+      });
+      break;
+    case "quality-rerun":
+      runStudioQuality(id);
+      break;
+    case "quality-report-md":
+      if (!bundle?.quality) break;
+      downloadTextFile(`授渔-质检报告-${String(bundle.context?.course || "课程").replace(/[\\/:*?"<>|]/g, "-")}.md`, qualityMarkdown(bundle, bundle.quality), "text/markdown;charset=utf-8");
+      break;
+    case "graph-node":
+      state.graphNodeId = id;
+      renderApp({ preserveScroll: true });
       break;
     default:
       return false;
@@ -3541,7 +4655,10 @@ async function exportBackup({ conversationsOnly = false } = {}) {
       settings
     });
     backup.exportedAt = new Date().toISOString();
-    if (!conversationsOnly) backup.programs = exportProgramState();
+    if (!conversationsOnly) {
+      backup.programs = exportProgramState();
+      backup.studio = exportStudioState();
+    }
     const stamp = new Date().toISOString().replace(/[:T]/g, "-").slice(0, 16);
     downloadTextFile(`授渔_${conversationsOnly ? "对话" : "完整备份"}_${stamp}.json`, JSON.stringify(backup, null, 2), "application/json;charset=utf-8");
     showToast("备份文件已开始下载，请存放在学校批准的位置");
@@ -3584,6 +4701,7 @@ async function handleBackupFile(file) {
               <li>自定义知识：${Array.isArray(data.knowledge) ? data.knowledge.length : 0} 份</li>
               <li>资料文件：${Array.isArray(data.files) ? data.files.length : 0} 份</li>
               <li>专业课程修订：${data.programs ? "有" : "无"}</li>
+              <li>教学成果包：${Array.isArray(data.studio?.bundles) ? data.studio.bundles.length : 0} 份</li>
               <li>导出时间：${escapeHtml(data.exportedAt || "未知")}</li>
             </ul>
           </div>
@@ -4480,6 +5598,7 @@ function scheduleEditorSave() {
 function flushEditorSave({ silent = false } = {}) {
   const editor = state.editor;
   if (!editor) return;
+  const wasDirty = Boolean(editor.dirty);
   clearTimeout(editor.saveTimer);
   const conv = findConversation(editor.convId);
   const message = conv?.messages.find((item) => item.id === editor.messageId);
@@ -4489,6 +5608,18 @@ function flushEditorSave({ silent = false } = {}) {
   conv.latestArtifact = editor.artifact;
   conv.updatedAt = new Date().toISOString();
   saveDB();
+  if (conv.studioBundleId && wasDirty) {
+    const studioBundle = getStudioBundle(conv.studioBundleId);
+    if (studioBundle) {
+      studioBundle.artifact = cloneForEditor(editor.artifact);
+      studioBundle.quality = inspectStudioBundle(studioBundle);
+      studioBundle._contentChanged = true;
+      saveStudioBundle(studioBundle).then((saved) => {
+        saveStudioQuality(saved.id, saved.quality).catch(() => null);
+        if (state.studioBundle?.id === saved.id) state.studioBundle = saved;
+      }).catch(() => null);
+    }
+  }
   editor.dirty = false;
   editor.status = "已自动保存";
   const statusEl = document.getElementById("editor-save-status");
@@ -5283,7 +6414,7 @@ async function startAIGeneration(conv, sceneId, params) {
   try {
     const messages = buildGenerationMessages({ scene: sceneId, params, localResult, sources: localResult.sources || [] });
     const safeMessages = await prepareAIPayload(messages);
-    const response = await streamAI({
+    const response = await streamAIWithRetry({
       messages: safeMessages,
       settings,
       signal: controller.signal,
@@ -5418,7 +6549,7 @@ async function startAIChat(conv, rawText, localReply, attachmentContext = "") {
       latestArtifact: conv.latestArtifact || null
     });
     const safeMessages = await prepareAIPayload(messages);
-    const response = await streamAI({
+    const response = await streamAIWithRetry({
       messages: safeMessages,
       settings,
       signal: controller.signal,
@@ -5857,6 +6988,9 @@ function getActiveDoc(artifact, messageId) {
 
 function handleAction(action, el, event) {
   if (action.startsWith("program-") && handleProgramsAction(action, el)) return;
+  if (action.startsWith("studio-") || action.startsWith("quality-") || action.startsWith("portfolio") || action.startsWith("graph-") || action === "home-start-studio" || action === "demo-start") {
+    if (handleStudioAction(action, el)) return;
+  }
   switch (action) {
     case "nav": {
       navigate(el.dataset.path || "/");
@@ -6117,6 +7251,9 @@ function handleAction(action, el, event) {
         if (state.pendingRestore.programs) {
           await importProgramState(state.pendingRestore.programs);
         }
+        if (state.pendingRestore.studio) {
+          await importStudioState(state.pendingRestore.studio);
+        }
         closeModal();
         showToast("备份已恢复，页面即将重新加载");
         setTimeout(() => location.reload(), 500);
@@ -6141,6 +7278,7 @@ function handleAction(action, el, event) {
       Promise.all([
         localDB.clearAllData().catch(() => null),
         clearProgramStore().catch(() => null),
+        clearStudioStore().catch(() => null),
         new Promise((resolve) => {
           try {
             localStorage.removeItem(DB_KEY);
@@ -6714,6 +7852,21 @@ document.addEventListener("submit", (event) => {
     saveKnowledgeDocForm(form);
     return;
   }
+  if (form.id === "studio-config-form") {
+    event.preventDefault();
+    generateStudioBundle(form);
+    return;
+  }
+  if (form.id === "studio-review-form") {
+    event.preventDefault();
+    saveStudioReviewForm(form);
+    return;
+  }
+  if (form.id === "quality-weights-form") {
+    event.preventDefault();
+    saveQualityWeightsForm(form);
+    return;
+  }
   if (form.id === "program-resource-form") {
     event.preventDefault();
     programsSaveResourceForm(form);
@@ -6815,6 +7968,102 @@ document.addEventListener("change", (event) => {
   if (target.matches("[data-role='program-import-state']")) {
     programsImportStateFile(target.files?.[0]);
     target.value = "";
+    return;
+  }
+  if (target.matches("[data-role='studio-dept']")) {
+    const catalog = studioCatalog();
+    const department = catalog.departments.find((item) => item.id === target.value);
+    const group = catalog.groups.find((item) => item.deptId === department?.id);
+    const major = catalog.majors.find((item) => item.groupId === group?.id);
+    const course = catalog.courses.find((item) => item.majorId === major?.id);
+    if (department) {
+      state.studioDept = department.id;
+      state.studioGroup = group?.id || "";
+      state.studioMajor = major?.id || "";
+      state.studioCourseId = course?.id || state.studioCourseId;
+      const pack = course ? resolveCurriculum(course, catalog) : null;
+      state.studioChapterId = pack?.chapters?.[0]?.id || "";
+      state.studioTaskId = pack?.tasks?.[0]?.id || "";
+      state.studioBundle = null;
+      state.studioQuality = null;
+    }
+    renderApp({ preserveScroll: true });
+    return;
+  }
+  if (target.matches("[data-role='studio-group']")) {
+    const catalog = studioCatalog();
+    const group = catalog.groups.find((item) => item.id === target.value);
+    const major = catalog.majors.find((item) => item.groupId === group?.id);
+    const course = catalog.courses.find((item) => item.majorId === major?.id);
+    state.studioDept = group?.deptId || state.studioDept;
+    state.studioGroup = group?.id || "";
+    state.studioMajor = major?.id || "";
+    state.studioCourseId = course?.id || state.studioCourseId;
+    const pack = course ? resolveCurriculum(course, catalog) : null;
+    state.studioChapterId = pack?.chapters?.[0]?.id || "";
+    state.studioTaskId = pack?.tasks?.[0]?.id || "";
+    state.studioBundle = null;
+    state.studioQuality = null;
+    renderApp({ preserveScroll: true });
+    return;
+  }
+  if (target.matches("[data-role='studio-major']")) {
+    const catalog = studioCatalog();
+    const major = catalog.majors.find((item) => item.id === target.value);
+    const course = catalog.courses.find((item) => item.majorId === major?.id);
+    state.studioDept = major?.deptId || state.studioDept;
+    state.studioGroup = major?.groupId || state.studioGroup;
+    state.studioMajor = major?.id || "";
+    state.studioCourseId = course?.id || state.studioCourseId;
+    const pack = course ? resolveCurriculum(course, catalog) : null;
+    state.studioChapterId = pack?.chapters?.[0]?.id || "";
+    state.studioTaskId = pack?.tasks?.[0]?.id || "";
+    state.studioBundle = null;
+    state.studioQuality = null;
+    renderApp({ preserveScroll: true });
+    return;
+  }
+  if (target.matches("[data-role='studio-course']")) {
+    const catalog = studioCatalog();
+    const course = catalog.courses.find((item) => item.id === target.value);
+    if (course) {
+      const major = catalog.majors.find((item) => item.id === course.majorId);
+      const group = catalog.groups.find((item) => item.id === course.groupId);
+      state.studioCourseId = course.id;
+      state.studioDept = course.deptId;
+      state.studioGroup = group?.id || "";
+      state.studioMajor = major?.id || "";
+      const pack = resolveCurriculum(course, catalog);
+      state.studioChapterId = pack?.chapters?.[0]?.id || "";
+      state.studioTaskId = pack?.tasks?.[0]?.id || "";
+      state.studioBundle = null;
+      state.studioQuality = null;
+    }
+    renderApp({ preserveScroll: true });
+    return;
+  }
+  if (target.matches("[data-role='studio-chapter']")) {
+    const ctx = studioEnsureContext();
+    state.studioChapterId = target.value;
+    const chapter = ctx.pack.chapters.find((item) => item.id === target.value);
+    const task = ctx.pack.tasks.find((item) => (item.knowledgePointIds || []).some((id) => (chapter?.knowledgePoints || []).some((point) => point.id === id))) || ctx.pack.tasks[0];
+    state.studioTaskId = task?.id || "";
+    state.studioBundle = null;
+    state.studioQuality = null;
+    renderApp({ preserveScroll: true });
+    return;
+  }
+  if (target.matches("[data-role='studio-task']")) {
+    state.studioTaskId = target.value;
+    state.studioBundle = null;
+    state.studioQuality = null;
+    renderApp({ preserveScroll: true });
+    return;
+  }
+  if (target.matches("[data-role='graph-course']")) {
+    state.graphCourseId = target.value;
+    state.graphNodeId = "";
+    renderApp({ preserveScroll: true });
     return;
   }
   if (target.matches("[data-role='program-dept-filter']")) {
@@ -7070,6 +8319,9 @@ async function bootstrapApp() {
   await hydrateFromIndexedDB();
   await loadProgramStore().catch((error) => {
     console.warn("专业数据库修订层初始化失败，将使用基础数据。", error);
+  });
+  await loadStudioStore().catch((error) => {
+    console.warn("教学成果库初始化失败，将使用空成果库。", error);
   });
   handleRoute();
 }
