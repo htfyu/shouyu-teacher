@@ -523,7 +523,7 @@ function buildSlidesDoc(ctx, refs) {
   ]);
 }
 
-export function buildTeachingBundle({ courseId, chapterId, taskId, learners, hours, conditions, objectiveExtra } = {}, catalog) {
+export function buildTeachingBundle({ courseId, chapterId, taskId, learners, hours, conditions, objectiveExtra, referenceDocs = [] } = {}, catalog) {
   const course = catalog.courses.find((item) => item.id === courseId);
   if (!course) throw new Error("未找到课程记录");
   const pack = resolveCurriculum(course, catalog);
@@ -535,6 +535,19 @@ export function buildTeachingBundle({ courseId, chapterId, taskId, learners, hou
   const ctx = buildContext(course, catalog, pack, chapter, task, { learners, hours, conditions, objectiveExtra });
   const refs = knowledgeRefs(pack, task, chapter);
   const sources = buildCurriculumSources(pack, catalog);
+  const teacherRefs = (referenceDocs || []).filter((doc) => doc?.id && doc?.title).map((doc) => ({
+    key: `KB:${doc.id}`,
+    ref: `KB-${doc.id}`,
+    docId: doc.id,
+    docTitle: doc.title,
+    sectionTitle: "教师选择的参考材料",
+    source: doc.category || "教学资源",
+    snippet: doc.summary || "",
+    teacherSelected: true
+  }));
+  for (const ref of teacherRefs) {
+    if (!sources.some((source) => source.ref === ref.ref)) sources.push(ref);
+  }
   const knowledge = {
     packId: pack.id,
     packVersion: pack.version || "1.0",
@@ -557,6 +570,7 @@ export function buildTeachingBundle({ courseId, chapterId, taskId, learners, hou
     taskSteps: task.steps || [],
     taskEquipment: task.equipment || [],
     taskSafety: task.safety || [],
+    referenceDocs: (referenceDocs || []).filter((doc) => doc?.id).map((doc) => ({ id: doc.id, title: doc.title, category: doc.category || "" })),
     packKnowledgePointCount: (pack.chapters || []).reduce((sum, item) => sum + (item.knowledgePoints || []).length, 0),
     packTaskCount: (pack.tasks || []).length,
     sourceRefs: Array.from(new Set([...(task.sourceRefs || []), ...(chapter.knowledgePoints || []).flatMap((point) => point.sourceRefs || [])]))
@@ -601,6 +615,7 @@ export function buildTeachingBundle({ courseId, chapterId, taskId, learners, hou
       curriculumStatus: pack.status,
       curriculumVersion: pack.version || "1.0",
       knowledgePointCount: (chapter.knowledgePoints || []).length,
+      referenceDocs: (referenceDocs || []).filter((doc) => doc?.id).map((doc) => ({ id: doc.id, title: doc.title, category: doc.category || "" })),
       sourceLabel: ctx.sourceLabel
     },
     docs,

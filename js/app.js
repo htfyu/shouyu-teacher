@@ -524,6 +524,52 @@ function findConversation(id) {
 const AI_LOCAL_KEY = "jiangbei.ai.v1";
 const QUALITY_WEIGHT_KEY = "shouyu.quality.weights.v1";
 const QUALITY_IGNORED_KEY = "shouyu.quality.ignored.v1";
+const STUDIO_DRAFT_KEY = "shouyu.studio.wizard.v1";
+
+function loadStudioDraft() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(STUDIO_DRAFT_KEY) || "null");
+    return raw && typeof raw === "object" && raw.courseId ? raw : null;
+  } catch (error) {
+    return null;
+  }
+}
+
+function saveStudioDraftState(data = {}) {
+  const draft = {
+    courseId: data.courseId || state.studioCourseId || "",
+    majorId: data.majorId || state.studioMajor || "",
+    chapterId: data.chapterId || state.studioChapterId || "",
+    taskId: data.taskId || state.studioTaskId || "",
+    learners: data.learners ?? state.studioLearners,
+    hours: data.hours ?? state.studioHours,
+    conditions: data.conditions ?? state.studioConditions,
+    objectiveExtra: data.objectiveExtra ?? state.studioObjectiveExtra,
+    referenceDocs: data.referenceDocs || state.studioReferenceDocs || [],
+    step: Math.max(1, Math.min(4, Number(data.step) || state.studioFlowStep || 1)),
+    savedAt: new Date().toISOString()
+  };
+  try {
+    localStorage.setItem(STUDIO_DRAFT_KEY, JSON.stringify(draft));
+  } catch (error) {
+    console.warn("备课草稿保存失败", error);
+  }
+  state.studioDraft = draft;
+  state.studioDraftSavedAt = draft.savedAt;
+  state.studioDraftStatus = "草稿已保存到本机";
+  return draft;
+}
+
+function clearStudioDraft() {
+  try {
+    localStorage.removeItem(STUDIO_DRAFT_KEY);
+  } catch (error) {
+    console.warn("备课草稿清理失败", error);
+  }
+  state.studioDraft = null;
+  state.studioDraftSavedAt = "";
+  state.studioDraftStatus = "";
+}
 
 function loadQualityIgnored() {
   try {
@@ -672,8 +718,17 @@ const state = {
   studioHours: "4",
   studioConditions: "PLC 实训室；物料分拣教学工作站；设备型号与台套数以现场为准",
   studioObjectiveExtra: "",
+  studioFlowActive: false,
+  studioFlowStep: 3,
+  studioWizardMajor: "",
+  studioWizardCourse: "",
+  studioDraft: loadStudioDraft(),
+  studioDraftSavedAt: "",
+  studioDraftStatus: "",
+  studioReferenceDocs: [],
+  navMoreOpen: false,
   studioBundle: null,
-  studioAsideOpen: true,
+  studioAsideOpen: false,
   studioDocId: "design",
   studioBusy: false,
   studioQuality: null,
@@ -920,27 +975,33 @@ function renderSidebar(activeConv) {
   const recent = sortedConversations().slice(0, 5);
   const activeId = activeConv?.id;
   const studioStats = getStudioBundleStats();
-  const navItems = [
+  const coreItems = [
     { key: "home", path: "/", icon: "grid", label: "教学工作台" },
-    { key: "programs", path: "/programs", icon: "book", label: "专业体系", count: PROGRAM_DATA.courses.length },
-    { key: "studio", path: "/studio", icon: "spark", label: "智能备课中心", count: studioStats.total },
-    { key: "quality", path: "/quality", icon: "shield", label: "质量检测中心", count: studioStats.pending },
-    { key: "kb", path: "/kb", icon: "layers", label: "专业知识库", count: KB_DOCS.length },
+    { key: "studio", path: "/studio", icon: "spark", label: "备课中心", count: studioStats.total },
+    { key: "programs", path: "/programs", icon: "book", label: "专业与课程", count: PROGRAM_DATA.courses.length },
+    { key: "kb", path: "/kb", icon: "layers", label: "教学资源", count: KB_DOCS.length },
+    { key: "portfolio", path: "/portfolio", icon: "archive", label: "教学成果", count: studioStats.total }
+  ];
+  const moreItems = [
+    { key: "quality", path: "/quality", icon: "shield", label: "质量检测", count: studioStats.pending },
     { key: "graph", path: "/graph", icon: "grid", label: "知识图谱" },
     { key: "files", path: "/files", icon: "file", label: "资料中心", count: state.files.length },
     { key: "templates", path: "/templates", icon: "layers", label: "模板库", count: LESSON_TEMPLATES.length + EVAL_TEMPLATES.length + OBSERVATION_TEMPLATES.length },
-    { key: "portfolio", path: "/portfolio", icon: "archive", label: "成果管理", count: studioStats.total },
     { key: "impact", path: "/impact", icon: "chart", label: "教学应用成效", count: getImpactRecords().length },
-    { key: "history", path: "/history", icon: "clock", label: "历史对话", count: db.conversations.length },
+    { key: "history", path: "/history", icon: "clock", label: "历史记录", count: db.conversations.length },
     { key: "settings", path: "/settings", icon: "sliders", label: "系统设置" },
     { key: "guide", path: "/guide", icon: "help", label: "使用说明" }
   ];
-  const navGroups = [
-    { label: "TEACHING / 教学中心", items: navItems.slice(0, 4) },
-    { label: "KNOWLEDGE / 知识与资源", items: navItems.slice(4, 8) },
-    { label: "OUTCOMES / 成果与记录", items: navItems.slice(8, 11) },
-    { label: "SYSTEM / 系统", items: navItems.slice(11) }
-  ];
+  const moreActive = moreItems.some((item) => route.name === item.key) || route.name === "chat";
+  const moreOpen = state.navMoreOpen || moreActive;
+  const navButton = (item) => {
+    const active = route.name === item.key || (route.name === "chat" && item.key === "studio");
+    return `<button class="nav-item${active ? " is-active" : ""}" type="button" data-action="nav" data-nav="${item.key}" data-path="${item.path}" title="${escapeAttr(item.label)}" aria-label="${escapeAttr(item.label)}" ${active ? 'aria-current="page"' : ""}>
+      <span class="nav-icon">${icon(item.icon, 16)}</span>
+      <span class="nav-label">${item.label}</span>
+      ${item.count != null ? `<span class="nav-count">${String(item.count).padStart(2, "0")}</span>` : ""}
+    </button>`;
+  };
   sidebarEl.innerHTML = `
     <a class="brand" href="#/" data-action="nav" data-path="/" aria-label="授渔首页">
       <span class="brand-mark"><img src="./assets/brand/logo-mark.png" alt=""></span>
@@ -950,42 +1011,38 @@ function renderSidebar(activeConv) {
       </span>
     </a>
     <div class="side-scroll">
-      <button class="new-chat" type="button" data-action="new-chat" title="新建备课">
+      <button class="new-chat" type="button" data-action="start-studio" title="开始一次新备课">
         ${icon("plus", 15)}
-        <span class="new-chat-label">新建备课</span>
+        <span class="new-chat-label">开始备课</span>
         <kbd>N</kbd>
       </button>
-      ${navGroups.map((group) => `
-        <div class="nav-group">
-          <div class="side-label">${group.label}</div>
-          <nav class="side-nav" aria-label="${group.label}">
-            ${group.items.map((item) => {
-              const active = route.name === item.key || (route.name === "chat" && item.key === "studio");
-              return `<button class="nav-item${active ? " is-active" : ""}" type="button" data-action="nav" data-nav="${item.key}" data-path="${item.path}" title="${escapeAttr(item.label)}" aria-label="${escapeAttr(item.label)}" ${active ? 'aria-current="page"' : ""}>
-                <span class="nav-icon">${icon(item.icon, 16)}</span>
-                <span class="nav-label">${item.label}</span>
-                ${item.count != null ? `<span class="nav-count">${String(item.count).padStart(2, "0")}</span>` : ""}
-              </button>`;
-            }).join("")}
-          </nav>
-        </div>
-      `).join("")}
+      <div class="nav-group">
+        <div class="side-label">工作 / WORK</div>
+        <nav class="side-nav" aria-label="核心功能">
+          ${coreItems.map(navButton).join("")}
+        </nav>
+      </div>
+      <div class="nav-group nav-more">
+        <button class="nav-more-toggle" type="button" data-action="toggle-nav-more" aria-expanded="${moreOpen ? "true" : "false"}">
+          <span>${icon("layers", 14)} 更多功能</span>
+          <span class="nav-more-chevron">${icon(moreOpen ? "chevronDown" : "chevronRight", 12)}</span>
+        </button>
+        ${moreOpen ? `<nav class="side-nav side-nav-more" aria-label="更多功能">
+          ${moreItems.map(navButton).join("")}
+          <button class="nav-item nav-item-action" type="button" data-action="new-chat" title="新建教学对话">
+            <span class="nav-icon">${icon("file", 16)}</span>
+            <span class="nav-label">新建对话</span>
+          </button>
+        </nav>` : ""}
+      </div>
       <div class="side-label side-label-recent">RECENT / 最近</div>
       <div class="recent-list">
-        ${recent.length ? recent.map((conv) => `
+        ${recent.length ? recent.slice(0, 3).map((conv) => `
           <button class="recent-item${activeId === conv.id ? " is-active" : ""}" type="button" data-action="open-conv" data-id="${escapeAttr(conv.id)}" title="${escapeAttr(conv.title || "未命名对话")}">
             <span class="recent-title">${conv.pinned ? "◉ " : ""}${escapeHtml(conv.title || "未命名对话")}</span>
             <span class="recent-meta"><span>${escapeHtml(sceneShort(conv.scene))}</span><span>${escapeHtml(formatRelative(conv.updatedAt))}</span></span>
           </button>
         `).join("") : `<div class="recent-empty">还没有记录。<br>从一次真实的备课任务开始。</div>`}
-      </div>
-      <div class="side-tip">
-        <div class="side-tip-top"><span class="status-dot"></span>本地工作区</div>
-        <div class="side-tip-stats">
-          <span><strong>${KB_DOCS.length}</strong> 份材料</span>
-          <span><strong>12</strong> 专业</span>
-        </div>
-        <p>数据留在浏览器，换设备请用备份迁移。</p>
       </div>
     </div>
     <div class="side-foot">
@@ -1011,11 +1068,11 @@ function renderTopbar(activeConv) {
   </button>`;
   let kicker = "";
   let title = "";
-  let center = "“把每一节课，备成一件作品。”";
+  let center = "本地工作区 · 数据保存在本机";
   let actions = `
     ${aiChip}
     <div class="topbar-status"><span class="status-dot"></span>知识库 ${KB_DOCS.length} 份 · 本地就绪</div>
-    <button class="btn btn-ghost" type="button" data-action="nav" data-path="/kb" aria-label="打开知识库">${icon("book", 13)}<span class="topbar-action-label">知识库</span></button>
+    <button class="btn btn-ghost" type="button" data-action="nav" data-path="/kb" aria-label="打开教学资源">${icon("book", 13)}<span class="topbar-action-label">教学资源</span></button>
     <button class="btn" type="button" data-action="nav" data-path="/guide" aria-label="打开使用说明">${icon("help", 13)}<span class="topbar-action-label">使用说明</span></button>
   `;
   if (route.name === "chat" && activeConv) {
@@ -1026,7 +1083,7 @@ function renderTopbar(activeConv) {
       ${aiChip}
       ${activeConv.latestArtifact ? `<button class="btn btn-ghost" type="button" data-action="edit-params" aria-label="调整任务参数">${icon("sliders", 13)}<span class="topbar-action-label">调整参数</span></button>` : ""}
       <button class="btn btn-ghost rail-mobile-btn" type="button" data-action="toggle-rail" aria-label="打开依据与合规自检">${icon("shield", 13)}<span class="topbar-action-label">依据 · 自检</span></button>
-      <button class="btn btn-solid" type="button" data-action="new-chat" aria-label="新建备课">${icon("plus", 13)}<span class="topbar-action-label">新建备课</span></button>
+      <button class="btn btn-solid" type="button" data-action="new-chat" aria-label="新建对话">${icon("plus", 13)}<span class="topbar-action-label">新建对话</span></button>
     `;
   } else if (route.name === "programs") {
     center = `学院专业体系 · ${PROGRAM_DATA.courses.length} 条课程记录`;
@@ -1050,8 +1107,8 @@ function renderTopbar(activeConv) {
     center = "可重复 · 可核验 · 离线可运行";
     actions = `${aiChip}<button class="btn" type="button" data-action="nav" data-path="/" aria-label="返回工作台">${icon("arrowLeft", 13)}<span class="topbar-action-label">返回工作台</span></button>`;
   } else if (route.name === "kb") {
-    kicker = "KNOWLEDGE BASE / 知识库";
-    title = "有依据，才回答";
+    kicker = "TEACHING RESOURCES / 教学资源";
+    title = "知识库与校本材料";
     center = "全部材料可检索 · 引用可回溯";
     actions = `${aiChip}<button class="btn" type="button" data-action="nav" data-path="/" aria-label="返回工作台">${icon("arrowLeft", 13)}<span class="topbar-action-label">返回工作台</span></button>`;
   } else if (route.name === "files") {
@@ -1196,6 +1253,8 @@ function renderHomePage() {
   const dateText = new Intl.DateTimeFormat("zh-CN", { month: "long", day: "numeric", weekday: "long" }).format(now);
   const greeting = now.getHours() < 11 ? "上午好" : now.getHours() < 14 ? "中午好" : now.getHours() < 18 ? "下午好" : "晚上好";
   const last = recent[0];
+  const draft = state.studioDraft;
+  const draftCourse = draft ? PROGRAM_DATA.courses.find((course) => course.id === draft.courseId) : null;
   const pendingQuality = recent.reduce((sum, bundle) => sum + (bundle.quality?.problems?.filter((problem) => problem.severity === "high").length || 0), 0);
   const recentFiles = (state.files || []).slice(0, 4);
 
@@ -1230,6 +1289,18 @@ function renderHomePage() {
                 <div class="work-continue-actions">
                   <button class="btn btn-solid" type="button" data-action="studio-open-editor" data-id="${escapeAttr(last.id)}">继续编辑</button>
                   <button class="btn" type="button" data-action="portfolio-history" data-id="${escapeAttr(last.id)}">版本</button>
+                </div>
+              </div>
+            ` : draft ? `
+              <div class="work-continue">
+                <div class="work-continue-main">
+                  <span class="work-label">未完成草稿 · 第 ${draft.step || 1} 步</span>
+                  <h3>${escapeHtml(draftCourse ? programsCourseTitle(draftCourse) : "继续上次备课")}</h3>
+                  <p>${escapeHtml(draft.savedAt ? new Date(draft.savedAt).toLocaleString("zh-CN", { hour12: false }) : "")} 保存 · 继续后不会丢失已填内容</p>
+                </div>
+                <div class="work-continue-actions">
+                  <button class="btn btn-solid" type="button" data-action="studio-wizard-restore">继续草稿</button>
+                  <button class="btn" type="button" data-action="home-restart-studio">重新开始</button>
                 </div>
               </div>
             ` : `
@@ -1268,9 +1339,10 @@ function renderHomePage() {
 
           <section class="work-section work-quick">
             <div class="work-section-head">
-              <h2>快速开始</h2>
+              <h2>单项工具 <span class="work-label">对话生成，不是完整备课</span></h2>
               <button class="btn-link" type="button" data-action="nav" data-path="/guide">使用说明 →</button>
             </div>
+            <p class="work-muted">只想先起草一份教案、任务单或评价表时使用；需要 10 类资源、质检和导出，请用上方“新建备课”。</p>
             <div class="quick-grid">${sceneCards}</div>
           </section>
         </main>
@@ -1345,6 +1417,24 @@ function renderComposer(compact = false) {
    Chat view
    ========================================================== */
 
+function renderChatEmptyState() {
+  return `
+    <section class="chat-empty">
+      <div class="chat-empty-copy">
+        <span>教学对话 · 辅助工具</span>
+        <h1>临时问一句，或快速起草一段。</h1>
+        <p>对话适合查规则、改一段文字、解释知识点。需要生成完整 10 类资源、自动质检和审核导出时，请走六步备课流程。</p>
+      </div>
+      <div class="chat-empty-actions">
+        <button class="btn btn-solid" type="button" data-action="start-studio">开始正式备课</button>
+        <button class="btn" type="button" data-action="scene" data-scene="lesson">快速生成教案</button>
+        <button class="btn" type="button" data-action="nav" data-path="/kb">查教学资源</button>
+      </div>
+      <p class="chat-empty-hint">对话内容只保存在本机；发送到增强模型前会先做隐私检查。</p>
+    </section>
+  `;
+}
+
 function renderChatView(conv) {
   const messages = conv.messages || [];
   const lastResult = [...messages].reverse().find((msg) => msg.kind === "result");
@@ -1359,20 +1449,20 @@ function renderChatView(conv) {
   };
 
   return `
-    <div class="workspace">
+    <div class="workspace${messages.length ? "" : " is-empty"}">
       <div class="rail-backdrop" data-action="close-rail" aria-hidden="true"></div>
       <div class="chat-column">
         <div class="chat-scroll" id="chat-scroll">
           <div class="chat-inner">
             <div class="chat-intro"><span>LOCAL WORKFLOW · 内容保存在此浏览器</span></div>
-            ${messages.map((message, index) => renderMessage(message, conv, index)).join("")}
+            ${messages.length ? messages.map((message, index) => renderMessage(message, conv, index)).join("") : renderChatEmptyState()}
           </div>
         </div>
         <div class="chat-composer-wrap">
-          ${renderComposer(true)}
+          ${renderComposer(messages.length > 0)}
         </div>
       </div>
-      ${renderContextRail(railData, conv)}
+      ${messages.length ? renderContextRail(railData, conv) : ""}
     </div>
   `;
 }
@@ -1774,8 +1864,8 @@ function renderKnowledgePage() {
     <div class="page kb-page work-kb">
       <header class="work-context-head">
         <div>
-          <p class="work-breadcrumb">专业知识库 / 资料检索与阅读</p>
-          <h1 class="page-title">专业知识库</h1>
+          <p class="work-breadcrumb">教学资源 / 知识库与校本材料</p>
+          <h1 class="page-title">教学资源</h1>
           <p class="work-context-path">${stats.docs} 份材料 · ${stats.sections} 个可检索片段 · ${cats.length} 个分类 · ${escapeHtml(stats.version)}</p>
         </div>
         <div class="work-context-actions">
@@ -1827,7 +1917,7 @@ function renderKbReader(doc, hitSectionId = "") {
     <aside class="kb-reader">
       <div class="kb-reader-head">
         <div><span>${escapeHtml(doc.id)} · ${escapeHtml(doc.category)}</span><h2>${escapeHtml(doc.title)}</h2></div>
-        <button class="btn btn-ghost" type="button" data-action="open-doc" data-doc="${escapeAttr(doc.id)}">打开全文</button>
+        <div class="kb-reader-actions"><button class="btn btn-ghost" type="button" data-action="open-doc" data-doc="${escapeAttr(doc.id)}">打开全文</button><button class="btn" type="button" data-action="kb-use-doc" data-doc="${escapeAttr(doc.id)}">用于备课</button></div>
       </div>
       <div class="kb-reader-meta">
         <span>${escapeHtml(doc.version || "v1")}</span>
@@ -2721,7 +2811,7 @@ function renderProgramsPage() {
       <div class="page-head">
         <div>
           <div class="page-kicker">PROGRAM DATABASE / 原始数据 + 本机修订</div>
-          <h1 class="page-title">专业体系</h1>
+          <h1 class="page-title">专业与课程</h1>
           <p class="page-intro">从专业系、专业组、专业逐级进入课程；原表已有的官方简介与来源优先展示，缺失部分标注“待完善”，并提供明确标注的行业通用备课参考。</p>
         </div>
         <div class="page-head-side">
@@ -2833,7 +2923,7 @@ function programsCourseModalBody(view) {
         </div>
         <div class="programs-course-hero-actions">
           ${custom ? `<button class="btn btn-ghost" type="button" data-action="program-reset-resource" data-id="${escapeAttr(course.id)}">${icon("refresh", 12)} 恢复系统参考</button>` : ""}
-          <button class="btn btn-ghost" type="button" data-action="program-prepare-lesson" data-id="${escapeAttr(course.id)}">${icon("spark", 12)} 用于备课</button>
+          ${studioCourseUsable(course) ? `<button class="btn btn-ghost" type="button" data-action="program-prepare-lesson" data-id="${escapeAttr(course.id)}">${icon("spark", 12)} 开始备课</button>` : `<span class="programs-pending-note">占位课程，补全课程名称后才能开始备课</span>`}
           <button class="btn btn-ghost" type="button" data-action="program-edit-entity" data-type="courses" data-id="${escapeAttr(course.id)}">编辑课程记录</button>
           <button class="btn btn-ghost" type="button" data-action="program-delete-entity" data-type="courses" data-id="${escapeAttr(course.id)}">${course.base === false ? "删除课程" : "隐藏课程"}</button>
           <button class="btn btn-soft" type="button" data-action="program-edit-resource" data-id="${escapeAttr(course.id)}">${icon("sliders", 12)} 编辑课程资料</button>
@@ -3221,17 +3311,8 @@ function handleProgramsAction(action, el) {
       const catalog = programsCatalog();
       const course = programsFindCourse(catalog, id);
       if (!course) break;
-      const major = programsFindMajor(catalog, course.majorId);
       closeModal();
-      openSceneForm("lesson", {
-        prefill: {
-          major: major?.name || "",
-          course: course.name && course.name !== "暂无公开资料" ? course.name : "",
-          task: course.name && course.name !== "暂无公开资料" ? `${course.name}课程教学` : "",
-          lessonType: "一体化",
-          hours: "4"
-        }
-      });
+      beginStudioFlow({ courseId: course.id, step: 2 });
       break;
     }
     case "program-edit-resource":
@@ -3324,6 +3405,78 @@ function studioCatalog() {
 
 function inspectStudioBundle(bundle) {
   return inspectBundle(bundle, { weights: state.qualityWeights });
+}
+
+function beginStudioFlow(options = {}) {
+  const catalog = studioCatalog();
+  const courseId = options.courseId || "";
+  const course = catalog.courses.find((item) => item.id === courseId) || null;
+  if (course && !studioCourseUsable(course)) {
+    showToast("这门课只有占位记录，请先在专业与课程中补全课程名称");
+    return;
+  }
+  state.studioFlowActive = true;
+  state.studioFlowStep = course ? Math.max(2, Math.min(4, Number(options.step) || 2)) : 1;
+  state.studioBundle = null;
+  state.studioQuality = null;
+  state.studioDocId = "design";
+  state.studioAsideOpen = false;
+  state.studioLearners = "本专业教学班，人数与基础请补充";
+  state.studioHours = "4";
+  state.studioConditions = "本专业实训室；设备型号、台套数与安全条件以现场为准";
+  state.studioObjectiveExtra = "";
+  state.studioReferenceDocs = Array.isArray(options.referenceDocs) ? options.referenceDocs : [];
+  if (course) {
+    const major = catalog.majors.find((item) => item.id === course.majorId);
+    const group = catalog.groups.find((item) => item.id === course.groupId);
+    state.studioCourseId = course.id;
+    state.studioWizardCourse = course.id;
+    state.studioMajor = major?.id || "";
+    state.studioWizardMajor = major?.id || "";
+    state.studioDept = course.deptId || "";
+    state.studioGroup = group?.id || "";
+    state.studioChapterId = options.chapterId || "";
+    state.studioTaskId = options.taskId || "";
+    const pack = resolveCurriculum(course, catalog);
+    if (!state.studioChapterId) state.studioChapterId = pack?.chapters?.[0]?.id || "";
+    if (!state.studioTaskId) state.studioTaskId = pack?.tasks?.[0]?.id || "";
+    if (options.step === 3 && state.studioChapterId && state.studioTaskId) state.studioFlowStep = 3;
+  } else {
+    state.studioCourseId = "";
+    state.studioWizardCourse = "";
+    state.studioWizardMajor = "";
+    state.studioMajor = "";
+    state.studioDept = "";
+    state.studioGroup = "";
+    state.studioChapterId = "";
+    state.studioTaskId = "";
+  }
+  navigate("/studio");
+}
+
+function restoreStudioDraft() {
+  const draft = state.studioDraft || loadStudioDraft();
+  if (!draft) {
+    showToast("没有找到未完成的备课草稿");
+    return;
+  }
+  state.studioFlowActive = true;
+  state.studioFlowStep = Math.max(1, Math.min(4, Number(draft.step) || 1));
+  state.studioCourseId = draft.courseId || "";
+  state.studioWizardCourse = draft.courseId || "";
+  state.studioMajor = draft.majorId || "";
+  state.studioWizardMajor = draft.majorId || "";
+  state.studioChapterId = draft.chapterId || "";
+  state.studioTaskId = draft.taskId || "";
+  state.studioLearners = draft.learners || state.studioLearners;
+  state.studioHours = draft.hours || state.studioHours;
+  state.studioConditions = draft.conditions || state.studioConditions;
+  state.studioObjectiveExtra = draft.objectiveExtra || "";
+  state.studioReferenceDocs = Array.isArray(draft.referenceDocs) ? draft.referenceDocs : [];
+  state.studioBundle = null;
+  state.studioQuality = null;
+  state.studioDraftStatus = `已恢复 ${draft.savedAt ? new Date(draft.savedAt).toLocaleString("zh-CN", { hour12: false }) : "上次"} 的草稿`;
+  navigate("/studio");
 }
 
 function studioEnsureContext() {
@@ -3439,10 +3592,229 @@ function renderStudioConfig(ctx) {
       </div>
       <div class="studio-config-actions">
         <button class="btn btn-solid" type="submit" ${state.studioBusy ? "disabled" : ""}>${icon("spark", 13)} ${state.studioBusy ? "正在装配资源包…" : "生成 10 类教学资源"}</button>
-        <button class="btn btn-ghost" type="button" data-action="studio-reset">恢复演示课程</button>
+        <button class="btn btn-ghost" type="button" data-action="start-studio">重新选课</button>
       </div>
       <p class="studio-config-note">${icon("shield", 11)} 本地规则引擎生成；不调用外部模型也可运行。知识包为“${escapeHtml(pack.statusLabel)}”，不是学院官方课程标准。</p>
     </form>
+  `;
+}
+
+const STUDIO_STEPS = ["选专业课程", "定章节任务", "教学配置", "生成资源", "编辑与质检", "保存与导出"];
+
+function studioDraftLabel(draft) {
+  const course = draft ? PROGRAM_DATA.courses.find((item) => item.id === draft.courseId) : null;
+  return course ? programsCourseTitle(course) : "上次备课";
+}
+
+function studioCourseUsable(course) {
+  if (!course) return false;
+  const name = String(course.name || "");
+  if (course.recordType === "note") return false;
+  return !/暂无公开资料|未命名|占位课程|待完善/.test(name);
+}
+
+function renderStudioSteps(step) {
+  const current = Math.max(1, Math.min(6, Number(step) || 1));
+  return `
+    <ol class="studio-steps" aria-label="备课步骤">
+      ${STUDIO_STEPS.map((label, index) => {
+        const no = index + 1;
+        const stateClass = no < current ? "is-done" : no === current ? "is-current" : "";
+        return `<li class="studio-step ${stateClass}" ${no === current ? 'aria-current="step"' : ""}><span>${no < current ? "✓" : no}</span><b>${label}</b></li>`;
+      }).join("")}
+    </ol>
+  `;
+}
+
+function studioWizardCourseInfo(course, catalog) {
+  if (!course) return "";
+  const major = catalog.majors.find((item) => item.id === course.majorId);
+  const group = catalog.groups.find((item) => item.id === course.groupId);
+  const department = catalog.departments.find((item) => item.id === course.deptId);
+  const pack = resolveCurriculum(course, catalog);
+  const reviewed = CURRICULUM_PACKS.some((item) => item.courseId === course.id);
+  return `
+    <div class="studio-picked-course">
+      <div><span>已选课程</span><strong>${escapeHtml(programsCourseTitle(course))}</strong><small>${escapeHtml(department?.name || "")} · ${escapeHtml(group?.name || "")} · ${escapeHtml(major?.name || "")}</small></div>
+      <div class="studio-picked-meta">
+        <span>${escapeHtml(course.category || "课程")}</span>
+        <span>${reviewed ? "有完整知识包" : "通用知识结构"}</span>
+        <span>${pack?.chapters?.length || 0} 章 · ${pack?.tasks?.length || 0} 个任务</span>
+      </div>
+      ${reviewed ? "" : `<p class="studio-picked-note">${icon("info", 12)} 该课程暂无教研组审核的完整知识包，系统会按专业和课程信息装配通用结构；涉及设备参数、学校标准的内容须教师核对。</p>`}
+    </div>
+  `;
+}
+
+function studioWizardCourseStep() {
+  const catalog = studioCatalog();
+  const majorId = state.studioWizardMajor || "";
+  const majors = catalog.majors.slice().sort((a, b) => {
+    const da = catalog.departments.find((item) => item.id === a.deptId)?.name || "";
+    const db = catalog.departments.find((item) => item.id === b.deptId)?.name || "";
+    return da.localeCompare(db, "zh-CN") || String(a.name).localeCompare(String(b.name), "zh-CN");
+  });
+  const courses = majorId ? catalog.courses.filter((item) => item.majorId === majorId && studioCourseUsable(item)) : [];
+  const course = courses.find((item) => item.id === state.studioWizardCourse) || null;
+  return `
+    <section class="studio-wizard-panel">
+      <div class="studio-wizard-heading"><span>第 1 步</span><h2>先选专业，再选这门课</h2><p>专业和课程来自学院专业数据库，不需要重新输入课程名称。</p></div>
+      <div class="studio-wizard-fields">
+        <label class="studio-field field-wide"><span>专业</span><select data-role="studio-wizard-major">
+          <option value="">请选择专业</option>
+          ${majors.map((item) => {
+            const department = catalog.departments.find((dept) => dept.id === item.deptId);
+            return `<option value="${escapeAttr(item.id)}" ${majorId === item.id ? "selected" : ""}>${escapeHtml(department?.name || "")} · ${escapeHtml(item.name)}</option>`;
+          }).join("")}
+        </select></label>
+        <label class="studio-field field-wide"><span>课程</span><select data-role="studio-wizard-course" ${majorId ? "" : "disabled"}>
+          <option value="">${majorId ? "请选择课程" : "请先选择专业"}</option>
+          ${courses.map((item) => `<option value="${escapeAttr(item.id)}" ${state.studioWizardCourse === item.id ? "selected" : ""}>${escapeHtml(programsCourseTitle(item))} · ${escapeHtml(item.category || "未分类")}</option>`).join("")}
+        </select></label>
+      </div>
+      ${majorId && !courses.length ? `<p class="studio-wizard-note">${icon("alert", 12)} 这个专业目前只有占位课程，不能作为正式备课起点。请返回上一步选择其他专业。</p>` : ""}
+      ${studioWizardCourseInfo(course, catalog)}
+      ${renderStudioReferences()}
+      <div class="studio-wizard-actions">
+        <span class="studio-wizard-required">${course ? "课程已选中，可以继续。" : "选择专业和课程后继续。"}</span>
+        <button class="btn btn-solid" type="button" data-action="studio-wizard-next" ${course ? "" : "disabled"}>下一步：选择章节与任务</button>
+      </div>
+    </section>
+  `;
+}
+
+function renderStudioReferences() {
+  const docs = state.studioReferenceDocs || [];
+  if (!docs.length) return "";
+  return `
+    <div class="studio-reference-card">
+      <div><span>已带入参考材料</span><b>${docs.length} 份</b></div>
+      <ul>${docs.map((doc) => `<li><span>${escapeHtml(doc.title)}</span><small>${escapeHtml(doc.category || "教学资源")}</small><button class="btn-link" type="button" data-action="studio-remove-reference" data-id="${escapeAttr(doc.id)}">移除</button></li>`).join("")}</ul>
+      <p>这些材料会作为来源附在资源包中，不会替代课程知识包，也不会自动改写教师内容。</p>
+    </div>
+  `;
+}
+
+function studioWizardChapterStep(ctx) {
+  const { pack, course, chapter, task } = ctx;
+  return `
+    <section class="studio-wizard-panel">
+      <div class="studio-wizard-heading"><span>第 2 步</span><h2>这节课教哪一章、哪个任务</h2><p>系统已从「${escapeHtml(course.name)}」的知识包中带入章节和典型工作任务。可以直接沿用，也可以修改。</p></div>
+      ${studioPackBadge(pack)}
+      <div class="studio-wizard-fields">
+        <label class="studio-field field-wide"><span>教学章节</span><select data-role="studio-chapter">
+          ${studioSelectOptions(pack.chapters, chapter?.id, "id", "title")}
+        </select></label>
+        <label class="studio-field field-wide"><span>典型工作任务</span><select data-role="studio-task">
+          ${studioSelectOptions(pack.tasks, task?.id, "id", "title")}
+        </select></label>
+      </div>
+      <div class="studio-wizard-context">
+        <div><b>${(chapter?.knowledgePoints || []).length}</b><span>本章知识点</span></div>
+        <div><b>${pack.chapters.length}</b><span>可选章节</span></div>
+        <div><b>${pack.tasks.length}</b><span>典型任务</span></div>
+        <div><b>${escapeHtml(pack.statusLabel || "待审核")}</b><span>知识包状态</span></div>
+      </div>
+      <p class="studio-wizard-note">知识包版本 ${escapeHtml(pack.version || "1.0")} · ${escapeHtml(pack.updatedAt || "未标注")}。知识包不等于学院正式课程标准，设备与参数仍需教师核对。</p>
+      ${renderStudioReferences()}
+      <div class="studio-wizard-actions">
+        <button class="btn btn-ghost" type="button" data-action="studio-wizard-back">上一步</button>
+        <button class="btn btn-solid" type="button" data-action="studio-wizard-next" ${chapter && task ? "" : "disabled"}>下一步：教学配置</button>
+      </div>
+    </section>
+  `;
+}
+
+function studioWizardConfigStep(ctx) {
+  const { course, chapter, task } = ctx;
+  return `
+    <section class="studio-wizard-panel">
+      <div class="studio-wizard-heading"><span>第 3 步</span><h2>确认教学对象和条件</h2><p>只填这次上课真正需要的信息。教学条件可以稍后补充，不会阻止生成。</p></div>
+      <div class="studio-wizard-course-line"><b>${escapeHtml(course.name)}</b><span>${escapeHtml(chapter.title)} · ${escapeHtml(task.title)}</span></div>
+      ${renderStudioReferences()}
+      <div class="studio-wizard-fields">
+        <label class="studio-field field-wide"><span>教学对象</span><input data-role="wizard-learners" value="${escapeAttr(state.studioLearners)}" placeholder="如：36 人，已学电工基础"></label>
+        <label class="studio-field"><span>建议学时</span><input data-role="wizard-hours" type="number" min="1" max="24" step="1" value="${escapeAttr(state.studioHours)}"></label>
+        <label class="studio-field field-wide"><span>教学条件</span><textarea data-role="wizard-conditions" rows="3" placeholder="实训室、设备、软件、材料；没有就留空">${escapeHtml(state.studioConditions)}</textarea></label>
+      </div>
+      <details class="studio-optional">
+        <summary>补充目标（选填）</summary>
+        <p>只写可评价的补充目标，不要写入学校未公开的正式标准。</p>
+        <textarea data-role="wizard-objective" rows="3" placeholder="例如：能在 20 分钟内完成 I/O 地址核对并说明依据">${escapeHtml(state.studioObjectiveExtra)}</textarea>
+      </details>
+      <div class="studio-wizard-actions">
+        <button class="btn btn-ghost" type="button" data-action="studio-wizard-back">上一步</button>
+        <button class="btn btn-solid" type="button" data-action="studio-wizard-next">下一步：确认并生成</button>
+      </div>
+    </section>
+  `;
+}
+
+function studioWizardConfirmStep(ctx) {
+  const { course, chapter, task } = ctx;
+  return `
+    <section class="studio-wizard-panel">
+      <div class="studio-wizard-heading"><span>第 4 步</span><h2>确认后生成 10 类资源</h2><p>所有资源共享同一门课程、同一章节和同一个典型工作任务。生成后仍可修改，不会覆盖原课程数据。</p></div>
+      <dl class="studio-wizard-summary">
+        <div><dt>课程</dt><dd>${escapeHtml(course.name)}</dd></div>
+        <div><dt>章节</dt><dd>${escapeHtml(chapter.title)}</dd></div>
+        <div><dt>典型任务</dt><dd>${escapeHtml(task.title)}</dd></div>
+        <div><dt>教学对象</dt><dd>${escapeHtml(state.studioLearners || "未填写")}</dd></div>
+        <div><dt>学时</dt><dd>${escapeHtml(state.studioHours || "4")} 学时</dd></div>
+        <div><dt>教学条件</dt><dd>${escapeHtml(state.studioConditions || "未填写")}</dd></div>
+        ${(state.studioReferenceDocs || []).length ? `<div><dt>参考材料</dt><dd>${state.studioReferenceDocs.map((doc) => escapeHtml(doc.title)).join("；")}</dd></div>` : ""}
+      </dl>
+      <p class="studio-wizard-note">将生成：教学设计、教案、工作页、信息页、任务书、实训指导书、活动策划、评价表、反思表、课件大纲。质检会同时运行，分数只代表规则检查，不代表学校审核。</p>
+      <div class="studio-wizard-actions">
+        <button class="btn btn-ghost" type="button" data-action="studio-wizard-back">上一步</button>
+        <button class="btn btn-solid" type="button" data-action="studio-wizard-generate" ${state.studioBusy ? "disabled" : ""}>${state.studioBusy ? "正在生成…" : "生成 10 类教学资源"}</button>
+      </div>
+    </section>
+  `;
+}
+
+function captureStudioWizardConfig() {
+  const learners = document.querySelector("[data-role='wizard-learners']");
+  const hours = document.querySelector("[data-role='wizard-hours']");
+  const conditions = document.querySelector("[data-role='wizard-conditions']");
+  const objective = document.querySelector("[data-role='wizard-objective']");
+  if (learners) state.studioLearners = learners.value;
+  if (hours) state.studioHours = hours.value;
+  if (conditions) state.studioConditions = conditions.value;
+  if (objective) state.studioObjectiveExtra = objective.value;
+}
+
+function renderStudioWizardPage() {
+  let ctx = null;
+  try {
+    if (state.studioFlowStep >= 2) ctx = studioEnsureContext();
+  } catch (error) {
+    return `<div class="page work-studio"><div class="programs-empty"><strong>这套课程上下文还没准备好</strong><p>${escapeHtml(error.message)}</p><button class="btn" type="button" data-action="studio-wizard-back">重新选择课程</button></div></div>`;
+  }
+  const step = Math.max(1, Math.min(4, Number(state.studioFlowStep) || 1));
+  const body = step === 1 ? studioWizardCourseStep()
+    : step === 2 ? studioWizardChapterStep(ctx)
+      : step === 3 ? studioWizardConfigStep(ctx)
+        : studioWizardConfirmStep(ctx);
+  return `
+    <div class="page work-studio studio-wizard-page">
+      <header class="work-context-head">
+        <div>
+          <p class="work-breadcrumb">备课中心 / 新建备课 / 第 ${step} 步</p>
+          <h1 class="page-title">${step === 1 ? "新建备课" : escapeHtml(ctx.course.name)}</h1>
+          <p class="work-context-path">${step === 1 ? "从专业库选择课程，系统自动带入章节、任务和知识资料。" : `${escapeHtml(ctx.major?.name || "")} · ${escapeHtml(ctx.chapter?.title || "")} · ${escapeHtml(ctx.task?.title || "")}`}</p>
+        </div>
+        <div class="work-context-actions">
+          ${state.studioDraftStatus ? `<span class="studio-save-status">${escapeHtml(state.studioDraftStatus)}</span>` : ""}
+          <button class="btn btn-ghost" type="button" data-action="studio-wizard-save">保存草稿</button>
+          <button class="btn" type="button" data-action="studio-wizard-cancel">退出</button>
+        </div>
+      </header>
+      ${renderStudioSteps(step)}
+      ${step === 1 && state.studioDraft ? `<div class="studio-draft-banner"><span>上次草稿：${escapeHtml(studioDraftLabel(state.studioDraft))} · ${escapeHtml(state.studioDraft.savedAt ? new Date(state.studioDraft.savedAt).toLocaleString("zh-CN", { hour12: false }) : "")}</span><button class="btn-link" type="button" data-action="studio-wizard-restore">继续上次草稿</button><button class="btn-link" type="button" data-action="studio-wizard-discard">放弃</button></div>` : ""}
+      ${body}
+      <p class="work-footnote">这一步只保存到本机。生成前可以随时返回修改；退出后草稿仍在。</p>
+    </div>
   `;
 }
 
@@ -3574,6 +3946,28 @@ function renderStudioEmpty(ctx) {
   `;
 }
 
+function renderStudioRunSummary(ctx, bundle) {
+  const report = bundle?.quality || state.studioQuality;
+  return `
+    <section class="studio-config studio-run-summary">
+      <div class="studio-config-head"><div><div class="page-kicker">CURRENT LESSON / 本次备课</div><h2>${escapeHtml(ctx.course.name)}</h2></div>${studioPackBadge(ctx.pack)}</div>
+      <dl class="studio-run-facts">
+        <div><dt>章节</dt><dd>${escapeHtml(ctx.chapter.title)}</dd></div>
+        <div><dt>典型任务</dt><dd>${escapeHtml(ctx.task.title)}</dd></div>
+        <div><dt>教学对象</dt><dd>${escapeHtml(state.studioLearners || "未填写")}</dd></div>
+        <div><dt>学时</dt><dd>${escapeHtml(state.studioHours || "4")} 学时</dd></div>
+        <div><dt>教学条件</dt><dd>${escapeHtml(state.studioConditions || "未填写")}</dd></div>
+        <div><dt>成果状态</dt><dd>${report ? `质检 ${report.overall} 分 · ${report.problems.length} 个问题` : "等待质检"} · ${escapeHtml(bundle?.reviewStatus || "待审核")}</dd></div>
+      </dl>
+      <div class="studio-run-actions">
+        <button class="btn" type="button" data-action="studio-wizard-edit">修改教学配置</button>
+        <button class="btn btn-ghost" type="button" data-action="studio-wizard-restart">换一门课</button>
+      </div>
+      <p class="studio-config-note">修改配置后需要重新生成资源；当前成果仍保留在成果库。</p>
+    </section>
+  `;
+}
+
 function renderStudioAside(ctx, bundle) {
   const { pack, chapter, course, task } = ctx;
   const points = chapter.knowledgePoints || [];
@@ -3614,7 +4008,47 @@ function renderStudioAside(ctx, bundle) {
   `;
 }
 
+function renderStudioStepPanel(bundle, ctx) {
+  const step = state.studioFlowStep;
+  const report = bundle?.quality || state.studioQuality;
+  if (!bundle) return "";
+  if (step === 6) {
+    return `
+      <section class="studio-finish-panel">
+        <div>
+          <span>第 6 步 · 已保存</span>
+          <h2>成果已保存在本机</h2>
+          <p>${escapeHtml(bundle.title)} · v${bundle.version || 1} · 质检 ${report ? `${report.overall} 分` : "未运行"} · ${escapeHtml(bundle.reviewStatus || "待审核")}</p>
+          <small>保存位置：本机 IndexedDB。换设备请到设置中导出完整备份。</small>
+        </div>
+        <div class="studio-finish-actions">
+          <button class="btn" type="button" data-action="studio-review" data-id="${escapeAttr(bundle.id)}">提交审核</button>
+          <button class="btn" type="button" data-action="studio-export-docx" data-id="${escapeAttr(bundle.id)}">导出 DOCX</button>
+          <button class="btn" type="button" data-action="nav" data-path="/portfolio">查看成果</button>
+          <button class="btn btn-solid" type="button" data-action="studio-wizard-finish" data-id="${escapeAttr(bundle.id)}">完成</button>
+        </div>
+      </section>
+    `;
+  }
+  return `
+    <section class="studio-quality-step">
+      <div>
+        <span>第 5 步 · 编辑与质检</span>
+        <h2>${report ? `规则质检 ${report.overall} 分，${report.problems.length} 个问题` : "资源已生成，等待质检"}</h2>
+        <p>${report ? `${escapeHtml(report.statusLabel)} · ${report.layers?.knowledge?.reviewItems?.length || 0} 项需要教师核对。分数不是学校审核结论。` : "运行规则检测后，再逐条查看问题和原文位置。"}</p>
+      </div>
+      <div class="studio-quality-step-actions">
+        <button class="btn" type="button" data-action="studio-open-editor" data-id="${escapeAttr(bundle.id)}">编辑文档</button>
+        <button class="btn" type="button" data-action="studio-quality" data-id="${escapeAttr(bundle.id)}">重新检测</button>
+        <button class="btn" type="button" data-action="nav" data-path="/quality">打开审阅工作区</button>
+        <button class="btn btn-solid" type="button" data-action="studio-wizard-next" data-id="${escapeAttr(bundle.id)}">下一步：保存与导出</button>
+      </div>
+    </section>
+  `;
+}
+
 function renderStudioPage() {
+  if (state.studioFlowActive && state.studioFlowStep <= 4) return renderStudioWizardPage();
   let ctx;
   try {
     ctx = studioEnsureContext();
@@ -3623,18 +4057,19 @@ function renderStudioPage() {
   }
   const bundle = state.studioBundle;
   const stats = getStudioBundleStats();
+  const flowStep = state.studioFlowActive ? state.studioFlowStep : null;
   return `
     <div class="page studio-page work-studio">
       <header class="work-context-head">
         <div>
-          <p class="work-breadcrumb">智能备课中心 / ${escapeHtml(ctx.department?.name || "")} / ${escapeHtml(ctx.group?.name || "")} / ${escapeHtml(ctx.major?.name || "")}</p>
+          <p class="work-breadcrumb">备课中心 / ${escapeHtml(ctx.department?.name || "")} / ${escapeHtml(ctx.group?.name || "")} / ${escapeHtml(ctx.major?.name || "")}</p>
           <h1 class="page-title">${escapeHtml(ctx.course.name)}</h1>
           <p class="work-context-path">${escapeHtml(ctx.chapter.title)} · ${escapeHtml(ctx.task.title)} · ${escapeHtml(ctx.course.category || "专业核心课")}</p>
         </div>
         <div class="work-context-actions">
-          <button class="btn btn-solid" type="submit" form="studio-config-form" ${state.studioBusy ? "disabled" : ""}>${state.studioBusy ? "正在生成…" : "生成资源"}</button>
-          ${bundle ? `<button class="btn" type="button" data-action="studio-open-editor" data-id="${escapeAttr(bundle.id)}">编辑</button><button class="btn" type="button" data-action="studio-quality" data-id="${escapeAttr(bundle.id)}">质检</button><button class="btn" type="button" data-action="studio-export-docx" data-id="${escapeAttr(bundle.id)}">导出</button>` : `<button class="btn" type="button" data-action="nav" data-path="/demo">演示案例</button>`}
-          <button class="btn" type="button" data-action="studio-toggle-aside">${state.studioAsideOpen ? "收起资料" : "展开资料"}</button>
+          ${bundle ? `<button class="btn" type="button" data-action="studio-open-editor" data-id="${escapeAttr(bundle.id)}">编辑</button><button class="btn" type="button" data-action="studio-quality" data-id="${escapeAttr(bundle.id)}">质检</button><button class="btn" type="button" data-action="studio-export-docx" data-id="${escapeAttr(bundle.id)}">导出</button>` : `<button class="btn btn-solid" type="submit" form="studio-config-form" ${state.studioBusy ? "disabled" : ""}>${state.studioBusy ? "正在生成…" : "生成资源"}</button><button class="btn" type="button" data-action="nav" data-path="/demo">演示案例</button>`}
+          <button class="btn btn-ghost" type="button" data-action="start-studio">新建备课</button>
+          <button class="btn" type="button" data-action="studio-toggle-aside">${state.studioAsideOpen ? "收起资料" : "资料"}</button>
         </div>
       </header>
       <div class="studio-work-status">
@@ -3642,17 +4077,20 @@ function renderStudioPage() {
         <span>${ctx.pack.chapters.length} 章 · ${ctx.pack.tasks.length} 个任务 · 10 类资源</span>
         <span>${stats.total} 份成果 · ${stats.pending} 份待审核</span>
       </div>
-      <div class="studio-flow is-compact" aria-label="备课流程">
+      ${!state.studioFlowActive && state.studioDraft ? `<div class="studio-draft-banner"><span>有一份未完成的备课草稿：${escapeHtml(studioDraftLabel(state.studioDraft))}</span><button class="btn-link" type="button" data-action="studio-wizard-restore">继续草稿</button><button class="btn-link" type="button" data-action="studio-wizard-discard">放弃</button></div>` : ""}
+      ${!state.studioFlowActive && !bundle ? `<div class="studio-demo-hint">${icon("info", 12)} 当前显示的是 PLC 演示工作区，不会自动为你创建成果。开始自己的备课，请点右上角“新建备课”。</div>` : ""}
+      ${flowStep ? renderStudioSteps(flowStep) : `<div class="studio-flow is-compact" aria-label="备课流程">
         <span class="is-done">选课程</span><i></i>
         <span class="is-done">定任务</span><i></i>
         <span class="${bundle ? "is-done" : "is-current"}">生成资源</span><i></i>
         <span class="${bundle?.quality ? "is-done" : bundle ? "is-current" : ""}">检查质量</span><i></i>
         <span>审核导出</span>
-      </div>
+      </div>`}
+      ${flowStep ? renderStudioStepPanel(bundle, ctx) : ""}
       <div class="studio-workspace${state.studioAsideOpen ? "" : " is-aside-closed"}">
-        <aside class="studio-config-column">${renderStudioConfig(ctx)}</aside>
+        <aside class="studio-config-column">${flowStep && bundle ? renderStudioRunSummary(ctx, bundle) : renderStudioConfig(ctx)}</aside>
         <section class="studio-editor-column" id="studio-main">${bundle ? renderStudioResult(bundle) : renderStudioEmpty(ctx)}</section>
-        ${state.studioAsideOpen ? renderStudioAside(ctx, bundle) : ""}
+        ${renderStudioAside(ctx, bundle)}
       </div>
       <p class="work-footnote">“${escapeHtml(ctx.pack.statusLabel)}”不是学院正式课程标准。设备参数、I/O 地址、安全条款与来源编号仍须教师和教研组确认。</p>
     </div>
@@ -3688,7 +4126,8 @@ async function generateStudioBundle(form) {
       learners,
       hours,
       conditions,
-      objectiveExtra
+      objectiveExtra,
+      referenceDocs: state.studioReferenceDocs || []
     }, ctx.catalog);
     const report = inspectStudioBundle(bundle);
     bundle.quality = report;
@@ -3698,6 +4137,10 @@ async function generateStudioBundle(form) {
     state.studioQuality = report;
     state.studioDocId = "design";
     state.studioBusy = false;
+    if (state.studioFlowActive) {
+      state.studioFlowStep = 5;
+      clearStudioDraft();
+    }
     showToast(`已生成 10 类资源 · 质检 ${report.overall} 分`);
     renderApp({ preserveScroll: true });
     if (window.matchMedia("(max-width: 900px)").matches) {
@@ -3982,9 +4425,9 @@ function renderQualityPage() {
       <div class="page quality-page work-quality">
         <header class="work-context-head">
           <div><p class="work-breadcrumb">质量检测 / 教学文件审阅</p><h1 class="page-title">质量检测</h1><p class="work-context-path">生成一套教学资源包后，规则检测结果会在这里按问题列出。</p></div>
-          <div class="work-context-actions"><button class="btn btn-solid" type="button" data-action="nav" data-path="/studio">去备课</button></div>
+          <div class="work-context-actions"><button class="btn btn-solid" type="button" data-action="start-studio">开始备课</button></div>
         </header>
-        <div class="quality-empty"><strong>当前没有质检报告</strong><p>先到智能备课中心生成资源包；生成后系统会自动运行结构、专业知识和教师审核三层检测。</p><button class="btn" type="button" data-action="nav" data-path="/quality">刷新</button></div>
+        <div class="quality-empty"><strong>当前没有质检报告</strong><p>先完成一次备课；生成资源包后，系统会自动运行结构、专业知识和教师审核三层检测。</p><button class="btn btn-solid" type="button" data-action="start-studio">开始备课</button><button class="btn" type="button" data-action="nav" data-path="/quality">刷新</button></div>
       </div>
     `;
   }
@@ -4104,7 +4547,7 @@ function renderPortfolioPage() {
         ${bundles.length ? bundles.map((bundle) => `<div class="portfolio-card">
           <div class="portfolio-card-main"><div class="page-kicker">${escapeHtml(bundle.context?.major || "")} · v${bundle.version || 1}</div><h3>${escapeHtml(bundle.title)}</h3><p>${escapeHtml(bundle.context?.course || "")} · ${escapeHtml(bundle.context?.task || "")} · ${escapeHtml(bundle.context?.hours || "")} 学时</p><div class="portfolio-tags"><span>${escapeHtml(bundle.reviewStatus || "待审核")}</span>${bundle.quality ? `<span>质检 ${bundle.quality.overall}</span>` : `<span>未质检</span>`}${bundle.history?.length ? `<span>${bundle.history.length} 个历史版本</span>` : ""}${bundle.demo ? `<span>演示数据</span>` : ""}</div></div>
           <div class="portfolio-actions"><button class="btn btn-solid" type="button" data-action="portfolio-open" data-id="${escapeAttr(bundle.id)}">打开</button><button class="btn btn-ghost" type="button" data-action="portfolio-review" data-id="${escapeAttr(bundle.id)}">审核</button>${bundle.history?.length ? `<button class="btn btn-ghost" type="button" data-action="portfolio-history" data-id="${escapeAttr(bundle.id)}">版本</button>` : ""}<button class="btn btn-ghost" type="button" data-action="portfolio-export" data-id="${escapeAttr(bundle.id)}">DOCX</button><button class="btn btn-ghost" type="button" data-action="portfolio-delete" data-id="${escapeAttr(bundle.id)}">删除</button></div>
-        </div>`).join("") : `<div class="programs-empty"><strong>成果库还空着</strong><p>完成一次智能备课，资源包、质检和版本会出现在这里。</p><button class="btn btn-solid" type="button" data-action="nav" data-path="/studio">去开发</button></div>`}
+        </div>`).join("") : `<div class="programs-empty"><strong>成果库还空着</strong><p>完成一次备课，资源包、质检和版本会出现在这里。</p><button class="btn btn-solid" type="button" data-action="start-studio">开始备课</button></div>`}
       </div>
     </div>
   `;
@@ -4459,12 +4902,106 @@ function handleStudioAction(action, el) {
   const bundle = id ? getStudioBundle(id) : state.studioBundle;
   switch (action) {
     case "home-start-studio":
-      state.studioCourseId = "course-0010";
-      state.studioChapterId = "CH-PLC-01";
-      state.studioTaskId = "TASK-PLC-01";
-      state.studioBundle = null;
-      state.studioQuality = null;
-      navigate("/studio");
+      beginStudioFlow();
+      break;
+    case "home-restart-studio":
+      clearStudioDraft();
+      beginStudioFlow();
+      break;
+    case "studio-wizard-next": {
+      if (state.studioFlowStep === 1) {
+        const courseId = state.studioWizardCourse || "";
+        const catalog = studioCatalog();
+        const course = catalog.courses.find((item) => item.id === courseId);
+        if (!course) {
+          showToast("请先选择专业和课程");
+          break;
+        }
+        state.studioCourseId = course.id;
+        state.studioMajor = course.majorId || "";
+        state.studioDept = course.deptId || "";
+        state.studioGroup = course.groupId || "";
+        state.studioChapterId = "";
+        state.studioTaskId = "";
+        try {
+          studioEnsureContext();
+        } catch (error) {
+          showToast(error.message || "课程知识包暂时不可用");
+          break;
+        }
+        state.studioFlowStep = 2;
+        saveStudioDraftState({ step: 2 });
+      } else if (state.studioFlowStep === 2) {
+        if (!state.studioChapterId || !state.studioTaskId) {
+          showToast("请选择教学章节和典型工作任务");
+          break;
+        }
+        state.studioFlowStep = 3;
+        saveStudioDraftState({ step: 3 });
+      } else if (state.studioFlowStep === 3) {
+        captureStudioWizardConfig();
+        const hours = Number(state.studioHours);
+        if (!Number.isFinite(hours) || hours < 1 || hours > 24) {
+          showToast("建议学时请填写 1—24 之间的整数");
+          break;
+        }
+        state.studioFlowStep = 4;
+        saveStudioDraftState({ step: 4 });
+      } else if (state.studioFlowStep === 5) {
+        state.studioFlowStep = 6;
+      }
+      renderApp({ preserveScroll: true });
+      break;
+    }
+    case "studio-wizard-back":
+      state.studioFlowStep = state.studioFlowStep === 6 ? 5 : Math.max(1, Number(state.studioFlowStep) - 1);
+      saveStudioDraftState({ step: state.studioFlowStep });
+      renderApp({ preserveScroll: true });
+      break;
+    case "studio-wizard-save": {
+      captureStudioWizardConfig();
+      if (state.studioFlowStep === 1 && !state.studioWizardCourse) {
+        showToast("选择课程后就能保存这份草稿");
+        break;
+      }
+      saveStudioDraftState();
+      showToast("草稿已保存到本机");
+      renderApp({ preserveScroll: true });
+      break;
+    }
+    case "studio-wizard-restore":
+      restoreStudioDraft();
+      break;
+    case "studio-remove-reference":
+      state.studioReferenceDocs = (state.studioReferenceDocs || []).filter((doc) => doc.id !== id);
+      showToast("已移除这份参考材料");
+      renderApp({ preserveScroll: true });
+      break;
+    case "studio-wizard-discard":
+      clearStudioDraft();
+      showToast("已放弃上次草稿");
+      renderApp({ preserveScroll: true });
+      break;
+    case "studio-wizard-cancel":
+      state.studioFlowActive = false;
+      state.studioFlowStep = 1;
+      navigate("/");
+      break;
+    case "studio-wizard-generate":
+      captureStudioWizardConfig();
+      generateStudioBundle(null);
+      break;
+    case "studio-wizard-edit":
+      state.studioFlowStep = 3;
+      renderApp({ preserveScroll: true });
+      break;
+    case "studio-wizard-restart":
+      beginStudioFlow();
+      break;
+    case "studio-wizard-finish":
+      state.studioFlowActive = false;
+      state.studioFlowStep = 1;
+      navigate("/portfolio");
       break;
     case "studio-toggle-aside":
       state.studioAsideOpen = !state.studioAsideOpen;
@@ -4473,12 +5010,9 @@ function handleStudioAction(action, el) {
     case "home-open-pack": {
       const pack = CURRICULUM_PACKS.find((item) => item.id === id);
       if (!pack) break;
-      state.studioCourseId = pack.courseId;
-      state.studioChapterId = pack.chapters[0]?.id || state.studioChapterId;
-      state.studioTaskId = pack.tasks.find((task) => (task.chapterId || pack.chapters[0]?.id) === state.studioChapterId)?.id || pack.tasks[0]?.id || state.studioTaskId;
-      state.studioBundle = null;
-      state.studioQuality = null;
-      navigate("/studio");
+      const chapterId = pack.chapters[0]?.id || "";
+      const taskId = pack.tasks.find((task) => (task.chapterId || chapterId) === chapterId)?.id || pack.tasks[0]?.id || "";
+      beginStudioFlow({ courseId: pack.courseId, chapterId, taskId, step: 3 });
       break;
     }
     case "demo-start":
@@ -4803,7 +5337,7 @@ function renderHistoryPage() {
             ${icon("search", 15)}
             <input type="search" placeholder="搜索标题、专业、任务或分类…" value="${escapeAttr(state.historyQuery)}" data-role="history-search" aria-label="搜索历史对话">
           </div>
-          <button class="btn btn-solid" type="button" data-action="nav" data-path="/">${icon("plus", 12)}新建备课</button>
+          <button class="btn btn-solid" type="button" data-action="start-studio">${icon("plus", 12)}开始备课</button>
         </div>
         <div class="history-categories" role="group" aria-label="对话分类">
           ${categories.map((cat) => `<button class="filter-btn${state.historyCategory === cat ? " is-active" : ""}" type="button" data-action="set-history-cat" data-cat="${escapeAttr(cat)}">${escapeHtml(cat)}</button>`).join("")}
@@ -4832,7 +5366,7 @@ function renderHistoryList(list) {
         <div class="empty-mark"></div>
         <h2 class="empty-title">${state.historyQuery ? "没有匹配的记录" : "还没有历史记录"}</h2>
         <p class="empty-copy">${state.historyQuery ? "换一个关键词试试。" : "从一次真实的备课任务开始。生成的内容会自动保存在这里，方便下次继续修改。"}</p>
-        <button class="btn" type="button" data-action="nav" data-path="/">去备课工作台</button>
+        <button class="btn" type="button" data-action="start-studio">开始备课</button>
       </div>
     `;
   }
@@ -5039,7 +5573,7 @@ function renderGuidePage() {
               <li>学情、姓名、联系方式不进入输入</li>
               <li>安全条款以现场规程为准</li>
             </ul>
-            <button class="btn btn-solid" style="margin-top:12px;width:100%" type="button" data-action="nav" data-path="/">开始一次备课 ${icon("arrowRight", 12)}</button>
+            <button class="btn btn-solid" style="margin-top:12px;width:100%" type="button" data-action="start-studio">开始一次备课 ${icon("arrowRight", 12)}</button>
           </div>
         </aside>
       </div>
@@ -6856,7 +7390,7 @@ function createConversation() {
   const now = new Date().toISOString();
   const conv = {
     id: uid("conv"),
-    title: "新的备课对话",
+    title: "新的教学对话",
     scene: "",
     category: "通用对话",
     createdAt: now,
@@ -7647,7 +8181,7 @@ function getActiveDoc(artifact, messageId) {
 
 function handleAction(action, el, event) {
   if (action.startsWith("program-") && handleProgramsAction(action, el)) return;
-  if (action.startsWith("studio-") || action.startsWith("quality-") || action.startsWith("portfolio") || action.startsWith("graph-") || action.startsWith("demo-") || action === "home-start-studio" || action === "home-open-pack") {
+  if (action.startsWith("studio-") || action.startsWith("quality-") || action.startsWith("portfolio") || action.startsWith("graph-") || action.startsWith("demo-") || action === "home-start-studio" || action === "home-open-pack" || action === "home-restart-studio") {
     if (handleStudioAction(action, el)) return;
   }
   if (action.startsWith("impact-") && handleImpactAction(action, el)) return;
@@ -7656,10 +8190,22 @@ function handleAction(action, el, event) {
       navigate(el.dataset.path || "/");
       break;
     }
+    case "start-studio": {
+      beginStudioFlow();
+      break;
+    }
+    case "toggle-nav-more": {
+      state.navMoreOpen = !state.navMoreOpen;
+      renderSidebar(state.activeId ? findConversation(state.activeId) : null);
+      break;
+    }
     case "new-chat": {
       state.draft = "";
       state.attachments = [];
-      navigate("/");
+      const conv = createConversation();
+      saveDB();
+      navigate(`/chat/${conv.id}`, { scroll: "bottom" });
+      requestAnimationFrame(() => document.querySelector("[data-role='composer-input']")?.focus());
       break;
     }
     case "toggle-ai-mode": {
@@ -8267,6 +8813,20 @@ function handleAction(action, el, event) {
       refreshKbGrid();
       break;
     }
+    case "kb-use-doc": {
+      const doc = getDoc(el.dataset.doc || "");
+      if (!doc) break;
+      const course = PROGRAM_DATA.courses.find((item) => item.name === doc.course && studioCourseUsable(item));
+      const reference = { id: doc.id, title: doc.title, category: doc.category || "教学资源", summary: doc.summary || "" };
+      if (course) {
+        beginStudioFlow({ courseId: course.id, step: 2, referenceDocs: [reference] });
+        showToast(`已带入「${doc.title}」，并定位到「${programsCourseTitle(course)}」`);
+      } else {
+        beginStudioFlow({ referenceDocs: [reference] });
+        showToast("已带入这份资料；请先选择它对应的专业和课程");
+      }
+      break;
+    }
     case "set-kb-cat": {
       state.kbCategory = el.dataset.cat || "全部";
       refreshKbGrid();
@@ -8654,6 +9214,23 @@ document.addEventListener("change", (event) => {
     target.value = "";
     return;
   }
+  if (target.matches("[data-role='studio-wizard-major']")) {
+    state.studioWizardMajor = target.value || "";
+    state.studioWizardCourse = "";
+    state.studioCourseId = "";
+    state.studioMajor = state.studioWizardMajor;
+    const major = studioCatalog().majors.find((item) => item.id === state.studioWizardMajor);
+    state.studioDept = major?.deptId || "";
+    state.studioGroup = major?.groupId || "";
+    renderApp({ preserveScroll: true });
+    return;
+  }
+  if (target.matches("[data-role='studio-wizard-course']")) {
+    state.studioWizardCourse = target.value || "";
+    state.studioCourseId = state.studioWizardCourse;
+    renderApp({ preserveScroll: true });
+    return;
+  }
   if (target.matches("[data-role='studio-dept']")) {
     const catalog = studioCatalog();
     const department = catalog.departments.find((item) => item.id === target.value);
@@ -8925,9 +9502,9 @@ document.addEventListener("keydown", (event) => {
     }
   }
   if (event.key.toLowerCase() === "n" && !event.metaKey && !event.ctrlKey && !event.altKey) {
-    state.draft = "";
-    state.attachments = [];
-    navigate("/");
+    if (event.target?.matches?.("input, textarea, select, [contenteditable='true']")) return;
+    event.preventDefault();
+    beginStudioFlow();
   }
 });
 

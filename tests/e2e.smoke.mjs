@@ -111,7 +111,8 @@ async function main() {
     check("favicon 已切换", await page.evaluate(() => document.querySelector('link[rel="icon"]')?.getAttribute("href") === "./assets/brand/favicon-64.png"));
     check("首页已精简", await page.locator(".home-top, .hero-eyebrow, .scope-note, .section-kicker").count() === 0);
     check("五个场景入口", await page.locator(".scene-card").count() === 5);
-    check("侧栏导航", await page.locator(".nav-item").count() >= 8);
+    check("核心导航五项", await page.locator(".side-nav:not(.side-nav-more) .nav-item").count() === 5);
+    check("更多功能入口", await page.locator('[data-action="toggle-nav-more"]').count() === 1);
     check("专业数据库入口", await page.locator(".nav-item[data-path='/programs']").count() === 1);
     await page.locator(".sidebar-collapse").click();
     await page.waitForTimeout(250);
@@ -120,6 +121,12 @@ async function main() {
     await page.waitForTimeout(250);
     check("侧栏可展开", (await page.locator(".sidebar").evaluate((el) => el.getBoundingClientRect().width)) > 200);
     check("知识库统计 ≥33 份", Number(await page.locator(".nav-item[data-path='/kb'] .nav-count").textContent()) >= 33);
+    await page.locator(".new-chat").click();
+    await page.waitForTimeout(350);
+    check("开始备课进入第 1 步", (await page.locator(".studio-step.is-current").innerText()).includes("选专业课程"));
+    check("新建备课不预选 PLC", await page.locator(".studio-picked-course").count() === 0);
+    await page.goto(base, { waitUntil: "networkidle" });
+    await page.waitForTimeout(250);
 
     for (const route of ["kb", "files", "templates", "history", "settings", "guide"]) {
       await page.goto(`${base}#/${route}`, { waitUntil: "networkidle" });
@@ -133,7 +140,7 @@ async function main() {
 
     await page.goto(`${base}#/programs`, { waitUntil: "networkidle" });
     await page.waitForTimeout(350);
-    check("专业数据库页面", (await page.locator(".page-title").innerText()).includes("专业体系"));
+    check("专业数据库页面", (await page.locator(".page-title").innerText()).includes("专业与课程"));
     check("专业统计四项", await page.locator(".page-stats .stat").count() === 4);
     check("专业系卡片六个", await page.locator(".programs-dept-card").count() === 6);
     check("原始数据表可下载", await page.locator('a[href*="gzgj-professional-system.xlsx"]').count() >= 1);
@@ -161,6 +168,10 @@ async function main() {
     check("智能备课中心", await page.locator(".work-studio").count() === 1 && (await page.locator(".work-studio .page-title").innerText()).includes("PLC"));
     check("课程知识准备", await page.locator(".studio-readiness").count() === 1);
     check("三个标杆课程包", await page.locator(".studio-benchmark-chip").count() === 3);
+    check("辅助资料默认收起", await page.locator(".studio-aside").isHidden());
+    await page.locator('[data-action="studio-toggle-aside"]').click();
+    await page.waitForTimeout(250);
+    check("辅助资料可展开", await page.locator(".studio-aside").isVisible());
     await page.locator(".studio-benchmark-chip").nth(1).click();
     await page.waitForTimeout(300);
     check("来源错配警示", (await page.locator(".studio-source-audit").innerText()).includes("建议修订"));
