@@ -1275,8 +1275,22 @@ textarea:focus {
   background: #f7f3fb;
 }
 
-.quality-report-layers .is-approved {
+.quality-report-layers span {
+  border: 1px solid #d4c6e6;
+  background: #f1ecf8;
+  color: #5e4789;
+}
+
+.quality-report-layers span.is-approved {
+  border-color: #bfd9cb;
   background: #edf5ef;
+  color: #2f6b4f;
+}
+
+.quality-report-layers span:last-child:not(.is-approved) {
+  border-color: #e8c98d;
+  background: #fff4df;
+  color: #815514;
 }
 
 /* ---------- Graph: explorable atlas ---------- */
