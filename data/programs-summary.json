@@ -1,0 +1,235 @@
+{
+  "meta": {
+    "college": "广州市技师学院",
+    "title": "广州市技师学院专业体系数据库",
+    "version": "2026.11",
+    "generatedAt": "2026-11-17",
+    "sourceFile": "data/gzgj-professional-system.xlsx",
+    "sourceSheets": [
+      "学院专业架构",
+      "专业课程总表",
+      "专业详细介绍",
+      "专业系汇总",
+      "信息来源与核验",
+      "数据说明与统计"
+    ],
+    "dataNote": "数据来自上传的《广州市技师学院专业体系数据库.xlsx》。原表中的“暂无公开资料”“—”“推定”等状态均原样保留，不臆造学校未公开的信息。",
+    "counts": {
+      "departments": 6,
+      "groups": 13,
+      "majors": 56,
+      "plans": 75,
+      "courses": 567,
+      "uniqueCourseNames": 484,
+      "officialCourseIntros": 13,
+      "placeholderCourseRows": 554,
+      "sources": 134,
+      "activePlans2026": 54,
+      "majorDetailGaps": 8
+    },
+    "workbookSummary": {
+      "units": "6 个教学单位（5个产业系＋1个人文素养学院）",
+      "groups": "12",
+      "majors": "54",
+      "courses": "480",
+      "activeMajors": "37",
+      "historyMajors": "17",
+      "groupNames": "10个专业群＋人文素养学院2个学科组",
+      "note": "课程数量为去重后的课程名称数（不含“暂无公开资料”占位行）"
+    }
+  },
+  "departmentCounts": [
+    {
+      "name": "智能制造产业系",
+      "groups": 2,
+      "majors": 12,
+      "sources": 27
+    },
+    {
+      "name": "交通装备产业系",
+      "groups": 3,
+      "majors": 14,
+      "sources": 37
+    },
+    {
+      "name": "人工智能产业系",
+      "groups": 2,
+      "majors": 8,
+      "sources": 19
+    },
+    {
+      "name": "数字服务产业系",
+      "groups": 2,
+      "majors": 13,
+      "sources": 25
+    },
+    {
+      "name": "智慧农业产业系",
+      "groups": 2,
+      "majors": 7,
+      "sources": 16
+    },
+    {
+      "name": "人文素养学院（马克思主义学院）",
+      "groups": 2,
+      "majors": 2,
+      "sources": 6
+    }
+  ],
+  "groupCounts": [
+    {
+      "name": "智能制造专业群",
+      "dept": "智能制造产业系",
+      "majors": 4
+    },
+    {
+      "name": "数字化设计与制造专业群",
+      "dept": "智能制造产业系",
+      "majors": 8
+    },
+    {
+      "name": "智能网联汽车专业群",
+      "dept": "交通装备产业系",
+      "majors": 11
+    },
+    {
+      "name": "飞行器应用技术专业群",
+      "dept": "交通装备产业系",
+      "majors": 2
+    },
+    {
+      "name": "智慧网络与信息安全专业群",
+      "dept": "人工智能产业系",
+      "majors": 4
+    },
+    {
+      "name": "人工智能专业群",
+      "dept": "人工智能产业系",
+      "majors": 4
+    },
+    {
+      "name": "健康管理专业群",
+      "dept": "数字服务产业系",
+      "majors": 5
+    },
+    {
+      "name": "数字商贸专业群",
+      "dept": "数字服务产业系",
+      "majors": 8
+    },
+    {
+      "name": "休闲农业专业群",
+      "dept": "智慧农业产业系",
+      "majors": 3
+    },
+    {
+      "name": "数智慧农业专业群",
+      "dept": "智慧农业产业系",
+      "majors": 4
+    },
+    {
+      "name": "思政与文史学科组",
+      "dept": "人文素养学院（马克思主义学院）",
+      "majors": 1
+    },
+    {
+      "name": "数英与体美学科组",
+      "dept": "人文素养学院（马克思主义学院）",
+      "majors": 1
+    },
+    {
+      "name": "（未纳入现行专业群）",
+      "dept": "交通装备产业系",
+      "majors": 1
+    }
+  ],
+  "courseCategories": {
+    "专业基础课": 13,
+    "专业核心课": 494,
+    "公共基础课": 25,
+    "实训课程": 2,
+    "拓展/选修课": 9,
+    "暂无公开资料": 15,
+    "课程体系说明": 9
+  },
+  "sampleCoursesWithOfficialIntro": [
+    {
+      "id": "course-0207",
+      "name": "服务机器人的模组与调试",
+      "majorId": "major-030",
+      "intro": "学习功能模块的组装、调试流程与规范。"
+    },
+    {
+      "id": "course-0208",
+      "name": "服务机器人维护与保养",
+      "majorId": "major-030",
+      "intro": "掌握机器人的日常检查、清洁、紧固、故障初步处理等维保技能。"
+    },
+    {
+      "id": "course-0209",
+      "name": "服务机器人整机综合装调",
+      "majorId": "major-030",
+      "intro": "训练机器人机械装配、电气安装、整机功能调试与验收的综合能力。"
+    },
+    {
+      "id": "course-0210",
+      "name": "服务机器人功能平台部署与运维",
+      "majorId": "major-030",
+      "intro": "学习语音交互、人脸识别、机械臂抓取等功能平台的环境配置、程序部署与运维。"
+    },
+    {
+      "id": "course-0211",
+      "name": "服务机器人故障诊断与排除",
+      "majorId": "major-030",
+      "intro": "培养对启动、运动、充电、通信等异常情况的诊断与排除能力。"
+    },
+    {
+      "id": "course-0212",
+      "name": "服务机器人地图构建与导航",
+      "majorId": "major-030",
+      "intro": "掌握机器人环境地图构建、导航路径规划与设定的技术。"
+    },
+    {
+      "id": "course-0213",
+      "name": "服务机器人应用部署",
+      "majorId": "major-030",
+      "intro": "针对巡检、导览、酒店、物流等具体场景，进行机器人的现场应用部署与调试。"
+    },
+    {
+      "id": "course-0214",
+      "name": "服务机器人非标件改造设计",
+      "majorId": "major-030",
+      "intro": "培养根据特定需求进行机器人非标部件（如托盘、传感器支架）设计、改造的能力。"
+    },
+    {
+      "id": "course-0221",
+      "name": "服务机器人技术综合实训",
+      "majorId": "major-030",
+      "intro": "与企业合作，进行实际项目开发与集成应用训练。"
+    },
+    {
+      "id": "course-0222",
+      "name": "服务机器人创新实践",
+      "majorId": "major-030",
+      "intro": "鼓励学生进行创新设计和研发。"
+    },
+    {
+      "id": "course-0238",
+      "name": "智能产品安装与调试",
+      "majorId": "major-027",
+      "intro": "重点训练智能设备的组装、系统联调等实操技能。"
+    },
+    {
+      "id": "course-0239",
+      "name": "智能模型训练与调优",
+      "majorId": "major-027",
+      "intro": "针对特定场景训练和优化AI模型，并部署到智能设备。"
+    },
+    {
+      "id": "course-0240",
+      "name": "智能系统运行维护",
+      "majorId": "major-027",
+      "intro": "提升智能设备的日常监控、故障诊断、系统升级等全生命周期管理技能。"
+    }
+  ]
+}

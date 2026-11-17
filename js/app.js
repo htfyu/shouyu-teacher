@@ -74,6 +74,31 @@ import {
 import * as localDB from "./db.js";
 
 import {
+  PROGRAM_DATA,
+  addProgramEntity,
+  buildProgramCatalog,
+  clearProgramStore,
+  deleteProgramEntity,
+  exportProgramState,
+  getCourseResource,
+  getProgramLastError,
+  getProgramState,
+  getProgramStorageMode,
+  importProgramState,
+  loadProgramStore,
+  resetCourseResource,
+  restoreProgramEntity,
+  saveCourseResource,
+  updateProgramEntity
+} from "./programs-store.js";
+
+import {
+  COURSE_RESOURCE_FIELDS,
+  buildCourseResource,
+  getDomainProfileLabel
+} from "./programs-content.js";
+
+import {
   detectSensitive,
   maskSensitive,
   reviewSummary,
@@ -112,6 +137,9 @@ const ICON_PATHS = {
   trash: '<path d="M2.8 4.3h10.4M6 4.3V2.5h4v1.8M4 4.3l.6 9.2h6.8l.6-9.2M6.5 6.5v5M9.5 6.5v5"/>',
   sliders: '<path d="M3 4.5h6M11.5 4.5h1.5M3 11.5h1.5M7 11.5h6"/><circle cx="10" cy="4.5" r="1.4"/><circle cx="5" cy="11.5" r="1.4"/>',
   file: '<path d="M4 2.5h5l3 3v8H4v-11zM9 2.5v3h3M6 8h4M6 10.5h4"/>',
+  building: '<path d="M3 13.5V3h6v10.5M9 7h4v6.5M5 5.5h2M5 8h2M5 10.5h2M11 9h.1M11 11.5h.1M2 13.5h12"/>',
+  archive: '<path d="M2.5 4.5h11v9h-11zM2.5 4.5V2.8h11v1.7M5.2 8h5.6"/>',
+  upload: '<path d="M8 10.5V2.8M4.8 6L8 2.8 11.2 6M2.5 13.5h11"/>',
   shield: '<path d="M8 2.3l4.6 1.7v4.1c0 2.7-1.9 4.5-4.6 5.6-2.7-1.1-4.6-2.9-4.6-5.6V4L8 2.3z"/><path d="M5.9 8l1.5 1.5L10.3 6.6"/>',
   check: '<path d="M2.8 8.2l3.2 3.1 7.2-7.1"/>',
   alert: '<path d="M8 2.5l5.5 10.7h-11L8 2.5zM8 6v3.3M8 11.4v.1"/>',
@@ -471,6 +499,13 @@ const state = {
   docTabs: {},
   kbQuery: "",
   kbCategory: "全部",
+  programQuery: "",
+  programDept: "",
+  programGroup: "",
+  programMajor: "",
+  programCategory: "全部",
+  programManageMode: false,
+  programCourseId: "",
   historyQuery: "",
   historyCategory: "全部",
   historySelected: [],
@@ -601,6 +636,7 @@ function parseRoute() {
     if (conv) return { name: "chat", id, conversation: conv };
     return { name: "notfound" };
   }
+  if (raw === "/programs" || raw.startsWith("/programs")) return { name: "programs" };
   if (raw === "/kb" || raw.startsWith("/kb")) return { name: "kb" };
   if (raw === "/files" || raw.startsWith("/files")) return { name: "files" };
   if (raw === "/templates" || raw.startsWith("/templates")) return { name: "templates" };
@@ -691,7 +727,8 @@ function renderSidebar(activeConv) {
   const activeId = activeConv?.id;
   const navItems = [
     { key: "home", path: "/", icon: "grid", label: "备课工作台" },
-    { key: "kb", path: "/kb", icon: "book", label: "知识库", count: KB_DOCS.length },
+    { key: "programs", path: "/programs", icon: "book", label: "专业数据库", count: PROGRAM_DATA.courses.length },
+    { key: "kb", path: "/kb", icon: "layers", label: "知识库", count: KB_DOCS.length },
     { key: "files", path: "/files", icon: "file", label: "资料中心", count: state.files.length },
     { key: "templates", path: "/templates", icon: "layers", label: "模板库", count: LESSON_TEMPLATES.length + EVAL_TEMPLATES.length + OBSERVATION_TEMPLATES.length },
     { key: "history", path: "/history", icon: "clock", label: "历史对话", count: db.conversations.length },
@@ -699,9 +736,9 @@ function renderSidebar(activeConv) {
     { key: "guide", path: "/guide", icon: "help", label: "使用说明" }
   ];
   const navGroups = [
-    { label: "WORKSPACE / 工作区", items: navItems.slice(0, 4) },
-    { label: "ARCHIVE / 记录", items: navItems.slice(4, 5) },
-    { label: "SYSTEM / 系统", items: navItems.slice(5) }
+    { label: "WORKSPACE / 工作区", items: navItems.slice(0, 5) },
+    { label: "ARCHIVE / 记录", items: navItems.slice(5, 6) },
+    { label: "SYSTEM / 系统", items: navItems.slice(6) }
   ];
   sidebarEl.innerHTML = `
     <a class="brand" href="#/" data-action="nav" data-path="/" aria-label="授渔首页">
@@ -790,6 +827,9 @@ function renderTopbar(activeConv) {
       <button class="btn btn-ghost rail-mobile-btn" type="button" data-action="toggle-rail" aria-label="打开依据与合规自检">${icon("shield", 13)}<span class="topbar-action-label">依据 · 自检</span></button>
       <button class="btn btn-solid" type="button" data-action="new-chat" aria-label="新建对话">${icon("plus", 13)}<span class="topbar-action-label">新对话</span></button>
     `;
+  } else if (route.name === "programs") {
+    center = `学院专业体系 · ${PROGRAM_DATA.courses.length} 条课程记录`;
+    actions = `${aiChip}<button class="btn" type="button" data-action="nav" data-path="/" aria-label="返回工作台">${icon("arrowLeft", 13)}<span class="topbar-action-label">返回工作台</span></button>`;
   } else if (route.name === "kb") {
     kicker = "KNOWLEDGE BASE / 知识库";
     title = "有依据，才回答";
@@ -876,7 +916,9 @@ function renderView(activeConv, options, previousChatScroll, previousViewScroll)
     document.querySelectorAll("[data-role='composer-input']").forEach(autoResize);
     return;
   }
-  viewEl.innerHTML = route.name === "kb"
+  viewEl.innerHTML = route.name === "programs"
+    ? renderProgramsPage()
+    : route.name === "kb"
     ? renderKnowledgePage()
     : route.name === "files"
       ? renderFilesPage()
@@ -1827,11 +1869,1111 @@ function renderTemplatesPage() {
 }
 
 /* ==========================================================
-   History page
+   Professional programme database
    ========================================================== */
 
-function conversationHasArtifact(conv) {
-  return Boolean(conv.latestArtifact || conv.messages.some((msg) => msg.kind === "result"));
+function programsCatalog() {
+  return buildProgramCatalog();
+}
+
+function programsFindDepartment(catalog, id) {
+  return catalog.departments.find((item) => item.id === id) || null;
+}
+
+function programsFindGroup(catalog, id) {
+  return catalog.groups.find((item) => item.id === id) || null;
+}
+
+function programsFindMajor(catalog, id) {
+  return catalog.majors.find((item) => item.id === id) || null;
+}
+
+function programsFindCourse(catalog, id) {
+  return catalog.courses.find((item) => item.id === id) || null;
+}
+
+function programsStatusKind(value) {
+  const text = String(value || "");
+  if (/官方|已核验|含官方/.test(text)) return "official";
+  if (/待完善|占位|暂无/.test(text)) return "pending";
+  if (/教师|自建/.test(text)) return "teacher";
+  if (/参考/.test(text)) return "reference";
+  return "neutral";
+}
+
+function programsBadge(label, kind = "neutral") {
+  return `<span class="programs-badge is-${escapeAttr(kind)}">${escapeHtml(label)}</span>`;
+}
+
+function programsStatusBadge(status) {
+  return programsBadge(status || "待完善", programsStatusKind(status));
+}
+
+function programsPendingNote(text) {
+  return `<p class="programs-pending-note">${icon("alert", 12)} ${escapeHtml(text || "原表未提供完整资料。")}</p>`;
+}
+
+function programsSourceCards(ids, catalog, limit = 6) {
+  const seen = new Set();
+  const list = (ids || [])
+    .map((id) => catalog.sourceMap.get(id) || catalog.sources.find((source) => source.id === id))
+    .filter((source) => {
+      if (!source) return false;
+      const key = source.url || source.title;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  if (!list.length) return `<p class="programs-muted">原表未提供可直接核验的来源。</p>`;
+  return `
+    <div class="programs-source-list">
+      ${list.slice(0, limit).map((source) => {
+        const href = /^https?:\/\//i.test(source.url) ? source.url : "";
+        const body = `
+          <strong>${escapeHtml(source.title)}</strong>
+          <span>${escapeHtml([source.published, source.status].filter(Boolean).join(" · "))}</span>
+        `;
+        return href
+          ? `<a class="programs-source" href="${escapeAttr(href)}" target="_blank" rel="noopener noreferrer">${body}</a>`
+          : `<div class="programs-source">${body}</div>`;
+      }).join("")}
+      ${list.length > limit ? `<p class="programs-muted">另有 ${list.length - limit} 条来源，见原始数据表。</p>` : ""}
+    </div>
+  `;
+}
+
+function programsSourceCount(ids) {
+  return new Set(ids || []).size;
+}
+
+function programsCourseTitle(course) {
+  const name = String(course?.name || "").trim();
+  if (!name || name === "暂无公开资料") {
+    return `未命名 / 占位课程（原表第 ${course?.seq || "?"} 行）`;
+  }
+  return name || course.displayName || "未命名课程";
+}
+
+function programsCourseSnippet(course) {
+  if (course.hasOfficialIntro || (course.isLocallyEdited && course.intro && !course.intro.startsWith("暂无公开资料"))) return truncate(course.intro, 130);
+  if (course.recordType === "note" || !course.name || course.name === "暂无公开资料") return "原表标注为课程体系说明/占位记录，不作为具体课程内容。";
+  return "原表暂无课程简介；已提供行业通用备课参考，需课程负责人校核。";
+}
+
+function programsCourseCard(course, catalog) {
+  const major = programsFindMajor(catalog, course.majorId);
+  const sourceCount = programsSourceCount(course.sourceIds);
+  const official = course.hasOfficialIntro;
+  const statusLabel = course.base === false ? "教师自建" : course.isLocallyEdited ? "教师校订" : official ? "官方简介" : course.recordType === "note" ? "占位记录" : "待完善 · 有备课参考";
+  return `
+    <button class="programs-course-card${course.needsWork ? " is-pending" : ""}" type="button" data-action="program-open-course" data-id="${escapeAttr(course.id)}">
+      <div class="programs-course-card-top">
+        <span class="programs-course-category">${escapeHtml(course.category || "类别待补")}</span>
+        <span>${escapeHtml(course.phase || "版本未注明")}</span>
+      </div>
+      <h4>${escapeHtml(programsCourseTitle(course))}</h4>
+      <p>${escapeHtml(programsCourseSnippet(course))}</p>
+      <footer>
+        ${programsBadge(statusLabel, course.isLocallyEdited ? "teacher" : official ? "official" : "pending")}
+        <span>${escapeHtml(major?.name || "")} · ${sourceCount} 条来源</span>
+      </footer>
+    </button>
+  `;
+}
+
+function programsMajorCard(major, catalog) {
+  const group = programsFindGroup(catalog, major.groupId);
+  const courses = major.courseIds.length;
+  const active = major.planIds.map((id) => catalog.plans.find((plan) => plan.id === id)).find((plan) => plan?.isActive2026);
+  const goal = major.trainingGoal && !major.trainingGoal.startsWith("暂无公开资料")
+    ? truncate(major.trainingGoal, 105)
+    : "原表未提供培养目标文本，页面保留待完善标记。";
+  return `
+    <button class="programs-major-card" type="button" data-action="program-select-major" data-id="${escapeAttr(major.id)}">
+      <div class="programs-major-card-head">
+        <span>${escapeHtml(group?.name || "专业组待补")}</span>
+        ${programsStatusBadge(major.status || "待完善")}
+      </div>
+      <h3>${escapeHtml(major.name)}</h3>
+      <p>${escapeHtml(goal)}</p>
+      <footer>
+        <span>${courses} 门课程</span>
+        <span>${active ? "2026 在招" : "历史 / 待核"}</span>
+      </footer>
+    </button>
+  `;
+}
+
+function programsGroupCard(group, catalog) {
+  const majors = group.majorIds.map((id) => programsFindMajor(catalog, id)).filter(Boolean);
+  return `
+    <button class="programs-group-card" type="button" data-action="program-select-group" data-id="${escapeAttr(group.id)}">
+      <div class="programs-major-card-head">
+        <span>${escapeHtml(group.kind || "专业组")}</span>
+        <span>${majors.length} 专业</span>
+      </div>
+      <h3>${escapeHtml(group.name)}</h3>
+      <p>${escapeHtml(majors.map((major) => major.name).join("、") || "暂无专业条目")}</p>
+      <footer><span>${majors.reduce((sum, major) => sum + major.courseIds.length, 0)} 条课程记录</span><span>进入 ›</span></footer>
+    </button>
+  `;
+}
+
+function programsDepartmentCard(department, catalog) {
+  const groups = department.groupIds.map((id) => programsFindGroup(catalog, id)).filter(Boolean);
+  return `
+    <button class="programs-dept-card" type="button" data-action="program-select-dept" data-id="${escapeAttr(department.id)}">
+      <div class="programs-major-card-head">
+        <span>${escapeHtml(department.kind || "教学单位")}</span>
+        <span>${department.groupIds.length} 组 · ${department.majorIds.length} 专业</span>
+      </div>
+      <h3>${escapeHtml(department.name)}</h3>
+      <p>${escapeHtml(department.summary || "原表未提供系部说明。")}</p>
+      <div class="programs-mini-tags">${groups.map((group) => `<span>${escapeHtml(group.name)}</span>`).join("")}</div>
+      <footer><span>${department.majorIds.reduce((sum, id) => sum + (programsFindMajor(catalog, id)?.courseIds.length || 0), 0)} 条课程记录</span><span>查看 ›</span></footer>
+    </button>
+  `;
+}
+
+function programsTree(catalog) {
+  return `
+    <aside class="programs-tree" aria-label="专业体系导航">
+      <div class="programs-tree-head">
+        <span>专业体系</span>
+        <span>${catalog.majors.length} 专业</span>
+      </div>
+      <div class="programs-tree-scroll">
+        <button class="programs-tree-item programs-tree-root${!state.programDept ? " is-active" : ""}" type="button" data-action="program-all">
+          ${icon("grid", 13)}<span>全部教学单位</span><em>${catalog.departments.length}</em>
+        </button>
+        ${catalog.departments.map((department) => {
+          const active = state.programDept === department.id;
+          const groups = department.groupIds.map((id) => programsFindGroup(catalog, id)).filter(Boolean);
+          return `
+            <div class="programs-tree-dept${active ? " is-open" : ""}">
+              <button class="programs-tree-item${active ? " is-active" : ""}" type="button" data-action="program-select-dept" data-id="${escapeAttr(department.id)}">
+                ${icon("building", 13)}<span>${escapeHtml(department.name)}</span><em>${department.majorIds.length}</em>
+              </button>
+              ${active ? `<div class="programs-tree-children">
+                ${groups.map((group) => {
+                  const groupActive = state.programGroup === group.id;
+                  const majors = group.majorIds.map((id) => programsFindMajor(catalog, id)).filter(Boolean);
+                  return `<div class="programs-tree-group${groupActive ? " is-open" : ""}">
+                    <button class="programs-tree-item programs-tree-group-item${groupActive ? " is-active" : ""}" type="button" data-action="program-select-group" data-id="${escapeAttr(group.id)}">
+                      <span>${escapeHtml(group.name)}</span><em>${majors.length}</em>
+                    </button>
+                    ${groupActive ? `<div class="programs-tree-majors">
+                      ${majors.map((major) => `<button class="programs-tree-item programs-tree-major${state.programMajor === major.id ? " is-active" : ""}" type="button" data-action="program-select-major" data-id="${escapeAttr(major.id)}"><span>${escapeHtml(major.name)}</span><em>${major.courseIds.length}</em></button>`).join("")}
+                    </div>` : ""}
+                  </div>`;
+                }).join("")}
+              </div>` : ""}
+            </div>
+          `;
+        }).join("")}
+      </div>
+      <div class="programs-tree-foot">
+        <span>原始表 ${catalog.sources.length} 条来源</span>
+        <span>本机修订</span>
+      </div>
+    </aside>
+  `;
+}
+
+function programsMobileFilters(catalog) {
+  const groups = state.programDept
+    ? catalog.groups.filter((group) => group.deptId === state.programDept)
+    : catalog.groups;
+  const majors = state.programGroup
+    ? catalog.majors.filter((major) => major.groupId === state.programGroup)
+    : state.programDept
+      ? catalog.majors.filter((major) => major.deptId === state.programDept)
+      : catalog.majors;
+  return `
+    <div class="programs-mobile-filters" aria-label="专业体系筛选">
+      <label>教学单位
+        <select data-role="program-dept-filter">
+          <option value="">全部教学单位</option>
+          ${catalog.departments.map((department) => `<option value="${escapeAttr(department.id)}" ${state.programDept === department.id ? "selected" : ""}>${escapeHtml(department.name)}</option>`).join("")}
+        </select>
+      </label>
+      <label>专业组
+        <select data-role="program-group-filter">
+          <option value="">全部专业组</option>
+          ${groups.map((group) => `<option value="${escapeAttr(group.id)}" ${state.programGroup === group.id ? "selected" : ""}>${escapeHtml(group.name)}</option>`).join("")}
+        </select>
+      </label>
+      <label>专业
+        <select data-role="program-major-filter">
+          <option value="">全部专业</option>
+          ${majors.map((major) => `<option value="${escapeAttr(major.id)}" ${state.programMajor === major.id ? "selected" : ""}>${escapeHtml(major.name)}</option>`).join("")}
+        </select>
+      </label>
+    </div>
+  `;
+}
+
+function programsOverview(catalog) {
+  const official = catalog.courses.filter((course) => course.hasOfficialIntro).length;
+  const blankNames = catalog.courses.filter((course) => !course.name).length;
+  const categoryPlaceholders = catalog.courses.filter((course) => course.category === "暂无公开资料").length;
+  const majorGaps = catalog.majors.filter((major) => !major.trainingGoal || major.trainingGoal.startsWith("暂无公开资料")).length;
+  return `
+    <section class="programs-section">
+      <div class="programs-section-head">
+        <div><div class="programs-kicker">OVERVIEW / 全部数据</div><h2>六个教学单位，一张可追溯的专业地图。</h2></div>
+        <span class="programs-muted">${catalog.departments.length} 系 · ${catalog.groups.length} 组 · ${catalog.majors.length} 专业条目</span>
+      </div>
+      <div class="programs-dept-grid">
+        ${catalog.departments.map((department) => programsDepartmentCard(department, catalog)).join("")}
+      </div>
+      <div class="programs-data-note">
+        <div>
+          <div class="programs-kicker">DATA NOTE / 数据口径</div>
+          <h3>原表按明细保留，不擅自合并。</h3>
+          <p>汇总页写“54 个专业、480 门去重课程”；按明细逐行统计为 <strong>${catalog.majors.length} 个专业条目</strong>（含 2 个公共基础课程条）、<strong>${catalog.courses.length} 条课程记录</strong>（去重名称 ${catalog.counts.uniqueCourseNames} 个）。页面同时保留两个口径，不做静默修正。</p>
+        </div>
+        <div class="programs-data-facts">
+          <span><b>${catalog.plans.length}</b> 条招生计划</span>
+          <span><b>${official}</b> 条课程官方简介</span>
+          <span><b>${catalog.sources.length}</b> 条来源记录</span>
+          <span><b>${catalog.notes.length}</b> 条数据说明</span>
+        </div>
+      </div>
+      <div class="programs-quality">
+        <div><b>${catalog.courses.length}</b><span>课程记录全部保留；重复课程名按专业/版本分别保留，不静默合并</span></div>
+        <div><b>${blankNames}</b><span>课程名为空的原表记录，显示为“未命名 / 占位课程”</span></div>
+        <div><b>${categoryPlaceholders}</b><span>课程类别为“暂无公开资料”的占位记录</span></div>
+        <div><b>${majorGaps}</b><span>专业培养目标仍为“暂无公开资料”的条目</span></div>
+        <div><b>0</b><span>无法关联到专业系的课程记录（导入时已校验父级）</span></div>
+        <div><b>${official}</b><span>有官方课程简介；其余以“待完善 / 行业通用参考”标注</span></div>
+      </div>
+      <div class="programs-note-list">
+        ${catalog.notes.slice(0, 4).map((note) => `<details class="programs-note"><summary>${escapeHtml(note.title)}</summary><p>${escapeHtml(note.text)}</p></details>`).join("")}
+      </div>
+    </section>
+  `;
+}
+
+function programsDepartmentView(catalog, department) {
+  const groups = department.groupIds.map((id) => programsFindGroup(catalog, id)).filter(Boolean);
+  const majors = department.majorIds.map((id) => programsFindMajor(catalog, id)).filter(Boolean);
+  const abilities = Array.from(new Set(majors.flatMap((major) => String(major.coreAbilities || "").split(/[；;\n]/).map((item) => item.trim()).filter((item) => item && !item.startsWith("暂无"))))).slice(0, 7);
+  const employment = Array.from(new Set(majors.flatMap((major) => String(major.employment || "").split(/[；;\n]/).map((item) => item.trim()).filter((item) => item && !item.startsWith("暂无"))))).slice(0, 5);
+  return `
+    <section class="programs-section">
+      ${programsEntityHeader({
+        kicker: "DEPARTMENT / 教学单位",
+        name: department.name,
+        meta: `${department.kind} · ${groups.length} 个专业组 · ${majors.length} 个专业条目${department.isLocallyEdited ? " · 本机修订" : ""}`,
+        summary: department.summary,
+        actions: [
+          { action: "program-add-entity", type: "groups", parent: department.id, label: "新增专业组" },
+          { action: "program-edit-entity", type: "departments", id: department.id, label: "编辑" },
+          { action: "program-delete-entity", type: "departments", id: department.id, label: "隐藏" }
+        ]
+      })}
+      <div class="programs-summary-grid">
+        <div class="programs-summary-card"><span>专业组与专业</span><p>${escapeHtml(groups.map((group) => `${group.name}（${group.majorIds.length} 专业）`).join("；") || "暂无专业组")}</p></div>
+        <div class="programs-summary-card"><span>主要教学领域</span><p>${escapeHtml(abilities.join("、") || "原表未提供足够信息，待补充。")}</p></div>
+        <div class="programs-summary-card"><span>产业背景与就业方向</span><p>${escapeHtml(employment.join("；") || "原表未提供足够信息，待补充。")}</p></div>
+      </div>
+      <p class="programs-footnote">以上“专业组与专业 / 教学领域 / 就业方向”由该系成员专业的公开信息汇总整理，供快速定位；不是学院单独发布的系部文件。</p>
+      <div class="programs-group-grid">
+        ${groups.map((group) => programsGroupCard(group, catalog)).join("") || `<div class="programs-empty">该教学单位下暂无专业组。</div>`}
+      </div>
+      <div class="programs-section-subhead"><h3>全部专业</h3><span>${majors.length} 个条目</span></div>
+      <div class="programs-major-grid">
+        ${majors.map((major) => programsMajorCard(major, catalog)).join("")}
+      </div>
+      <div class="programs-source-panel">
+        <div class="programs-section-subhead"><h3>来源与核验</h3><span>${programsSourceCount(department.sourceIds)} 条</span></div>
+        ${programsSourceCards(department.sourceIds, catalog, 8)}
+      </div>
+    </section>
+  `;
+}
+
+function programsGroupView(catalog, group) {
+  const department = programsFindDepartment(catalog, group.deptId);
+  const majors = group.majorIds.map((id) => programsFindMajor(catalog, id)).filter(Boolean);
+  const abilities = Array.from(new Set(majors.flatMap((major) => String(major.coreAbilities || "").split(/[；;\n]/).map((item) => item.trim()).filter((item) => item && !item.startsWith("暂无"))))).slice(0, 6);
+  const employment = Array.from(new Set(majors.flatMap((major) => String(major.employment || "").split(/[；;\n]/).map((item) => item.trim()).filter((item) => item && !item.startsWith("暂无"))))).slice(0, 5);
+  const sourceIds = majors.flatMap((major) => major.sourceIds);
+  return `
+    <section class="programs-section">
+      ${programsEntityHeader({
+        kicker: "GROUP / 专业组",
+        name: group.name,
+        meta: `${department?.name || ""} · ${group.kind || "专业组"} · ${majors.length} 个专业${group.isLocallyEdited ? " · 本机修订" : ""}`,
+        summary: group.summary || "本页专业组说明由成员专业的公开培养目标、核心能力与就业方向汇总整理，供快速了解；不是学院单独发布的专业组简介。",
+        actions: [
+          { action: "program-add-entity", type: "majors", parent: group.id, label: "新增专业" },
+          { action: "program-edit-entity", type: "groups", id: group.id, label: "编辑" },
+          { action: "program-delete-entity", type: "groups", id: group.id, label: "隐藏" }
+        ]
+      })}
+      <div class="programs-summary-grid">
+        <div class="programs-summary-card"><span>核心技术领域</span><p>${escapeHtml(abilities.join("、") || "原表暂无足够信息，待课程负责人补充。")}</p></div>
+        <div class="programs-summary-card"><span>主要职业岗位</span><p>${escapeHtml(employment.join("；") || "原表暂无足够信息，待补充。")}</p></div>
+        <div class="programs-summary-card"><span>课程记录</span><p>${majors.reduce((sum, major) => sum + major.courseIds.length, 0)} 条，覆盖 ${majors.length} 个专业条目。</p></div>
+      </div>
+      <div class="programs-section-subhead"><h3>组内专业</h3><span>点击进入专业与课程</span></div>
+      <div class="programs-major-grid">
+        ${majors.map((major) => programsMajorCard(major, catalog)).join("") || `<div class="programs-empty">该专业组下暂无专业。</div>`}
+      </div>
+      <div class="programs-source-panel">
+        <div class="programs-section-subhead"><h3>成员专业来源</h3><span>${programsSourceCount(sourceIds)} 条</span></div>
+        ${programsSourceCards(sourceIds, catalog, 8)}
+      </div>
+    </section>
+  `;
+}
+
+function programsMajorView(catalog, major) {
+  const department = programsFindDepartment(catalog, major.deptId);
+  const group = programsFindGroup(catalog, major.groupId);
+  const plans = major.planIds.map((id) => catalog.plans.find((plan) => plan.id === id)).filter(Boolean);
+  const courses = major.courseIds.map((id) => programsFindCourse(catalog, id)).filter(Boolean);
+  const categories = ["全部", ...Array.from(new Set(courses.map((course) => course.category).filter(Boolean)))];
+  const activeCategory = categories.includes(state.programCategory) ? state.programCategory : "全部";
+  const filtered = activeCategory === "全部" ? courses : courses.filter((course) => course.category === activeCategory);
+  const officialCount = courses.filter((course) => course.hasOfficialIntro).length;
+  const pendingCount = courses.filter((course) => course.needsWork).length;
+  return `
+    <section class="programs-section">
+      ${programsEntityHeader({
+        kicker: "MAJOR / 专业",
+        name: major.name,
+        meta: `${department?.name || ""} / ${group?.name || ""} · ${major.isPublicFoundation ? "公共基础课程条" : major.status || "状态未注明"}${major.isLocallyEdited ? " · 本机修订" : ""}`,
+        summary: major.trainingGoal && !major.trainingGoal.startsWith("暂无公开资料")
+          ? major.trainingGoal
+          : "原表标注培养目标暂无公开资料；页面保留原始状态，不用推测补齐官方培养目标。",
+        actions: [
+          { action: "program-add-entity", type: "courses", parent: major.id, label: "新增课程" },
+          { action: "program-edit-entity", type: "majors", id: major.id, label: "编辑" },
+          { action: "program-delete-entity", type: "majors", id: major.id, label: "隐藏" }
+        ]
+      })}
+      <div class="programs-plan-grid">
+        ${plans.map((plan) => `
+          <div class="programs-plan-card">
+            <span>${escapeHtml(plan.dataYear || "")} 招生计划</span>
+            <strong>${escapeHtml(plan.level || "层次未注明")}</strong>
+            <p>${escapeHtml(plan.duration || "学制未注明")} · ${escapeHtml(plan.target || "招生对象未注明")}</p>
+            <p>${escapeHtml(plan.campus || "校区未注明")} · ${escapeHtml(plan.status || "状态未注明")}</p>
+            <small>专业代码：${escapeHtml(plan.code || "暂无公开资料")} · 组归属：${escapeHtml(plan.groupVerification || "未注明")}</small>
+            ${plan.note && plan.note !== "—" ? `<small>${escapeHtml(plan.note)}</small>` : ""}
+          </div>
+        `).join("") || `<div class="programs-empty">暂无招生计划记录。</div>`}
+      </div>
+      <div class="programs-detail-grid">
+        ${programsDetailBlock("培养目标", major.trainingGoal)}
+        ${programsDetailBlock("核心能力", major.coreAbilities)}
+        ${programsDetailBlock("就业方向", major.employment)}
+        ${programsDetailBlock("主要课程摘要", major.mainCoursesSummary)}
+      </div>
+      <p class="programs-footnote">专业层面的实训项目清单原表未单独列示；请进入下方课程的“实训项目”查看，内容会明确标注“行业通用参考”或“待完善”，不能替代学院正式教学计划。</p>
+      <div class="programs-section-subhead">
+        <h3>专业课程</h3>
+        <span>${courses.length} 条记录 · 官方简介 ${officialCount} 条 · 待完善 ${pendingCount} 条</span>
+      </div>
+      <div class="programs-category-filter" role="group" aria-label="课程类别筛选">
+        ${categories.map((category) => `<button class="programs-filter-btn${activeCategory === category ? " is-active" : ""}" type="button" data-action="program-filter-category" data-value="${escapeAttr(category)}">${escapeHtml(category)}</button>`).join("")}
+      </div>
+      <div class="programs-course-grid">
+        ${filtered.map((course) => programsCourseCard(course, catalog)).join("") || `<div class="programs-empty">该类别下暂无课程记录。</div>`}
+      </div>
+      <div class="programs-source-panel">
+        <div class="programs-section-subhead"><h3>专业来源与核验</h3><span>${programsSourceCount(major.sourceIds)} 条</span></div>
+        ${programsSourceCards(major.sourceIds, catalog, 10)}
+      </div>
+    </section>
+  `;
+}
+
+function programsDetailBlock(title, value) {
+  const pending = !value || value.startsWith("暂无公开资料");
+  return `
+    <div class="programs-detail-block${pending ? " is-pending" : ""}">
+      <div class="programs-detail-head"><span>${escapeHtml(title)}</span>${pending ? programsBadge("原表待完善", "pending") : programsBadge("原表原文", "official")}</div>
+      <p>${escapeHtml(pending ? value || "原表未提供。" : value)}</p>
+    </div>
+  `;
+}
+
+function programsEntityHeader({ kicker, name, meta, summary, actions }) {
+  return `
+    <div class="programs-entity-head">
+      <div>
+        <div class="programs-kicker">${escapeHtml(kicker)}</div>
+        <h2>${escapeHtml(name)}</h2>
+        <p class="programs-entity-meta">${escapeHtml(meta || "")}</p>
+        <p class="programs-entity-summary">${escapeHtml(summary || "")}</p>
+      </div>
+      <div class="programs-entity-actions">
+        ${(actions || []).map((action) => `<button class="btn btn-ghost" type="button" data-action="${action.action}" data-type="${escapeAttr(action.type || "")}" data-parent="${escapeAttr(action.parent || "")}" data-id="${escapeAttr(action.id || "")}">${escapeHtml(action.label)}</button>`).join("")}
+      </div>
+    </div>
+  `;
+}
+
+function programsSearchView(catalog, query) {
+  const needle = query.toLowerCase();
+  const majorMatches = catalog.majors.filter((major) => {
+    const department = programsFindDepartment(catalog, major.deptId);
+    const group = programsFindGroup(catalog, major.groupId);
+    return `${major.name} ${major.trainingGoal} ${major.coreAbilities} ${major.employment} ${department?.name || ""} ${group?.name || ""}`.toLowerCase().includes(needle);
+  });
+  const courseMatches = catalog.courses.filter((course) => {
+    const major = programsFindMajor(catalog, course.majorId);
+    return `${course.name} ${course.category} ${course.phase} ${course.intro} ${major?.name || ""}`.toLowerCase().includes(needle);
+  });
+  return `
+    <section class="programs-section">
+      <div class="programs-section-head">
+        <div><div class="programs-kicker">SEARCH / 全库检索</div><h2>“${escapeHtml(query)}”的检索结果。</h2></div>
+        <span class="programs-muted">${majorMatches.length} 个专业 · ${courseMatches.length} 条课程记录</span>
+      </div>
+      ${majorMatches.length ? `<div class="programs-section-subhead"><h3>专业</h3><span>点击进入</span></div><div class="programs-major-grid">${majorMatches.slice(0, 30).map((major) => programsMajorCard(major, catalog)).join("")}</div>` : ""}
+      ${courseMatches.length ? `<div class="programs-section-subhead"><h3>课程</h3><span>点击查看课程资源</span></div><div class="programs-course-grid">${courseMatches.slice(0, 60).map((course) => programsCourseCard(course, catalog)).join("")}</div>` : ""}
+      ${!majorMatches.length && !courseMatches.length ? `<div class="programs-empty"><strong>没有匹配的记录。</strong><p>换一个课程名、专业名或能力关键词试试。</p></div>` : ""}
+    </section>
+  `;
+}
+
+function renderProgramsMain(catalog) {
+  const query = state.programQuery.trim();
+  if (query) return programsSearchView(catalog, query);
+  const major = programsFindMajor(catalog, state.programMajor);
+  if (major) return programsMajorView(catalog, major);
+  const group = programsFindGroup(catalog, state.programGroup);
+  if (group) return programsGroupView(catalog, group);
+  const department = programsFindDepartment(catalog, state.programDept);
+  if (department) return programsDepartmentView(catalog, department);
+  return programsOverview(catalog);
+}
+
+function renderProgramsPage() {
+  const catalog = programsCatalog();
+  let department = programsFindDepartment(catalog, state.programDept);
+  let group = programsFindGroup(catalog, state.programGroup);
+  if (!department) {
+    state.programDept = "";
+    department = null;
+  }
+  if (!group || (department && group.deptId !== department.id)) {
+    state.programGroup = "";
+    group = null;
+  }
+  if (!programsFindMajor(catalog, state.programMajor) || (group && programsFindMajor(catalog, state.programMajor)?.groupId !== group.id)) {
+    state.programMajor = "";
+  }
+  const manage = state.programManageMode;
+  const official = catalog.courses.filter((course) => course.hasOfficialIntro).length;
+  const manageBar = manage ? `
+    <div class="programs-manage-bar">
+      <div class="programs-manage-copy"><strong>本机数据管理</strong><span>新增、编辑和隐藏只影响当前浏览器的修订层，不改写原始数据表。</span></div>
+      <div class="programs-manage-actions">
+        <button class="btn btn-solid" type="button" data-action="program-add-entity" data-type="departments">${icon("plus", 12)} 新增专业系</button>
+        <button class="btn btn-ghost" type="button" data-action="program-export-state">${icon("download", 12)} 导出修订</button>
+        <button class="btn btn-ghost" type="button" data-action="program-import-state-button">${icon("upload", 12)} 导入修订</button>
+        <button class="btn btn-ghost" type="button" data-action="program-show-hidden">${icon("archive", 12)} 恢复隐藏</button>
+        <input type="file" accept="application/json,.json" data-role="program-import-state" hidden>
+      </div>
+    </div>
+  ` : "";
+  return `
+    <div class="page programs-page">
+      <div class="page-head">
+        <div>
+          <div class="page-kicker">PROGRAM DATABASE / 原始数据 + 本机修订</div>
+          <h1 class="page-title">专业体系与课程资源。</h1>
+          <p class="page-intro">从专业系、专业组、专业逐级进入课程；原表已有的官方简介与来源优先展示，缺失部分标注“待完善”，并提供明确标注的行业通用备课参考。</p>
+        </div>
+        <div class="page-head-side">
+          <strong>数据基线 · 2026.11</strong>
+          ${catalog.departments.length} 个教学单位 / ${catalog.groups.length} 个专业组<br>
+          ${catalog.majors.length} 个专业条目 / ${catalog.courses.length} 条课程记录<br>
+          ${catalog.sources.length} 条来源 · 官方简介 ${official} 条
+          <div class="page-head-actions">
+            <button class="btn btn-ghost" type="button" data-action="program-toggle-manage">${manage ? "退出管理" : "管理数据"}</button>
+            <a class="btn btn-ghost" href="./data/gzgj-professional-system.xlsx" download>${icon("download", 12)} 原始表</a>
+          </div>
+        </div>
+      </div>
+      <div class="page-stats">
+        <div class="stat"><div class="stat-value">${String(catalog.departments.length).padStart(2, "0")}</div><div class="stat-label">DEPARTMENTS / 教学单位</div></div>
+        <div class="stat"><div class="stat-value">${String(catalog.groups.length).padStart(2, "0")}</div><div class="stat-label">GROUPS / 专业组与学科组</div></div>
+        <div class="stat"><div class="stat-value">${String(catalog.majors.length).padStart(2, "0")}</div><div class="stat-label">MAJORS / 专业条目</div></div>
+        <div class="stat"><div class="stat-value">${String(catalog.courses.length).padStart(3, "0")}</div><div class="stat-label">COURSES / 课程记录</div></div>
+      </div>
+      <div class="programs-toolbar">
+        <div class="programs-search-row">
+          <label class="programs-search">
+            ${icon("search", 14)}
+            <input type="search" value="${escapeAttr(state.programQuery)}" placeholder="搜索专业、课程、能力或就业方向…" data-role="program-search" aria-label="搜索专业数据库">
+          </label>
+          <span class="programs-search-meta" data-role="program-search-meta">${state.programQuery.trim() ? "正在检索全库" : `官方简介 ${official} 条 · 待完善 ${catalog.courses.length - official} 条`}</span>
+        </div>
+        <div class="programs-scope">
+          <span>${department ? escapeHtml(department.name) : "全部教学单位"}${group ? ` / ${escapeHtml(group.name)}` : ""}${state.programMajor ? ` / ${escapeHtml(programsFindMajor(catalog, state.programMajor)?.name || "")}` : ""}</span>
+          <span>${catalog.plans.length} 条招生计划 · ${catalog.sources.length} 条来源</span>
+          <div class="programs-scope-actions">
+            <button class="btn btn-ghost" type="button" data-action="program-toggle-manage">${manage ? "退出管理" : "管理数据"}</button>
+            <a class="btn btn-ghost" href="./data/gzgj-professional-system.xlsx" download>原始表</a>
+          </div>
+        </div>
+      </div>
+      ${manageBar}
+      ${programsMobileFilters(catalog)}
+      <div class="programs-layout">
+        ${programsTree(catalog)}
+        <div class="programs-main" id="programs-main">${renderProgramsMain(catalog)}</div>
+      </div>
+      <p class="programs-footnote">原始数据来自上传的《广州市技师学院专业体系数据库.xlsx》，页面不静默合并、不虚构专业或课程。教师新增/编辑内容仅保存在本机 IndexedDB，可在“管理数据”中导出修订。</p>
+    </div>
+  `;
+}
+
+function refreshProgramsContent() {
+  const main = document.getElementById("programs-main");
+  if (!main) return;
+  const catalog = programsCatalog();
+  main.innerHTML = renderProgramsMain(catalog);
+  const meta = document.querySelector("[data-role='program-search-meta']");
+  if (meta) {
+    const official = catalog.courses.filter((course) => course.hasOfficialIntro).length;
+    meta.textContent = state.programQuery.trim()
+      ? "正在检索全库"
+      : `官方简介 ${official} 条 · 待完善 ${catalog.courses.length - official} 条`;
+  }
+}
+
+const PROGRAM_RESOURCE_KIND_LABELS = {
+  official: "原表官方",
+  reference: "行业通用参考",
+  teacher: "教师校订",
+  pending: "待完善"
+};
+
+function programsCourseMarkdown(view) {
+  const name = programsCourseTitle(view.course);
+  const lines = [
+    `# ${name}`,
+    "",
+    `- 所属专业：${view.major?.name || ""}`,
+    `- 所属专业组：${view.group?.name || ""}`,
+    `- 课程类别：${view.course.category || ""}`,
+    `- 开设阶段/版本：${view.course.phase || ""}`,
+    `- 数据年份：${view.course.dataYear || ""}`,
+    `- 资料状态：${view.status}`,
+    "",
+    "> 本文件含原表官方信息与明确标注的行业通用备课参考；后者不是学院官方课程文件，正式授课前请由课程负责人按现行课程标准、教材和设备条件审核。",
+    ""
+  ];
+  for (const field of view.fields) {
+    lines.push(`## ${field.title}`, "", field.content || "（待完善）", "");
+  }
+  if (view.sources.length) {
+    lines.push("## 来源", "");
+    view.sources.forEach((source) => {
+      lines.push(`- ${source.title}${source.url ? `：${source.url}` : ""}${source.published ? `（${source.published}）` : ""}`);
+    });
+  }
+  return lines.join("\n");
+}
+
+function programsCourseModalBody(view) {
+  const course = view.course;
+  const custom = view.custom;
+  return `
+    <div class="programs-course-modal">
+      <div class="programs-course-hero">
+        <div>
+          <div class="programs-course-hero-meta">
+            ${programsStatusBadge(view.status)}
+            ${programsBadge(view.profileLabel, "reference")}
+            ${course.recordType === "note" ? programsBadge("原表占位记录", "pending") : ""}
+          </div>
+          <p>${escapeHtml(course.hasOfficialIntro ? "课程简介来自原表标注的官方原文；其余字段如无官方资料，会以行业通用参考标注。" : "原表暂无课程简介；本页提供明确标注的行业通用备课参考，请课程负责人校核。")}</p>
+        </div>
+        <div class="programs-course-hero-actions">
+          ${custom ? `<button class="btn btn-ghost" type="button" data-action="program-reset-resource" data-id="${escapeAttr(course.id)}">${icon("refresh", 12)} 恢复系统参考</button>` : ""}
+          <button class="btn btn-ghost" type="button" data-action="program-prepare-lesson" data-id="${escapeAttr(course.id)}">${icon("spark", 12)} 用于备课</button>
+          <button class="btn btn-ghost" type="button" data-action="program-edit-entity" data-type="courses" data-id="${escapeAttr(course.id)}">编辑课程记录</button>
+          <button class="btn btn-ghost" type="button" data-action="program-delete-entity" data-type="courses" data-id="${escapeAttr(course.id)}">${course.base === false ? "删除课程" : "隐藏课程"}</button>
+          <button class="btn btn-soft" type="button" data-action="program-edit-resource" data-id="${escapeAttr(course.id)}">${icon("sliders", 12)} 编辑课程资料</button>
+        </div>
+      </div>
+      <div class="programs-course-modal-grid">
+        <div class="programs-resource-sections">
+          ${view.fields.map((field) => `
+            <section class="programs-resource-section">
+              <div class="programs-resource-head">
+                <div><span>${escapeHtml(field.title)}</span><small>${escapeHtml(field.hint || "")}</small></div>
+                ${programsBadge(PROGRAM_RESOURCE_KIND_LABELS[field.kind] || "待完善", field.kind === "official" ? "official" : field.kind === "teacher" ? "teacher" : field.kind === "pending" ? "pending" : "reference")}
+              </div>
+              <div class="programs-rich">${mdLite(field.content || "（待完善）")}</div>
+            </section>
+          `).join("")}
+        </div>
+        <aside class="programs-course-aside">
+          <div class="programs-aside-card">
+            <div class="programs-kicker">COURSE / 记录信息</div>
+            <dl class="programs-meta-list">
+              <div><dt>专业</dt><dd>${escapeHtml(view.major?.name || "未关联")}</dd></div>
+              <div><dt>专业组</dt><dd>${escapeHtml(view.group?.name || "未关联")}</dd></div>
+              <div><dt>专业系</dt><dd>${escapeHtml(view.department?.name || "未关联")}</dd></div>
+              <div><dt>类别</dt><dd>${escapeHtml(course.category || "未注明")}</dd></div>
+              <div><dt>阶段 / 版本</dt><dd>${escapeHtml(course.phase || "未注明")}</dd></div>
+              <div><dt>数据年份</dt><dd>${escapeHtml(course.dataYear || "未注明")}</dd></div>
+              <div><dt>原表行号</dt><dd>第 ${escapeHtml(course.seq || "")} 行</dd></div>
+            </dl>
+          </div>
+          <div class="programs-aside-card">
+            <div class="programs-kicker">SOURCES / 来源</div>
+            ${programsSourceCards(course.sourceIds, { sources: view.sources, sourceMap: new Map(view.sources.map((source) => [source.id, source])) }, 10)}
+          </div>
+          <div class="programs-aside-card is-note">
+            <div class="programs-kicker">BOUNDARY / 使用边界</div>
+            <p>${escapeHtml(view.disclaimer)}</p>
+          </div>
+        </aside>
+      </div>
+    </div>
+  `;
+}
+
+function openProgramsCourse(courseId) {
+  const catalog = programsCatalog();
+  const course = programsFindCourse(catalog, courseId);
+  if (!course) {
+    showToast("课程记录不存在");
+    return;
+  }
+  state.programCourseId = courseId;
+  const custom = getCourseResource(courseId);
+  const view = buildCourseResource(course, catalog, custom);
+  const major = view.major?.name || "专业未关联";
+  openModal({
+    kind: "program-course",
+    wide: true,
+    kicker: "COURSE RESOURCE / 课程资源",
+    title: programsCourseTitle(course),
+    sub: `${major} · ${course.category || "类别待补"} · ${course.phase || "版本未注明"} · 数据年份 ${course.dataYear || "未注明"}`,
+    body: programsCourseModalBody(view),
+    footer: `
+      <button class="btn btn-ghost" type="button" data-action="program-copy-course" data-id="${escapeAttr(course.id)}">${icon("copy", 12)} 复制全文</button>
+      <button class="btn btn-ghost" type="button" data-action="program-download-course" data-id="${escapeAttr(course.id)}">${icon("download", 12)} 下载 Markdown</button>
+      <span class="spacer"></span>
+      <button class="btn" type="button" data-action="close-modal">关闭</button>
+    `
+  });
+}
+
+function programsResourceEditorBody(course, view) {
+  const custom = view.custom || {};
+  const fields = COURSE_RESOURCE_FIELDS.filter((field) => field.key !== "sourceNote");
+  return `
+    <form id="program-resource-form" class="programs-resource-form" data-course-id="${escapeAttr(course.id)}">
+      <div class="programs-editor-note">
+        ${icon("info", 13)}
+        <span>留空的字段继续显示系统生成的行业通用参考；填写后会保存为“教师校订”，仅存入本机 IndexedDB，不修改原始数据表。</span>
+      </div>
+      <div class="form-grid">
+        <div class="field">
+          <label for="program-resource-status">资料校核状态</label>
+          <select id="program-resource-status" name="status">
+            <option value="">自动（按原表/参考判断）</option>
+            <option value="待完善" ${custom.status === "待完善" ? "selected" : ""}>待完善</option>
+            <option value="教师已校核" ${custom.status === "教师已校核" ? "selected" : ""}>教师已校核</option>
+            <option value="仅作参考" ${custom.status === "仅作参考" ? "selected" : ""}>仅作参考</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="program-resource-source">来源与校核说明</label>
+          <input id="program-resource-source" name="sourceNote" value="${escapeAttr(custom.sourceNote || "")}" placeholder="例如：依据 2026 级课程标准，课程负责人校订">
+        </div>
+        ${fields.map((field) => `
+          <div class="field field-full">
+            <label for="program-resource-${field.key}">${escapeHtml(field.title)}</label>
+            <textarea id="program-resource-${field.key}" name="${field.key}" rows="${field.key === "content" || field.key === "training" ? 5 : 4}" placeholder="${escapeAttr(truncate(String(view.generated[field.key] || "").replace(/[#>*_`]/g, " "), 120))}">${escapeHtml(custom[field.key] || "")}</textarea>
+            <span class="field-hint">${escapeHtml(field.hint || "")}；留空继续使用系统参考。</span>
+          </div>
+        `).join("")}
+      </div>
+    </form>
+  `;
+}
+
+function openProgramsCourseEditor(courseId) {
+  const catalog = programsCatalog();
+  const course = programsFindCourse(catalog, courseId);
+  if (!course) return;
+  const view = buildCourseResource(course, catalog, getCourseResource(courseId));
+  openModal({
+    kind: "program-course-edit",
+    wide: true,
+    kicker: "EDIT / 课程资源校订",
+    title: "编辑课程资料",
+    sub: `${programsCourseTitle(course)} · 只保存在本机，可用于备课与教研协作；正式发布前请核对原始来源。`,
+    body: programsResourceEditorBody(course, view),
+    footer: `
+      <button class="btn btn-ghost" type="button" data-action="close-modal">取消</button>
+      <span class="spacer"></span>
+      <span class="settings-note">存入本机 IndexedDB</span>
+      <button class="btn btn-solid" type="submit" form="program-resource-form">保存课程资料</button>
+    `
+  });
+}
+
+function programsEntityDefinitions(type) {
+  return {
+    departments: [
+      { key: "name", label: "专业系名称", required: true, full: true },
+      { key: "kind", label: "类型", placeholder: "产业系 / 人文素养学院" },
+      { key: "summary", label: "系部简介", type: "textarea", rows: 4, full: true }
+    ],
+    groups: [
+      { key: "name", label: "专业组名称", required: true, full: true },
+      { key: "kind", label: "类型", placeholder: "专业群 / 学科组 / 自定义专业组" },
+      { key: "summary", label: "专业组说明", type: "textarea", rows: 4, full: true, placeholder: "如为教师整理，请注明“参考资料整理”" }
+    ],
+    majors: [
+      { key: "name", label: "专业名称", required: true, full: true },
+      { key: "trainingGoal", label: "培养目标", type: "textarea", rows: 3, full: true },
+      { key: "coreAbilities", label: "核心能力", type: "textarea", rows: 3, full: true },
+      { key: "employment", label: "就业方向", type: "textarea", rows: 3, full: true },
+      { key: "enrollment", label: "招生对象" },
+      { key: "duration", label: "学制" },
+      { key: "status", label: "状态", placeholder: "在招（2026）/ 已停招 / 教师自建" },
+      { key: "dataYear", label: "数据年份" },
+      { key: "mainCoursesSummary", label: "主要课程摘要", type: "textarea", rows: 3, full: true },
+      { key: "sourceNote", label: "来源与校核说明", full: true, placeholder: "官方链接 / 参考资料 / 教师整理" }
+    ],
+    courses: [
+      { key: "name", label: "课程名称", required: true, full: true },
+      { key: "category", label: "课程类别", type: "select", options: ["专业核心课", "专业基础课", "实训课程", "拓展/选修课", "公共基础课", "教师自建课程"] },
+      { key: "phase", label: "开设阶段 / 版本", placeholder: "中级段 / 高级段 / 2026" },
+      { key: "dataYear", label: "数据年份" },
+      { key: "intro", label: "课程简介", type: "textarea", rows: 4, full: true, placeholder: "如为教师整理，请注明来源与“参考资料整理”" },
+      { key: "sourceNote", label: "来源与校核说明", full: true, placeholder: "官方链接 / 参考资料 / 教师自建" }
+    ]
+  }[type] || [];
+}
+
+function programsEntityField(def, value) {
+  const common = `id="program-entity-${escapeAttr(def.key)}" name="${escapeAttr(def.key)}" ${def.required ? "required" : ""} ${def.placeholder ? `placeholder="${escapeAttr(def.placeholder)}"` : ""}`;
+  const selectOptions = def.type === "select" && value && !(def.options || []).includes(value)
+    ? [value, ...(def.options || [])]
+    : (def.options || []);
+  const control = def.type === "textarea"
+    ? `<textarea ${common} rows="${def.rows || 3}">${escapeHtml(value)}</textarea>`
+    : def.type === "select"
+      ? `<select ${common}>${selectOptions.map((option) => `<option value="${escapeAttr(option)}" ${value === option ? "selected" : ""}>${escapeHtml(option)}</option>`).join("")}</select>`
+      : `<input ${common} value="${escapeAttr(value)}">`;
+  return `<div class="field${def.full ? " field-full" : ""}"><label for="program-entity-${escapeAttr(def.key)}">${escapeHtml(def.label)}${def.required ? ' <span class="required-mark">必填</span>' : ""}</label>${control}</div>`;
+}
+
+function openProgramsEntityForm(type, id = "", parentId = "") {
+  const catalog = programsCatalog();
+  const entity = id ? (type === "departments" ? programsFindDepartment(catalog, id) : type === "groups" ? programsFindGroup(catalog, id) : type === "majors" ? programsFindMajor(catalog, id) : programsFindCourse(catalog, id)) : null;
+  const parent = parentId
+    ? type === "groups" ? programsFindDepartment(catalog, parentId) : type === "majors" ? programsFindGroup(catalog, parentId) : type === "courses" ? programsFindMajor(catalog, parentId) : null
+    : null;
+  if (id && !entity) return;
+  if (!id && type !== "departments" && !parent) {
+    showToast("请先选择上级节点");
+    return;
+  }
+  const typeLabel = { departments: "专业系", groups: "专业组", majors: "专业", courses: "课程" }[type];
+  const definitions = programsEntityDefinitions(type);
+  openModal({
+    kind: "program-entity-edit",
+    wide: true,
+    kicker: id ? `EDIT / ${typeLabel}` : `NEW / ${typeLabel}`,
+    title: id ? `编辑${typeLabel}` : `新增${typeLabel}`,
+    sub: parent ? `上级：${parent.name}。新增内容仅保存在本机数据库，不修改原始表。` : "新增内容仅保存在本机数据库，不修改原始表。",
+    body: `
+      <form id="program-entity-form" class="program-entity-form" data-type="${escapeAttr(type)}" data-id="${escapeAttr(id)}" data-parent="${escapeAttr(parentId)}">
+        <div class="form-grid">
+          ${definitions.map((def) => programsEntityField(def, entity?.[def.key] || "")).join("")}
+        </div>
+        <p class="field-hint">${icon("shield", 12)} 专业体系原始数据来自上传表格；教师补充内容属于本机修订，请在导入/备份前确认。</p>
+      </form>
+    `,
+    footer: `
+      <button class="btn btn-ghost" type="button" data-action="close-modal">取消</button>
+      <span class="spacer"></span>
+      <button class="btn btn-solid" type="submit" form="program-entity-form">${id ? "保存修改" : "创建记录"}</button>
+    `
+  });
+}
+
+function openProgramsDeleteConfirm(type, id) {
+  const catalog = programsCatalog();
+  const entity = type === "departments" ? programsFindDepartment(catalog, id) : type === "groups" ? programsFindGroup(catalog, id) : type === "majors" ? programsFindMajor(catalog, id) : programsFindCourse(catalog, id);
+  if (!entity) return;
+  const label = type === "courses" ? programsCourseTitle(entity) : entity.name || entity.displayName || "该记录";
+  const isBase = entity.base !== false || PROGRAM_DATA[type]?.some((item) => item.id === id);
+  const childCount = type === "departments" ? entity.groupIds?.length || 0 : type === "groups" ? entity.majorIds?.length || 0 : type === "majors" ? entity.courseIds?.length || 0 : 0;
+  openModal({
+    kind: "confirm",
+    narrow: true,
+    kicker: "REMOVE / 数据管理",
+    title: `移除「${label}」？`,
+    sub: isBase ? "原始表中的记录不会被改写；只会从当前浏览器视图中隐藏，可通过“管理数据 → 恢复隐藏”找回。" : "这是一条教师自建记录，删除后无法从原始表恢复。",
+    body: `
+      <div class="programs-confirm">
+        ${childCount ? `<p class="programs-pending-note">${icon("alert", 13)} 该记录下还有 ${childCount} 条子记录；请先移动或隐藏子记录，避免破坏层级关系。</p>` : `<p>${isBase ? "隐藏后仍保留在原始数据表中，可随时恢复。" : "删除只影响本机修订层。"}</p>`}
+        <p class="programs-muted">${type === "courses" ? "课程资料中的教师校订内容也会从视图移除；原始课程记录仍保留。" : ""}</p>
+      </div>
+    `,
+    footer: `<button class="btn btn-ghost" type="button" data-action="close-modal">取消</button><span class="spacer"></span><button class="btn btn-solid" type="button" data-action="program-confirm-delete" data-type="${escapeAttr(type)}" data-id="${escapeAttr(id)}" ${childCount ? "disabled" : ""}>${isBase ? "隐藏记录" : "删除记录"}</button>`
+  });
+}
+
+function openProgramsHidden() {
+  const hidden = getProgramState().hidden || {};
+  const rows = [];
+  for (const type of ["departments", "groups", "majors", "courses"]) {
+    for (const id of hidden[type] || []) {
+      const entity = PROGRAM_DATA[type]?.find((item) => item.id === id);
+      if (entity) rows.push({ type, id, name: entity.name || entity.displayName || id });
+    }
+  }
+  openModal({
+    kind: "confirm",
+    narrow: true,
+    kicker: "RESTORE / 恢复隐藏",
+    title: "恢复隐藏记录",
+    sub: "只恢复本机隐藏标记，不会改动原始数据。",
+    body: rows.length ? `<div class="programs-hidden-list">${rows.map((row) => `<div class="programs-hidden-row"><span>${escapeHtml(row.name)}</span><button class="btn btn-ghost" type="button" data-action="program-restore-entity" data-type="${escapeAttr(row.type)}" data-id="${escapeAttr(row.id)}">恢复</button></div>`).join("")}</div>` : `<div class="programs-empty">没有隐藏记录。</div>`,
+    footer: `<button class="btn btn-ghost" type="button" data-action="close-modal">关闭</button>`
+  });
+}
+
+function programsExportState() {
+  const data = exportProgramState();
+  downloadTextFile("授渔-专业数据库修订.json", JSON.stringify(data, null, 2), "application/json;charset=utf-8");
+  showToast("本机修订已导出");
+}
+
+async function programsImportStateFile(file) {
+  if (!file) return;
+  try {
+    const text = await file.text();
+    const payload = JSON.parse(text);
+    state.programImportPayload = payload;
+    openModal({
+      kind: "confirm",
+      narrow: true,
+      kicker: "IMPORT / 导入本机修订",
+      title: "导入专业数据库修订？",
+      sub: "将覆盖当前浏览器的专业体系修订、隐藏标记与课程资料；原始数据表不受影响。",
+      body: `<p>即将导入：${escapeHtml(file.name)}</p>`,
+      footer: `<button class="btn btn-ghost" type="button" data-action="close-modal">取消</button><span class="spacer"></span><button class="btn btn-solid" type="button" data-action="program-confirm-import">确认导入</button>`
+    });
+  } catch (error) {
+    showToast("导入失败：不是有效的修订 JSON");
+  }
+}
+
+async function programsSaveResourceForm(form) {
+  const courseId = form.dataset.courseId;
+  if (!courseId) return;
+  const data = Object.fromEntries(new FormData(form).entries());
+  try {
+    await saveCourseResource(courseId, data);
+    showToast("课程资料已保存到本机");
+    closeModal();
+    renderApp({ preserveScroll: true });
+  } catch (error) {
+    showToast(error.message || "保存失败");
+  }
+}
+
+async function programsSaveEntityForm(form) {
+  const type = form.dataset.type;
+  const id = form.dataset.id;
+  const parentId = form.dataset.parent;
+  const data = Object.fromEntries(new FormData(form).entries());
+  try {
+    if (id) {
+      await updateProgramEntity(type, id, data);
+      showToast("记录已更新");
+    } else {
+      const created = await addProgramEntity(type, parentId, data);
+      if (type === "departments") {
+        state.programDept = created.id;
+      } else if (type === "groups") {
+        state.programDept = parentId;
+        state.programGroup = created.id;
+      } else if (type === "majors") {
+        state.programGroup = parentId;
+        state.programMajor = created.id;
+      } else if (type === "courses") {
+        state.programMajor = parentId;
+      }
+      showToast("记录已创建");
+    }
+    closeModal();
+    renderApp({ preserveScroll: true });
+  } catch (error) {
+    showToast(error.message || "保存失败");
+  }
+}
+
+function handleProgramsAction(action, el) {
+  const type = el.dataset.type || "";
+  const id = el.dataset.id || "";
+  const parent = el.dataset.parent || "";
+  switch (action) {
+    case "program-toggle-manage":
+      state.programManageMode = !state.programManageMode;
+      renderApp({ preserveScroll: true });
+      break;
+    case "program-all":
+      state.programDept = "";
+      state.programGroup = "";
+      state.programMajor = "";
+      state.programQuery = "";
+      state.programCategory = "全部";
+      renderApp({ preserveScroll: true });
+      break;
+    case "program-select-dept":
+      state.programDept = id;
+      state.programGroup = "";
+      state.programMajor = "";
+      state.programQuery = "";
+      state.programCategory = "全部";
+      renderApp({ preserveScroll: true });
+      break;
+    case "program-select-group": {
+      const catalog = programsCatalog();
+      const group = programsFindGroup(catalog, id);
+      state.programDept = group?.deptId || state.programDept;
+      state.programGroup = id;
+      state.programMajor = "";
+      state.programQuery = "";
+      state.programCategory = "全部";
+      renderApp({ preserveScroll: true });
+      break;
+    }
+    case "program-select-major": {
+      const catalog = programsCatalog();
+      const major = programsFindMajor(catalog, id);
+      state.programDept = major?.deptId || "";
+      state.programGroup = major?.groupId || "";
+      state.programMajor = id;
+      state.programQuery = "";
+      state.programCategory = "全部";
+      renderApp({ preserveScroll: true });
+      break;
+    }
+    case "program-filter-category":
+      state.programCategory = el.dataset.value || "全部";
+      refreshProgramsContent();
+      break;
+    case "program-open-course":
+      openProgramsCourse(id);
+      break;
+    case "program-prepare-lesson": {
+      const catalog = programsCatalog();
+      const course = programsFindCourse(catalog, id);
+      if (!course) break;
+      const major = programsFindMajor(catalog, course.majorId);
+      closeModal();
+      openSceneForm("lesson", {
+        prefill: {
+          major: major?.name || "",
+          course: course.name && course.name !== "暂无公开资料" ? course.name : "",
+          task: course.name && course.name !== "暂无公开资料" ? `${course.name}课程教学` : "",
+          lessonType: "一体化",
+          hours: "4"
+        }
+      });
+      break;
+    }
+    case "program-edit-resource":
+      openProgramsCourseEditor(id);
+      break;
+    case "program-reset-resource":
+      if (!window.confirm("恢复为系统生成的行业通用参考？教师校订内容将被删除。")) break;
+      resetCourseResource(id).then(() => {
+        showToast("已恢复系统参考");
+        openProgramsCourse(id);
+      }).catch((error) => showToast(error.message || "恢复失败"));
+      break;
+    case "program-copy-course": {
+      const catalog = programsCatalog();
+      const course = programsFindCourse(catalog, id);
+      if (!course) break;
+      const view = buildCourseResource(course, catalog, getCourseResource(id));
+      copyWithFeedback(programsCourseMarkdown(view), "课程资源已复制");
+      break;
+    }
+    case "program-download-course": {
+      const catalog = programsCatalog();
+      const course = programsFindCourse(catalog, id);
+      if (!course) break;
+      const view = buildCourseResource(course, catalog, getCourseResource(id));
+      const filename = String(programsCourseTitle(course)).replace(/[\\/:*?"<>|]/g, "-").slice(0, 70) + ".md";
+      downloadTextFile(filename, programsCourseMarkdown(view), "text/markdown;charset=utf-8");
+      break;
+    }
+    case "program-add-entity":
+      openProgramsEntityForm(type, "", parent);
+      break;
+    case "program-edit-entity":
+      openProgramsEntityForm(type, id, parent);
+      break;
+    case "program-delete-entity":
+      openProgramsDeleteConfirm(type, id);
+      break;
+    case "program-confirm-delete":
+      deleteProgramEntity(type, id).then(() => {
+        closeModal();
+        showToast("记录已移除");
+        if (state.programMajor === id) state.programMajor = "";
+        if (state.programGroup === id) state.programGroup = "";
+        if (state.programDept === id) state.programDept = "";
+        renderApp({ preserveScroll: true });
+      }).catch((error) => showToast(error.message || "移除失败"));
+      break;
+    case "program-show-hidden":
+      openProgramsHidden();
+      break;
+    case "program-restore-entity":
+      restoreProgramEntity(type, id).then(() => {
+        closeModal();
+        showToast("记录已恢复");
+        renderApp({ preserveScroll: true });
+      }).catch((error) => showToast(error.message || "恢复失败"));
+      break;
+    case "program-export-state":
+      programsExportState();
+      break;
+    case "program-import-state-button":
+      document.querySelector("[data-role='program-import-state']")?.click();
+      break;
+    case "program-confirm-import":
+      if (!state.programImportPayload) break;
+      importProgramState(state.programImportPayload).then(() => {
+        state.programImportPayload = null;
+        closeModal();
+        state.programDept = "";
+        state.programGroup = "";
+        state.programMajor = "";
+        showToast("修订已导入");
+        renderApp({ preserveScroll: true });
+      }).catch((error) => showToast(error.message || "导入失败"));
+      break;
+    default:
+      return false;
+  }
+  return true;
 }
 
 function feedbackOf(conv) {
@@ -2399,6 +3541,7 @@ async function exportBackup({ conversationsOnly = false } = {}) {
       settings
     });
     backup.exportedAt = new Date().toISOString();
+    if (!conversationsOnly) backup.programs = exportProgramState();
     const stamp = new Date().toISOString().replace(/[:T]/g, "-").slice(0, 16);
     downloadTextFile(`授渔_${conversationsOnly ? "对话" : "完整备份"}_${stamp}.json`, JSON.stringify(backup, null, 2), "application/json;charset=utf-8");
     showToast("备份文件已开始下载，请存放在学校批准的位置");
@@ -2440,6 +3583,7 @@ async function handleBackupFile(file) {
               <li>对话记录：${Array.isArray(data.conversations) ? data.conversations.length : 0} 条</li>
               <li>自定义知识：${Array.isArray(data.knowledge) ? data.knowledge.length : 0} 份</li>
               <li>资料文件：${Array.isArray(data.files) ? data.files.length : 0} 份</li>
+              <li>专业课程修订：${data.programs ? "有" : "无"}</li>
               <li>导出时间：${escapeHtml(data.exportedAt || "未知")}</li>
             </ul>
           </div>
@@ -3068,7 +4212,7 @@ function renderModal() {
   const modal = state.modal;
   overlayEl.innerHTML = `
     <div class="modal-backdrop" data-modal-backdrop>
-      <div class="modal${modal.narrow ? " is-narrow" : ""}" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+      <div class="modal${modal.narrow ? " is-narrow" : ""}${modal.wide ? " is-wide" : ""}" role="dialog" aria-modal="true" aria-labelledby="modal-title">
         <div class="modal-head">
           <div>
             <div class="modal-kicker">${escapeHtml(modal.kicker || "SHOUYU / DIALOG")}</div>
@@ -3588,7 +4732,12 @@ function fieldMarkup({ name, label, type = "text", value = "", required = false,
 }
 
 function buildFormFields(sceneId, p) {
-  const majorOptions = MAJORS.map((major) => `<option value="${escapeAttr(major)}"></option>`).join("");
+  const programMajorNames = PROGRAM_DATA.majors
+    .filter((major) => !major.isPublicFoundation)
+    .map((major) => major.name);
+  const majorOptions = [...new Set([...MAJORS, ...programMajorNames])]
+    .map((major) => `<option value="${escapeAttr(major)}"></option>`)
+    .join("");
   const courseValues = Array.from(new Set([...TASK_PRESETS.map((item) => item.course), ...Object.values(COURSE_FALLBACK)]));
   const courseOptions = courseValues.map((course) => `<option value="${escapeAttr(course)}"></option>`).join("");
   const taskOptions = TASK_PRESETS.map((item) => `<option value="${escapeAttr(item.label)}"></option>`).join("");
@@ -4707,6 +5856,7 @@ function getActiveDoc(artifact, messageId) {
 }
 
 function handleAction(action, el, event) {
+  if (action.startsWith("program-") && handleProgramsAction(action, el)) return;
   switch (action) {
     case "nav": {
       navigate(el.dataset.path || "/");
@@ -4958,11 +6108,14 @@ function handleAction(action, el, event) {
         closeModal();
         break;
       }
-      localDB.restoreBackup(state.pendingRestore).then(() => {
+      localDB.restoreBackup(state.pendingRestore).then(async () => {
         try {
           localStorage.setItem(DB_KEY, JSON.stringify({ ...blankDB(), conversations: state.pendingRestore.conversations || [] }));
         } catch (error) {
           console.warn("兼容存储写入失败", error);
+        }
+        if (state.pendingRestore.programs) {
+          await importProgramState(state.pendingRestore.programs);
         }
         closeModal();
         showToast("备份已恢复，页面即将重新加载");
@@ -4987,6 +6140,7 @@ function handleAction(action, el, event) {
     case "confirm-clear-data": {
       Promise.all([
         localDB.clearAllData().catch(() => null),
+        clearProgramStore().catch(() => null),
         new Promise((resolve) => {
           try {
             localStorage.removeItem(DB_KEY);
@@ -5560,6 +6714,16 @@ document.addEventListener("submit", (event) => {
     saveKnowledgeDocForm(form);
     return;
   }
+  if (form.id === "program-resource-form") {
+    event.preventDefault();
+    programsSaveResourceForm(form);
+    return;
+  }
+  if (form.id === "program-entity-form") {
+    event.preventDefault();
+    programsSaveEntityForm(form);
+    return;
+  }
   if (form.id === "ai-settings-form") {
     event.preventDefault();
     const settings = readAISettingsForm();
@@ -5612,6 +6776,11 @@ document.addEventListener("input", (event) => {
     refreshHistoryList();
     return;
   }
+  if (target.matches("[data-role='program-search']")) {
+    state.programQuery = target.value;
+    refreshProgramsContent();
+    return;
+  }
   if (target.closest("#task-form")) {
     const field = target.closest(".field");
     if (field && target.value.trim()) {
@@ -5641,6 +6810,40 @@ document.addEventListener("change", (event) => {
   if (target.matches("[data-role='kb-import-file']")) {
     importKnowledgeJson(target.files?.[0]);
     target.value = "";
+    return;
+  }
+  if (target.matches("[data-role='program-import-state']")) {
+    programsImportStateFile(target.files?.[0]);
+    target.value = "";
+    return;
+  }
+  if (target.matches("[data-role='program-dept-filter']")) {
+    state.programDept = target.value;
+    state.programGroup = "";
+    state.programMajor = "";
+    state.programQuery = "";
+    state.programCategory = "全部";
+    renderApp({ preserveScroll: true });
+    return;
+  }
+  if (target.matches("[data-role='program-group-filter']")) {
+    const group = programsFindGroup(programsCatalog(), target.value);
+    state.programGroup = target.value;
+    state.programDept = group?.deptId || state.programDept;
+    state.programMajor = "";
+    state.programQuery = "";
+    state.programCategory = "全部";
+    renderApp({ preserveScroll: true });
+    return;
+  }
+  if (target.matches("[data-role='program-major-filter']")) {
+    const major = programsFindMajor(programsCatalog(), target.value);
+    state.programMajor = target.value;
+    state.programDept = major?.deptId || "";
+    state.programGroup = major?.groupId || "";
+    state.programQuery = "";
+    state.programCategory = "全部";
+    renderApp({ preserveScroll: true });
     return;
   }
   if (target.id === "task-preset") {
@@ -5865,6 +7068,9 @@ async function hydrateFromIndexedDB() {
 async function bootstrapApp() {
   if (!location.hash) history.replaceState(null, "", "#/");
   await hydrateFromIndexedDB();
+  await loadProgramStore().catch((error) => {
+    console.warn("专业数据库修订层初始化失败，将使用基础数据。", error);
+  });
   handleRoute();
 }
 

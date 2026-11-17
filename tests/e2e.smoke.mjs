@@ -111,7 +111,8 @@ async function main() {
     check("favicon 已切换", await page.evaluate(() => document.querySelector('link[rel="icon"]')?.getAttribute("href") === "./assets/brand/favicon-64.png"));
     check("首页已精简", await page.locator(".home-top, .hero-eyebrow, .scope-note, .section-kicker").count() === 0);
     check("五个场景入口", await page.locator(".scene-card").count() === 5);
-    check("侧栏导航", await page.locator(".nav-item").count() >= 7);
+    check("侧栏导航", await page.locator(".nav-item").count() >= 8);
+    check("专业数据库入口", await page.locator(".nav-item[data-path='/programs']").count() === 1);
     await page.locator(".sidebar-collapse").click();
     await page.waitForTimeout(250);
     check("侧栏可折叠", (await page.locator(".sidebar").evaluate((el) => el.getBoundingClientRect().width)) < 100);
@@ -129,6 +130,31 @@ async function main() {
     await page.goto(`${base}#/templates`, { waitUntil: "networkidle" });
     await page.waitForTimeout(200);
     check("模板视觉标识", await page.locator(".template-glyph").count() >= 3);
+
+    await page.goto(`${base}#/programs`, { waitUntil: "networkidle" });
+    await page.waitForTimeout(350);
+    check("专业数据库页面", (await page.locator(".page-title").innerText()).includes("专业体系"));
+    check("专业统计四项", await page.locator(".page-stats .stat").count() === 4);
+    check("专业系卡片六个", await page.locator(".programs-dept-card").count() === 6);
+    check("原始数据表可下载", await page.locator('a[href*="gzgj-professional-system.xlsx"]').count() >= 1);
+    await page.locator(".programs-dept-card").first().click();
+    await page.waitForTimeout(250);
+    check("专业组层级", await page.locator(".programs-group-card").count() >= 2);
+    await page.locator(".programs-group-card").first().click();
+    await page.waitForTimeout(250);
+    check("专业层级", await page.locator(".programs-major-card").count() >= 1);
+    await page.locator(".programs-major-card").first().click();
+    await page.waitForTimeout(250);
+    check("课程层级", await page.locator(".programs-course-card").count() >= 1);
+    await page.locator('[data-role="program-search"]').fill("电工技术");
+    await page.waitForTimeout(350);
+    check("专业库关键词检索", await page.locator(".programs-course-card").count() >= 1);
+    await page.locator(".programs-course-card").first().click();
+    await page.waitForTimeout(350);
+    check("课程资源十个模块", await page.locator(".programs-resource-section").count() === 10);
+    check("课程资源含来源", await page.locator(".modal .programs-source").count() >= 1);
+    await page.locator(".modal-close").click();
+    await page.waitForTimeout(200);
 
     await page.goto(base, { waitUntil: "networkidle" });
     await page.waitForTimeout(200);
@@ -176,6 +202,10 @@ async function main() {
     await page.waitForTimeout(300);
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
     check("移动端无横向溢出", overflow === 0, `overflow=${overflow}`);
+    await page.goto(`${base}#/programs`, { waitUntil: "networkidle" });
+    await page.waitForTimeout(300);
+    check("移动端专业库无横向溢出", await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth) === 0);
+    check("移动端专业库筛选", await page.locator(".programs-mobile-filters").isVisible());
     await page.locator(".mobile-menu").click();
     await page.waitForTimeout(250);
     check("移动端侧栏可打开", await page.locator(".sidebar").evaluate((el) => getComputedStyle(el).transform !== "none" || getComputedStyle(el).visibility !== "hidden"));
