@@ -535,6 +535,32 @@ export function buildTeachingBundle({ courseId, chapterId, taskId, learners, hou
   const ctx = buildContext(course, catalog, pack, chapter, task, { learners, hours, conditions, objectiveExtra });
   const refs = knowledgeRefs(pack, task, chapter);
   const sources = buildCurriculumSources(pack, catalog);
+  const knowledge = {
+    packId: pack.id,
+    packVersion: pack.version || "1.0",
+    packUpdatedAt: pack.updatedAt || "",
+    reviewer: pack.reviewer || "",
+    reviewStatus: pack.reviewStatus || pack.status || "pending",
+    reviewStatusLabel: pack.statusLabel || "待教研组审核",
+    chapterId: chapter.id,
+    chapterTitle: chapter.title,
+    taskId: task.id,
+    taskTitle: task.title,
+    knowledgePoints: (chapter.knowledgePoints || []).map((point) => ({
+      id: point.id,
+      title: point.title,
+      statement: point.statement,
+      sourceRefs: point.sourceRefs || [],
+      reviewStatus: point.reviewStatus || "pending"
+    })),
+    taskKnowledgePointIds: task.knowledgePointIds || [],
+    taskSteps: task.steps || [],
+    taskEquipment: task.equipment || [],
+    taskSafety: task.safety || [],
+    packKnowledgePointCount: (pack.chapters || []).reduce((sum, item) => sum + (item.knowledgePoints || []).length, 0),
+    packTaskCount: (pack.tasks || []).length,
+    sourceRefs: Array.from(new Set([...(task.sourceRefs || []), ...(chapter.knowledgePoints || []).flatMap((point) => point.sourceRefs || [])]))
+  };
   const docs = [
     buildDesignDoc(ctx, refs),
     buildLessonDoc(ctx, refs),
@@ -573,6 +599,8 @@ export function buildTeachingBundle({ courseId, chapterId, taskId, learners, hou
       conditions: ctx.conditions,
       curriculumId: pack.id,
       curriculumStatus: pack.status,
+      curriculumVersion: pack.version || "1.0",
+      knowledgePointCount: (chapter.knowledgePoints || []).length,
       sourceLabel: ctx.sourceLabel
     },
     docs,
@@ -619,6 +647,7 @@ export function buildTeachingBundle({ courseId, chapterId, taskId, learners, hou
       sourceLabel: ctx.sourceLabel,
       curriculumId: pack.id
     },
+    knowledge,
     artifact,
     quality: null,
     conversationId: ""

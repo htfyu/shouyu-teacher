@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 
 import { PROGRAM_DATA } from "../js/programs-data.js";
 import { buildProgramCatalog } from "../js/programs-store.js";
-import { CURRICULUM_PACKS } from "../js/curriculum-data.js";
+import { CURRICULUM_PACKS, SOURCE_CORRECTIONS } from "../js/curriculum-data.js";
 import { buildTeachingBundle } from "../js/teaching-engine.js";
 import { inspectBundle, applyAutoFixes, qualityMarkdown } from "../js/quality-engine.js";
 
@@ -32,6 +32,33 @@ test("代表课程知识包结构完整且来源可追溯", () => {
   assert.ok(representative.officialBasis.sourceIds.includes("S2"));
   assert.match(representative.disclaimer, /不是广州市技师学院正式课程标准/);
   assert.equal(representative.status, "pending");
+});
+
+test("三个不同专业方向的标杆课程包均有章节、知识点、任务和来源", () => {
+  assert.equal(CURRICULUM_PACKS.length, 3);
+  for (const pack of CURRICULUM_PACKS) {
+    assert.ok(pack.chapters.length >= 4, `${pack.id} 章节不足`);
+    assert.equal(pack.tasks.length, 5, `${pack.id} 任务数`);
+    const points = pack.chapters.flatMap((chapter) => chapter.knowledgePoints || []);
+    assert.ok(points.length >= 15, `${pack.id} 知识点不足`);
+    assert.ok(points.every((point) => point.sourceRefs.length > 0), `${pack.id} 存在无来源知识点`);
+    assert.ok(pack.officialBasis.sourceIds.length > 0);
+    assert.ok(pack.reviewStatus);
+    assert.ok(pack.version);
+    assert.ok(pack.updatedAt);
+    assert.match(pack.disclaimer, /不是广州市技师学院正式课程标准/);
+  }
+  assert.ok(new Set(CURRICULUM_PACKS.map((pack) => pack.majorId)).size >= 2);
+});
+
+test("来源核验记录保留原值并给出修订依据", () => {
+  assert.equal(SOURCE_CORRECTIONS.length, 3);
+  const robot = SOURCE_CORRECTIONS.find((item) => item.courseId === "course-0035");
+  assert.deepEqual(robot.original, ["S1", "S24", "S27"]);
+  assert.deepEqual(robot.corrected, ["S1", "S6", "S7", "S8"]);
+  assert.equal(robot.status, "recommended");
+  const nev = SOURCE_CORRECTIONS.find((item) => item.courseId === "course-0111");
+  assert.deepEqual(nev.corrected, ["S1", "S20", "S21", "S22"]);
 });
 
 test("教学引擎生成共享上下文的 10 类资源", () => {
@@ -75,6 +102,32 @@ test("质检返回 10 个可解释维度、证据和人工审核边界", () => {
   assert.ok(report.problems.some((problem) => /待审核|审核/.test(problem.message)));
   assert.ok(report.summary.humanReview >= 1);
   assert.match(qualityMarkdown(bundle, report), /教学质量检测报告/);
+assert.equal(report.layers.structural.id, "structural");
+assert.equal(report.layers.knowledge.id, "knowledge");
+assert.equal(report.layers.expert.approved, false);
+assert.equal(report.metrics.factVerified, false);
+assert.ok(report.layers.knowledge.reviewItems.length > 0);
+assert.match(qualityMarkdown(bundle, report), /来源覆盖率.*不代表事实正确率/);
+});
+
+test("教师专家审核与知识包审核共同决定事实认证状态", () => {
+  const bundle = makeBundle();
+  bundle.curriculumStatus = "approved";
+  bundle.context.reviewStatus = "已审核";
+  bundle.expertReview = { status: "approved", reviewer: "机电教研组", reviewedAt: "2026-11-17", items: [] };
+  const report = inspectBundle(bundle);
+  assert.equal(report.layers.expert.approved, true);
+  assert.equal(report.metrics.factVerified, true);
+  assert.equal(report.reviewCap, 100);
+  assert.equal(report.statusLabel, "待最终确认");
+
+  const pending = makeBundle();
+  pending.expertReview = { status: "approved", reviewer: "机电教研组", items: [] };
+  const pendingReport = inspectBundle(pending);
+  assert.equal(pendingReport.metrics.factVerified, false);
+  assert.equal(pendingReport.reviewCap, 84);
+  assert.equal(pendingReport.statusLabel, "知识包待教研组审核");
+  assert.notEqual(pendingReport.statusLabel, "已通过专家认证");
 });
 
 test("跨文档一致性检查能定位任务名称不一致", () => {
@@ -86,6 +139,41 @@ test("跨文档一致性检查能定位任务名称不一致", () => {
   const consistency = report.dimensions.find((item) => item.id === "resource_consistency");
   assert.ok(consistency.score < 100);
   assert.ok(consistency.problems.some((problem) => /任务名称/.test(problem.message)));
+});
+
+test("专业参数缺少来源时进入教师审核项而不是自动判对", () => {
+  const bundle = makeBundle();
+  const info = bundle.artifact.docs.find((doc) => doc.id === "infopage");
+  info.sections[0].blocks.push({ type: "paragraph", text: "现场设备额定电压 24V，参数以铭牌为准。" });
+  const report = inspectBundle(bundle);
+  const parameterItem = report.layers.knowledge.reviewItems.find((item) => item.type === "参数");
+  assert.ok(parameterItem);
+  assert.match(parameterItem.label, /24V/);
+  assert.equal(report.metrics.factVerified, false);
+});
+
+test("知识点缺少来源时知识点来源覆盖下降并列入审核", () => {
+  const bundle = makeBundle();
+  bundle.knowledge.knowledgePoints[0].sourceRefs = [];
+  const report = inspectBundle(bundle);
+  assert.ok(report.layers.knowledge.sourceCoverage < 100);
+  assert.ok(report.layers.knowledge.reviewItems.some((item) => item.type === "来源"));
+});
+
+test("跨文档时间冲突能定位到教案阶段分钟", () => {
+  const bundle = makeBundle();
+  const lesson = bundle.artifact.docs.find((doc) => doc.id === "lesson");
+  for (const section of lesson.sections) {
+    for (const block of section.blocks) {
+      if (block.type !== "table") continue;
+      for (const row of block.rows || []) {
+        if (/分钟/.test(String(row[1] || ""))) row[1] = "10 分钟";
+      }
+    }
+  }
+  const report = inspectBundle(bundle);
+  const consistency = report.dimensions.find((item) => item.id === "resource_consistency");
+  assert.ok(consistency.problems.some((problem) => /阶段时间合计/.test(problem.message)));
 });
 
 test("评价权重异常时可以自动修复到 100 分", () => {
@@ -114,6 +202,16 @@ test("评价权重异常时可以自动修复到 100 分", () => {
     .map(Number);
   assert.equal(afterRows.reduce((sum, value) => sum + value, 0), 100);
   assert.equal(after.dimensions.find((item) => item.id === "assessment_alignment").score, 100);
+});
+
+test("演示成果带 demo 标记，行业参考不会伪装成真实成果", () => {
+  const demo = makeBundle();
+  assert.equal(demo.demo, true);
+  assert.equal(demo.sourceLabel, "教师教学资料 / 校本示例");
+  const generic = buildTeachingBundle({ courseId: "course-0001", learners: "36 人", hours: 4 }, catalog);
+  assert.equal(generic.demo, false);
+  assert.equal(generic.curriculumStatus, "reference");
+  assert.match(generic.sourceLabel, /行业通用参考/);
 });
 
 test("没有课程知识包时降级为行业参考并限制评分", () => {

@@ -106,7 +106,8 @@ import {
 
 import {
   CURRICULUM_PACKS,
-  getCurriculumPack
+  getCurriculumPack,
+  getSourceCorrection
 } from "./curriculum-data.js";
 
 import {
@@ -121,6 +122,25 @@ import {
   inspectBundle,
   qualityMarkdown
 } from "./quality-engine.js";
+
+import {
+  aggregateImpact,
+  anonymizeImpactRecords,
+  impactToCSV,
+  IMPACT_EXPERT_RESULTS
+} from "./impact-engine.js";
+
+import {
+  addImpactRecord,
+  clearImpactStore,
+  deleteImpactRecord,
+  exportImpactState,
+  getImpactRecords,
+  getImpactStorageMode,
+  importImpactState,
+  loadImpactStore,
+  updateImpactRecord
+} from "./impact-store.js";
 
 import {
   clearStudioStore,
@@ -178,6 +198,7 @@ const ICON_PATHS = {
   sliders: '<path d="M3 4.5h6M11.5 4.5h1.5M3 11.5h1.5M7 11.5h6"/><circle cx="10" cy="4.5" r="1.4"/><circle cx="5" cy="11.5" r="1.4"/>',
   file: '<path d="M4 2.5h5l3 3v8H4v-11zM9 2.5v3h3M6 8h4M6 10.5h4"/>',
   building: '<path d="M3 13.5V3h6v10.5M9 7h4v6.5M5 5.5h2M5 8h2M5 10.5h2M11 9h.1M11 11.5h.1M2 13.5h12"/>',
+  chart: '<path d="M2.5 13.5h11M3.5 11V8.2M6.8 11V5.3M10.1 11V3.5M13.2 11V6.8"/>',
   archive: '<path d="M2.5 4.5h11v9h-11zM2.5 4.5V2.8h11v1.7M5.2 8h5.6"/>',
   play: '<path d="M5 3.2l7.5 4.8L5 12.8V3.2z"/>',
   upload: '<path d="M8 10.5V2.8M4.8 6L8 2.8 11.2 6M2.5 13.5h11"/>',
@@ -639,10 +660,14 @@ const state = {
   studioQuality: null,
   studioDemo: false,
   studioAiText: "",
+  impactBusy: false,
+  impactImportPayload: null,
   qualityWeights: loadQualityWeights(),
   graphCourseId: "course-0010",
   graphNodeId: "",
   demoStep: 0,
+  demoBusy: false,
+  demoRun: null,
   historyQuery: "",
   historyCategory: "全部",
   historySelected: [],
@@ -778,6 +803,7 @@ function parseRoute() {
   if (raw === "/quality" || raw.startsWith("/quality")) return { name: "quality" };
   if (raw === "/graph" || raw.startsWith("/graph")) return { name: "graph" };
   if (raw === "/portfolio" || raw.startsWith("/portfolio")) return { name: "portfolio" };
+  if (raw === "/impact" || raw.startsWith("/impact")) return { name: "impact" };
   if (raw === "/demo" || raw.startsWith("/demo")) return { name: "demo" };
   if (raw === "/kb" || raw.startsWith("/kb")) return { name: "kb" };
   if (raw === "/files" || raw.startsWith("/files")) return { name: "files" };
@@ -878,6 +904,7 @@ function renderSidebar(activeConv) {
     { key: "files", path: "/files", icon: "file", label: "资料中心", count: state.files.length },
     { key: "templates", path: "/templates", icon: "layers", label: "模板库", count: LESSON_TEMPLATES.length + EVAL_TEMPLATES.length + OBSERVATION_TEMPLATES.length },
     { key: "portfolio", path: "/portfolio", icon: "archive", label: "成果管理", count: studioStats.total },
+    { key: "impact", path: "/impact", icon: "chart", label: "教学应用成效", count: getImpactRecords().length },
     { key: "history", path: "/history", icon: "clock", label: "历史对话", count: db.conversations.length },
     { key: "settings", path: "/settings", icon: "sliders", label: "系统设置" },
     { key: "guide", path: "/guide", icon: "help", label: "使用说明" }
@@ -885,8 +912,8 @@ function renderSidebar(activeConv) {
   const navGroups = [
     { label: "TEACHING / 教学中心", items: navItems.slice(0, 4) },
     { label: "KNOWLEDGE / 知识与资源", items: navItems.slice(4, 8) },
-    { label: "OUTCOMES / 成果与记录", items: navItems.slice(8, 10) },
-    { label: "SYSTEM / 系统", items: navItems.slice(10) }
+    { label: "OUTCOMES / 成果与记录", items: navItems.slice(8, 11) },
+    { label: "SYSTEM / 系统", items: navItems.slice(11) }
   ];
   sidebarEl.innerHTML = `
     <a class="brand" href="#/" data-action="nav" data-path="/" aria-label="授渔首页">
@@ -990,6 +1017,9 @@ function renderTopbar(activeConv) {
   } else if (route.name === "portfolio") {
     center = "版本 · 审核 · 质检 · 导出";
     actions = `${aiChip}<button class="btn" type="button" data-action="nav" data-path="/" aria-label="返回工作台">${icon("arrowLeft", 13)}<span class="topbar-action-label">返回工作台</span></button>`;
+  } else if (route.name === "impact") {
+    center = "真实记录 · 无数据不造数 · 可导出匿名";
+    actions = `${aiChip}<button class="btn" type="button" data-action="nav" data-path="/" aria-label="返回工作台">${icon("arrowLeft", 13)}<span class="topbar-action-label">返回工作台</span></button>`;
   } else if (route.name === "demo") {
     center = "可重复 · 可核验 · 离线可运行";
     actions = `${aiChip}<button class="btn" type="button" data-action="nav" data-path="/" aria-label="返回工作台">${icon("arrowLeft", 13)}<span class="topbar-action-label">返回工作台</span></button>`;
@@ -1087,6 +1117,8 @@ function renderView(activeConv, options, previousChatScroll, previousViewScroll)
     ? renderGraphPage()
     : route.name === "portfolio"
     ? renderPortfolioPage()
+    : route.name === "impact"
+    ? renderImpactPage()
     : route.name === "demo"
     ? renderDemoPage()
     : route.name === "programs"
@@ -1117,6 +1149,7 @@ function renderView(activeConv, options, previousChatScroll, previousViewScroll)
 function renderHomePage() {
   const stats = knowledgeStats();
   const studioStats = getStudioBundleStats();
+  const impactStats = aggregateImpact(getImpactRecords());
   const recent = getStudioBundles().slice(0, 3);
   const featured = CURRICULUM_PACKS[0];
   const builtPacks = CURRICULUM_PACKS.length;
@@ -1150,7 +1183,7 @@ function renderHomePage() {
       <section class="workbench-hero" aria-labelledby="hero-title">
         <div>
           <div class="page-kicker">TEACHING WORKBENCH / 教学工作台</div>
-          <h1 class="hero-title" id="hero-title">把下一节课，做成一套可审核的教学成果。</h1>
+          <h1 class="hero-title" id="hero-title">把下一节课，做成可审核的教学成果。</h1>
           <p class="hero-subtitle">从专业课程知识包出发，完成教学资源开发、质量检测、教师审核和标准化导出。</p>
           <div class="workbench-actions">
             <button class="btn btn-solid" type="button" data-action="home-start-studio">${icon("spark", 13)} 开始一次工学一体化备课</button>
@@ -1161,6 +1194,7 @@ function renderHomePage() {
         <div class="workbench-hero-note">
           <span class="status-dot"></span>
           ${studioStats.pending ? `${studioStats.pending} 份成果待审核` : "当前没有待审核成果"} · ${getStudioStorageMode() === "indexeddb" ? "本机成果库已连接" : "本机兼容存储"}
+          <small class="workbench-impact-line">应用成效：${impactStats.hasData ? `${impactStats.recordCount} 条真实记录` : "尚未采集真实试用数据"}</small>
         </div>
       </section>
 
@@ -1176,9 +1210,9 @@ function renderHomePage() {
           <span class="workbench-link">打开质量检测中心 →</span>
         </button>
         <button class="workbench-card" type="button" data-action="nav" data-path="/programs">
-          <div class="workbench-card-head"><span>${icon("book", 13)} 专业课程覆盖</span><span>${PROGRAM_DATA.meta.counts.majors} 专业</span></div>
+          <div class="workbench-card-head"><span>${icon("book", 13)} 专业课程目录</span><span>${PROGRAM_DATA.meta.counts.majors} 专业</span></div>
           <strong class="workbench-number">${PROGRAM_DATA.meta.counts.courses}</strong>
-          <p>课程记录；${builtPacks} 门课程已建立知识包（${pendingPacks} 门待审核、${approvedPacks} 门已审核）。${featured ? `当前代表课程：${escapeHtml(featured.title)}。` : ""}</p>
+          <p>条目录记录；完整知识包 ${builtPacks} 门（${pendingPacks} 待审核、${approvedPacks} 已审核）。目录记录不等于已建知识包，也不等于学院已审核。${featured ? `当前代表课程：${escapeHtml(featured.title)}。` : ""}</p>
           <span class="workbench-link">查看专业数据库 →</span>
         </button>
         <button class="workbench-card" type="button" data-action="nav" data-path="/kb">
@@ -2775,7 +2809,8 @@ function programsCourseModalBody(view) {
             <div class="programs-kicker">SOURCES / 来源</div>
             ${(() => {
               const anomalies = programsSourceAnomalies(course, view.catalog || programsCatalog());
-              return anomalies.length ? `<div class="programs-pending-note">${icon("alert", 12)} 原表该课程行引用了 ${anomalies.map((item) => item.id).join("、")}，但在来源表中这些编号属于其他专业。系统保留原值、不擅自改写，也不把这些来源当作本课程知识包依据；正式建设时需教研组核对来源编号。</div>` : "";
+              const correction = getSourceCorrection(course.id);
+              return anomalies.length ? `<div class="programs-pending-note">${icon("alert", 12)} 原表该课程行引用了 ${anomalies.map((item) => item.id).join("、")}，但来源表 major 字段与当前专业不一致。系统保留原值、不擅自改写；${correction ? `建议按 ${correction.corrected.join("、")} 核对（${escapeHtml(correction.statusLabel)}）` : "正式建设时需教研组核对来源编号"}。</div>` : "";
             })()}
             ${programsSourceCards(course.sourceIds, { sources: view.sources, sourceMap: new Map(view.sources.map((source) => [source.id, source])) }, 10)}
           </div>
@@ -3281,6 +3316,26 @@ function studioQualityBars(report) {
   `;
 }
 
+function studioQualityLayers(report) {
+  if (!report?.layers) return "";
+  const graphics = report.layers;
+  return `
+    <div class="studio-quality-layers">
+      <div><span>A 结构规则</span><b>${graphics.structural.score}</b></div>
+      <div><span>B 专业知识</span><b>${graphics.knowledge.score}</b><small>本章 ${graphics.knowledge.coveredPoints}/${graphics.knowledge.pointCount} 知识点${graphics.knowledge.packPointCount ? ` · 全课程 ${graphics.knowledge.packPointCount}` : ""} · 来源 ${graphics.knowledge.sourceCoverage}%</small></div>
+      <div class="${graphics.expert.approved ? "is-approved" : "is-pending"}"><span>C 教师专家</span><b>${escapeHtml(graphics.expert.statusLabel)}</b>${graphics.expert.reviewer ? `<small>${escapeHtml(graphics.expert.reviewer)}</small>` : ""}${graphics.expert.change ? `<small>修改：${escapeHtml(graphics.expert.change)}</small>` : ""}</div>
+    </div>
+    <div class="studio-quality-metrics">
+      <span>结构 <b>${report.metrics.structureCompleteness}</b></span>
+      <span>来源覆盖 <b>${report.metrics.sourceCoverage}%</b></span>
+      <span>专业匹配 <b>${report.metrics.professionalMatch}</b></span>
+      <span>一致性 <b>${report.metrics.crossResourceConsistency}</b></span>
+      <span>实训安全 <b>${report.metrics.practicalSafety}</b></span>
+      <span>${report.metrics.factVerified ? "专家已确认" : "未完成专家确认"}</span>
+    </div>
+  `;
+}
+
 function studioQualityIssues(report) {
   if (!report) return "";
   return `
@@ -3319,6 +3374,10 @@ function renderStudioConfig(ctx) {
         <label class="studio-field field-wide"><span>教学条件</span><textarea name="conditions" rows="2">${escapeHtml(state.studioConditions)}</textarea></label>
         <label class="studio-field field-wide"><span>教师补充目标（可选）</span><textarea name="objectiveExtra" rows="2" placeholder="只写可评价的补充目标；不写入官方标准">${escapeHtml(state.studioObjectiveExtra)}</textarea></label>
       </div>
+      <div class="studio-benchmark-row">
+        <div class="studio-benchmark-label">标杆课程 <span>${CURRICULUM_PACKS.length} 门 · 待审核</span></div>
+        ${CURRICULUM_PACKS.map((pack) => `<button class="studio-benchmark-chip${course.id === pack.courseId ? " is-active" : ""}" type="button" data-action="studio-pick-pack" data-course="${escapeAttr(pack.courseId)}">${escapeHtml(pack.title)}</button>`).join("")}
+      </div>
       <div class="studio-config-actions">
         <button class="btn btn-solid" type="submit" ${state.studioBusy ? "disabled" : ""}>${icon("spark", 13)} ${state.studioBusy ? "正在装配资源包…" : "生成 10 类教学资源"}</button>
         <button class="btn btn-ghost" type="button" data-action="studio-reset">恢复演示课程</button>
@@ -3353,6 +3412,7 @@ function renderStudioReadiness(ctx) {
         <span>${escapeHtml(chapter.title)}</span>${icon("chevronRight", 11)}
         <span>${escapeHtml(task.title)}</span>
       </div>
+      <div class="studio-pack-meta"><span>版本 <b>${escapeHtml(pack.version || "1.0")}</b></span><span>更新 <b>${escapeHtml(pack.updatedAt || "未标注")}</b></span><span>审核人 <b>${escapeHtml(pack.reviewer || "未指定")}</b></span><span>状态 <b>${escapeHtml(pack.statusLabel || "待审核")}</b></span></div>
       <div class="notice-stack">
         <div class="privacy-warning">${escapeHtml(pack.disclaimer)}</div>
       </div>
@@ -3364,7 +3424,8 @@ function renderStudioReadiness(ctx) {
       ${sources.length ? `<div class="studio-source-chips">${sources.slice(0, 8).map((source) => `<span title="${escapeAttr(source.snippet || "")}">${escapeHtml(source.ref)} · ${escapeHtml(source.docTitle)}</span>`).join("")}</div>` : `<p class="programs-pending-note">${icon("alert", 12)} 当前课程没有可引用来源，系统会标记为待完善，不会伪造官方依据。</p>`}
       ${(() => {
         const anomalies = programsSourceAnomalies(course, ctx.catalog);
-        return anomalies.length ? `<p class="programs-pending-note">${icon("alert", 12)} 原表课程行中的 ${anomalies.map((item) => item.id).join("、")} 在来源表中属于其他专业；本知识包未使用这些编号，专业身份只采用 S2/S3。</p>` : "";
+        const correction = getSourceCorrection(course.id);
+        return anomalies.length ? `<div class="studio-source-audit"><b>来源核验</b><span>原表：${anomalies.map((item) => item.id).join("、")}（major 字段与当前专业不一致）</span><span>建议：${correction ? correction.corrected.join("、") : "待核对"}</span><span>${correction ? escapeHtml(correction.statusLabel) : "待教研组核对"} · ${correction?.checkedAt || ""}</span><p>${escapeHtml(correction?.method || "保留原值，正式建设前核对来源编号。")}</p></div>` : "";
       })()}
       <div class="studio-block-head"><h3>质检规则</h3><span>10 个维度 · 权重可配置</span></div>
       <p class="studio-muted">教学目标完整性、可评价性、内容准确性、专业匹配、任务真实性、活动合理性、实训完整性、安全规范、评价匹配、资源一致性。评分由规则和证据生成，不调用模型打分。</p>
@@ -3398,6 +3459,7 @@ function renderStudioResult(bundle) {
           <div class="studio-quality-copy">
             <div class="studio-block-head"><h3>质量检测</h3><span>${report ? `${report.summary.passedDimensions}/${report.summary.totalDimensions} 维度通过` : "未运行"}</span></div>
             ${report ? studioQualityBars(report) : `<p class="studio-muted">点击“重新质检”运行 10 个规则维度。</p>`}
+            ${report ? studioQualityLayers(report) : ""}
             <div class="studio-result-actions">
               <button class="btn btn-ghost" type="button" data-action="studio-quality" data-id="${escapeAttr(bundle.id)}">${icon("refresh", 12)} 重新质检</button>
               <button class="btn btn-ghost" type="button" data-action="studio-fix" data-id="${escapeAttr(bundle.id)}">一键修复结构问题</button>
@@ -3405,7 +3467,9 @@ function renderStudioResult(bundle) {
             </div>
           </div>
         </div>
-        ${report ? `<div class="studio-issues-panel"><div class="studio-block-head"><h3>问题与依据</h3><span>${report.problems.length} 条</span></div>${studioQualityIssues(report)}</div>` : ""}
+        ${report ? `<div class="studio-issues-panel"><div class="studio-block-head"><h3>问题与依据</h3><span>${report.problems.length} 条</span></div>${studioQualityIssues(report)}
+          ${report.layers.knowledge.reviewItems.length ? `<div class="quality-review-hint">另有 ${report.layers.knowledge.reviewItems.length} 项知识依据/参数需要教师核对。${report.layers.expert.approved ? "已完成教师确认。" : "点击“提交审核”逐项确认。"}</div>` : ""}
+        </div>` : ""}
       </div>
       <div class="studio-doc-tabs" role="tablist" aria-label="资源文档">
         ${docs.map((doc) => `<button class="studio-doc-tab${selected?.id === doc.id ? " is-active" : ""}" type="button" data-action="studio-doc" data-id="${escapeAttr(doc.id)}">${escapeHtml(doc.label)}</button>`).join("")}
@@ -3680,17 +3744,24 @@ function studioExport(bundleId, type) {
 function openStudioReview(bundleId) {
   const bundle = getStudioBundle(bundleId) || state.studioBundle;
   if (!bundle) return;
+  const report = bundle.quality;
+  const reviewItems = report?.layers?.knowledge?.reviewItems || [];
   openModal({
     kind: "confirm",
-    narrow: true,
-    kicker: "REVIEW / 教师审核",
+    wide: true,
+    kicker: "REVIEW / 教师专业审核",
     title: "提交教学成果审核",
-    sub: "审核状态会写入本机成果库；不改变原始专业数据或课程知识包。",
+    sub: "审核记录写入本机成果库；系统不会把未核对来源/参数的内容标为专家已认证。",
     body: `
       <form id="studio-review-form" data-bundle-id="${escapeAttr(bundle.id)}" class="form-grid">
-        <div class="field field-full"><label for="studio-review-status">审核结论</label><select id="studio-review-status" name="status"><option value="待审核">待审核</option><option value="已通过">已通过</option><option value="退回修改">退回修改</option></select></div>
+        <div class="field field-full"><label for="studio-review-status">审核结论</label><select id="studio-review-status" name="status"><option value="待审核" ${bundle.reviewStatus === "待审核" ? "selected" : ""}>待审核</option><option value="已通过" ${bundle.reviewStatus === "已通过" ? "selected" : ""}>已通过</option><option value="退回修改" ${bundle.reviewStatus === "退回修改" ? "selected" : ""}>退回修改</option></select></div>
         <div class="field field-full"><label for="studio-reviewer">审核人 / 教研组</label><input id="studio-reviewer" name="reviewer" value="${escapeAttr(bundle.reviewer || "")}" placeholder="填写真实审核人"></div>
-        <div class="field field-full"><label for="studio-review-note">审核意见</label><textarea id="studio-review-note" name="note" rows="3" placeholder="记录修改要求、依据或通过条件">${escapeHtml(bundle.reviewNote || "")}</textarea></div>
+        <div class="field field-full"><label for="studio-review-note">专业审核意见</label><textarea id="studio-review-note" name="note" rows="3" placeholder="记录依据、修改要求或通过条件">${escapeHtml(bundle.reviewNote || "")}</textarea></div>
+        <div class="field field-full"><label for="studio-review-change">修改记录（可选）</label><textarea id="studio-review-change" name="change" rows="2" placeholder="记录本次核对后修改了哪些参数、步骤或表述">${escapeHtml(bundle.expertReview?.change || "")}</textarea></div>
+        <div class="field field-full">
+          <label>待核对知识依据（选择“已通过”前必须逐项勾选）</label>
+          ${reviewItems.length ? `<div class="review-checklist">${reviewItems.map((item) => `<label class="review-check"><input type="checkbox" name="reviewedItem" value="${escapeAttr(item.id)}" ${bundle.expertReview?.items?.find((entry) => entry.id === item.id && entry.checked) ? "checked" : ""}><span><b>[${escapeHtml(item.type)}] ${escapeHtml(item.label)}</b><small>${escapeHtml(item.location)}${(item.sourceRefs || []).length ? ` · 依据 ${escapeHtml(item.sourceRefs.join("、"))}` : " · 无直接来源"}</small><em>${escapeHtml(item.reason || "")}</em></span></label>`).join("")}</div>` : `<p class="programs-muted">当前报告没有待核对项；仍需教师确认专业内容。</p>`}
+        </div>
       </form>
     `,
     footer: `<button class="btn btn-ghost" type="button" data-action="close-modal">取消</button><span class="spacer"></span><button class="btn btn-solid" type="submit" form="studio-review-form">保存审核</button>`
@@ -3704,16 +3775,33 @@ async function saveStudioReviewForm(form) {
     showToast("请填写审核人或教研组");
     return;
   }
+  const bundle = getStudioBundle(id) || state.studioBundle;
+  const report = bundle?.quality;
+  const reviewItems = report?.layers?.knowledge?.reviewItems || [];
+  const checkedItems = new Set(Array.from(form.querySelectorAll('input[name="reviewedItem"]:checked')).map((input) => input.value));
+  if (String(data.status || "") === "已通过" && reviewItems.some((item) => !checkedItems.has(item.id))) {
+    showToast(`还有 ${reviewItems.length - checkedItems.size} 项知识依据未核对，不能标记为“已通过”`);
+    return;
+  }
   try {
+    const items = reviewItems.map((item) => ({ ...item, checked: checkedItems.has(item.id) }));
     await setStudioReview(id, {
       status: String(data.status || "待审核"),
       reviewer: String(data.reviewer || "").trim(),
-      note: String(data.note || "").trim()
+      note: String(data.note || "").trim(),
+      items
     });
     const updated = getStudioBundle(id);
-    if (state.studioBundle?.id === id) state.studioBundle = updated;
+    if (updated) {
+      updated.expertReview = { ...(updated.expertReview || {}), change: String(data.change || "").trim() };
+      updated.quality = inspectStudioBundle(updated);
+      updated._contentChanged = false;
+      await saveStudioBundle(updated);
+      await saveStudioQuality(updated.id, updated.quality);
+      if (state.studioBundle?.id === id) state.studioBundle = { ...updated, quality: updated.quality };
+    }
     closeModal();
-    showToast("审核状态已保存");
+    showToast("审核记录已保存，质检报告已重新计算");
     renderApp({ preserveScroll: true });
   } catch (error) {
     showToast(error.message || "审核保存失败");
@@ -3727,6 +3815,7 @@ function openQualityDetail(bundleId) {
     return;
   }
   const report = bundle.quality;
+  const reviewItems = report.layers?.knowledge?.reviewItems || [];
   openModal({
     kind: "confirm",
     wide: true,
@@ -3738,6 +3827,9 @@ function openQualityDetail(bundleId) {
         <div class="studio-score ${report.overall < 80 ? "is-low" : ""}"><strong>${report.overall}</strong><span>/ 100</span><small>${report.level}</small></div>
         <div class="studio-quality-copy"><div class="studio-block-head"><h3>10 维得分</h3><span>${report.summary.passedDimensions}/${report.summary.totalDimensions} 通过</span></div>${studioQualityBars(report)}</div>
       </div>
+      ${studioQualityLayers(report)}
+      <div class="studio-block-head" style="margin-top:14px"><h3>待教师审核的知识依据</h3><span>${reviewItems.length} 项</span></div>
+      ${reviewItems.length ? `<div class="review-checklist is-readonly">${reviewItems.map((item) => `<div class="review-check"><span><b>[${escapeHtml(item.type)}] ${escapeHtml(item.label)}</b><small>${escapeHtml(item.location)}${(item.sourceRefs || []).length ? ` · 依据 ${escapeHtml(item.sourceRefs.join("、"))}` : " · 无直接来源"}</small><em>${escapeHtml(item.reason || "")}</em></span></div>`).join("")}</div>` : `<p class="programs-muted">没有自动识别的待审核项；专业内容仍需教师确认。</p>`}
       <div class="studio-block-head" style="margin-top:14px"><h3>问题、位置与建议</h3><span>${report.problems.length} 条</span></div>
       ${studioQualityIssues({ ...report, problems: report.problems })}
       <p class="programs-footnote">${escapeHtml(report.disclaimer)}</p>
@@ -3749,10 +3841,15 @@ function openQualityDetail(bundleId) {
 function renderQualityPage() {
   const bundles = getStudioBundles();
   const stats = getStudioBundleStats();
-  const reports = bundles.filter((bundle) => bundle.quality);
+  const reports = bundles.filter((bundle) => bundle.quality).sort((a, b) => {
+    const highA = a.quality.problems.filter((problem) => problem.severity === "high").length;
+    const highB = b.quality.problems.filter((problem) => problem.severity === "high").length;
+    if (highB !== highA) return highB - highA;
+    return a.quality.overall - b.quality.overall;
+  });
   return `
     <div class="page quality-page">
-      <div class="page-head"><div><div class="page-kicker">QUALITY / 质量检测</div><h1 class="page-title">教学质量智能检测中心。</h1><p class="page-intro">以 10 个可解释维度检查教学目标、专业匹配、任务真实性、实训流程、安全、评价和跨文档一致性；分数来自规则和证据，不是模型随口打分。</p></div><div class="page-head-side"><strong>质量基线</strong>${reports.length} 份报告<br>平均 ${stats.averageQuality || "—"} 分 · 待审核 ${stats.pending} 份<br><div class="page-head-actions"><button class="btn btn-ghost" type="button" data-action="quality-weights">权重设置</button><button class="btn btn-ghost" type="button" data-action="nav" data-path="/studio">去开发资源</button></div></div></div>
+      <div class="page-head"><div><div class="page-kicker">QUALITY / 质量检测</div><h1 class="page-title">教学质量智能检测中心。</h1><p class="page-intro">按 A 结构规则、B 专业知识、C 教师专家三层检测：检查目标、任务、实训、安全、评价和跨文档一致性，也逐项列出知识点来源、设备与参数供教师核对。分数来自规则和证据，不是模型随口打分，也不等于事实正确率。</p></div><div class="page-head-side"><strong>质量基线</strong>${reports.length} 份报告<br>平均 ${stats.averageQuality || "—"} 分 · 待审核 ${stats.pending} 份<br><div class="page-head-actions"><button class="btn btn-ghost" type="button" data-action="quality-weights">权重设置</button><button class="btn btn-ghost" type="button" data-action="nav" data-path="/studio">去开发资源</button></div></div></div>
       <div class="page-stats">
         <div class="stat"><div class="stat-value">${stats.total}</div><div class="stat-label">BUNDLES / 资源包</div></div>
         <div class="stat"><div class="stat-value">${reports.length}</div><div class="stat-label">REPORTS / 质检报告</div></div>
@@ -3768,7 +3865,7 @@ function renderQualityPage() {
           const report = bundle.quality;
           return `<div class="quality-report-card">
             <div class="quality-report-score ${report.overall < 80 ? "is-low" : ""}"><strong>${report.overall}</strong><span>${report.level}</span></div>
-            <div class="quality-report-main"><div class="page-kicker">${escapeHtml(bundle.context?.course || "")} / ${escapeHtml(bundle.context?.task || "")}</div><h3>${escapeHtml(bundle.title)}</h3><p>${escapeHtml(report.statusLabel)} · ${report.problems.length} 个问题 · ${report.summary.passedDimensions}/${report.summary.totalDimensions} 维度通过</p><div class="quality-report-bars">${report.dimensions.map((item) => `<span class="${item.score < 80 ? "is-low" : ""}" title="${escapeAttr(item.label)} ${item.score}">${item.score}</span>`).join("")}</div></div>
+            <div class="quality-report-main"><div class="page-kicker">${escapeHtml(bundle.context?.course || "")} / ${escapeHtml(bundle.context?.task || "")}</div><h3>${escapeHtml(bundle.title)}</h3><p>${escapeHtml(report.statusLabel)} · ${report.problems.length} 个问题 · ${report.summary.passedDimensions}/${report.summary.totalDimensions} 维度通过 · ${report.layers?.knowledge?.reviewItems?.length || 0} 项待核对</p><div class="quality-report-bars">${report.dimensions.map((item) => `<span class="${item.score < 80 ? "is-low" : ""}" title="${escapeAttr(item.label)} ${item.score}">${item.score}</span>`).join("")}</div><div class="quality-report-layers"><span>A 结构 ${report.layers?.structural?.score ?? "—"}</span><span>B 知识 ${report.layers?.knowledge?.score ?? "—"}</span><span class="${report.layers?.expert?.approved ? "is-approved" : ""}">C ${escapeHtml(report.layers?.expert?.statusLabel || "未审核")}</span></div></div>
             <div class="quality-report-actions"><button class="btn btn-ghost" type="button" data-action="quality-open" data-id="${escapeAttr(bundle.id)}">查看成果</button><button class="btn btn-ghost" type="button" data-action="quality-detail" data-id="${escapeAttr(bundle.id)}">完整报告</button><button class="btn btn-ghost" type="button" data-action="quality-rerun" data-id="${escapeAttr(bundle.id)}">重新质检</button><button class="btn btn-ghost" type="button" data-action="quality-report-md" data-id="${escapeAttr(bundle.id)}">报告</button></div>
           </div>`;
         }).join("") : `<div class="programs-empty"><strong>还没有质检报告</strong><p>先到智能备课中心生成一套资源包，系统会自动运行质量检测。</p><button class="btn btn-solid" type="button" data-action="nav" data-path="/studio">开始开发</button></div>`}
@@ -3839,10 +3936,169 @@ async function restoreStudioVersion(bundleId, index) {
   renderApp({ preserveScroll: true });
 }
 
+/* ==========================================================
+   Teaching impact (real measurements only)
+   ========================================================== */
+
+function impactValue(value, suffix = "") {
+  return value === null || value === undefined || value === "" ? "尚未采集" : `${value}${suffix}`;
+}
+
+function renderImpactChart(aggregate) {
+  if (!aggregate.hasData || aggregate.averageBaseline === null || aggregate.averageAssisted === null) {
+    return `<div class="impact-empty-chart">${icon("chart", 18)}<strong>尚未采集对比数据</strong><span>新增或导入真实教师试用记录后，才显示传统备课与智能备课对比图。</span></div>`;
+  }
+  const max = Math.max(aggregate.averageBaseline, aggregate.averageAssisted, 1);
+  return `
+    <div class="impact-bars">
+      <div class="impact-bar-row"><span>传统备课</span><div class="impact-bar"><i style="width:${Math.round((aggregate.averageBaseline / max) * 100)}%"></i></div><b>${aggregate.averageBaseline} 分钟</b></div>
+      <div class="impact-bar-row"><span>使用授渔</span><div class="impact-bar is-assisted"><i style="width:${Math.round((aggregate.averageAssisted / max) * 100)}%"></i></div><b>${aggregate.averageAssisted} 分钟</b></div>
+    </div>
+    <div class="impact-saved">平均节省 <b>${impactValue(aggregate.averageSaved, " 分钟")}</b>${aggregate.averageSavedRate === null ? "" : ` · 节省比例 ${aggregate.averageSavedRate}%`} · 仅统计同时填写传统/授渔时间的 ${aggregate.recordCount} 条记录</div>
+  `;
+}
+
+function renderImpactPage() {
+  const records = getImpactRecords();
+  const aggregate = aggregateImpact(records);
+  const stats = aggregate;
+  return `
+    <div class="page impact-page">
+      <div class="page-head"><div><div class="page-kicker">IMPACT / 教学应用成效</div><h1 class="page-title">真实教学应用记录。</h1><p class="page-intro">只记录教师实际测量的备课时间、生成资源、人工修改比例、教师评价和专家审核结果。没有数据就显示“尚未采集”，不预填、不模拟、不把试用记录包装成学校认证。</p></div><div class="page-head-side"><strong>数据状态</strong>${stats.hasData ? `${stats.recordCount} 条真实记录 · 本机 ${getImpactStorageMode() === "indexeddb" ? "IndexedDB" : "兼容存储"}` : "尚未采集"}<br>${stats.latestMeasuredAt ? `最近记录：${escapeHtml(stats.latestMeasuredAt.slice(0, 10))}` : "等待教师录入或导入"}<div class="page-head-actions"><button class="btn btn-solid" type="button" data-action="impact-add">${icon("plus", 12)} 新增真实记录</button><button class="btn btn-ghost" type="button" data-action="impact-import-button">导入 JSON</button></div></div></div>
+      <div class="page-stats">
+        <div class="stat"><div class="stat-value">${stats.hasData ? stats.participants : "—"}</div><div class="stat-label">TEACHERS / 参与教师</div></div>
+        <div class="stat"><div class="stat-value">${stats.hasData ? stats.courses : "—"}</div><div class="stat-label">COURSES / 试用课程</div></div>
+        <div class="stat"><div class="stat-value">${stats.hasData ? stats.resources : "—"}</div><div class="stat-label">RESOURCES / 生成资源</div></div>
+        <div class="stat"><div class="stat-value">${stats.hasData ? impactValue(stats.averageSaved, " 分钟") : "尚未采集"}</div><div class="stat-label">AVG SAVED / 平均节省</div></div>
+      </div>
+      ${!stats.hasData ? `<div class="impact-empty"><div class="impact-empty-icon">${icon("chart", 22)}</div><h2>还没有真实应用数据</h2><p>请录入至少一次教师实际使用记录，或导入由学校/教研组提供的 JSON。系统不会用示例数据填充图表，也不会声称已完成真实试点。</p><div class="impact-empty-actions"><button class="btn btn-solid" type="button" data-action="impact-add">录入第一条真实记录</button><button class="btn btn-ghost" type="button" data-action="impact-import-button">导入 JSON</button><button class="btn btn-ghost" type="button" data-action="impact-export-template">下载字段模板</button></div><p class="programs-footnote">可先导出字段模板；真实测量完成后再填写。教师代号请使用匿名编号，不填真实姓名。</p></div>` : `
+        <div class="impact-grid">
+          <section class="impact-panel"><div class="studio-block-head"><h3>传统备课 vs 智能备课</h3><span>真实记录均值</span></div>${renderImpactChart(stats)}</section>
+          <section class="impact-panel"><div class="studio-block-head"><h3>质量与人工修改</h3><span>真实记录</span></div><div class="impact-metrics"><div><b>${impactValue(stats.averageManualRatio, "%")}</b><span>平均人工修改比例</span></div><div><b>${impactValue(stats.averageRating, " / 5")}</b><span>教师评价均值</span></div><div><b>${stats.expertApproved}/${stats.expertReviewed}</b><span>专家审核通过 / 已审核</span></div></div><div class="impact-actions"><button class="btn btn-ghost" type="button" data-action="impact-export">导出 JSON</button><button class="btn btn-ghost" type="button" data-action="impact-export-anon">匿名导出</button><button class="btn btn-ghost" type="button" data-action="impact-export-csv">导出 CSV</button><button class="btn btn-ghost" type="button" data-action="impact-import-button">导入</button></div></section>
+        </div>
+        <div class="impact-records">
+          <div class="studio-block-head"><h3>原始记录</h3><span>${records.length} 条 · 保留测量时间</span></div>
+          ${records.map((record) => `<div class="impact-record"><div class="impact-record-main"><div class="page-kicker">${escapeHtml(record.trialDate || "日期未填")} · ${escapeHtml(record.teacherAlias || "匿名教师")}</div><h3>${escapeHtml(record.courseName)}</h3><p>${record.baselineMinutes} 分钟 → ${record.assistedMinutes} 分钟 · 节省 ${record.baselineMinutes - record.assistedMinutes} 分钟 · 生成 ${record.generatedResources} 项资源 · 人工修改 ${record.manualEditRatio}% · 评价 ${record.teacherRating}/5 · 专家：${escapeHtml(record.expertResult || "未审核")}</p><small>记录时间：${escapeHtml(record.measuredAt ? new Date(record.measuredAt).toLocaleString("zh-CN") : "未记录")}</small>${record.notes ? `<small>${escapeHtml(record.notes)}</small>` : ""}</div><div class="impact-record-actions"><button class="btn btn-ghost" type="button" data-action="impact-edit" data-id="${escapeAttr(record.id)}">编辑</button><button class="btn btn-ghost" type="button" data-action="impact-delete" data-id="${escapeAttr(record.id)}">删除</button></div></div>`).join("")}
+        </div>
+      `}
+      <p class="programs-footnote">应用成效数据只存在当前浏览器；完整备份会包含这些记录。匿名导出会把教师代号替换为“教师01…”并清空备注/审核人，原始记录不被修改。没有真实数据时，首页、答辩材料和图表都显示“尚未采集”。</p>
+      <input type="file" data-role="impact-file" accept=".json,application/json" hidden>
+    </div>
+  `;
+}
+
+function openImpactForm(recordId = "") {
+  const record = getImpactRecords().find((item) => item.id === recordId) || null;
+  const courseOptions = Array.from(new Set([
+    ...CURRICULUM_PACKS.map((pack) => pack.title),
+    ...getImpactRecords().map((item) => item.courseName)
+  ])).filter(Boolean);
+  openModal({
+    kind: "confirm",
+    wide: true,
+    kicker: record ? "IMPACT / 编辑记录" : "IMPACT / 新增记录",
+    title: record ? "编辑教师应用记录" : "记录一次真实教学应用",
+    sub: "只填写实际测量或学校/教研组提供的记录。教师姓名请使用匿名代号；没有数据就不要填写。",
+    body: `
+      <form id="impact-form" data-id="${escapeAttr(record?.id || "")}" class="form-grid">
+        <div class="field"><label for="impact-alias">教师匿名代号 *</label><input id="impact-alias" name="teacherAlias" required value="${escapeAttr(record?.teacherAlias || "")}" placeholder="如：机电-教师A"></div>
+        <div class="field"><label for="impact-course">试用课程 *</label><input id="impact-course" name="courseName" required list="impact-course-list" value="${escapeAttr(record?.courseName || "")}" placeholder="如：PLC技术及应用"><datalist id="impact-course-list">${courseOptions.map((name) => `<option value="${escapeAttr(name)}"></option>`).join("")}</datalist></div>
+        <div class="field"><label for="impact-date">试用日期 *</label><input id="impact-date" name="trialDate" type="date" required value="${escapeAttr(record?.trialDate || new Date().toISOString().slice(0, 10))}"></div>
+        <div class="field"><label for="impact-baseline">传统备课时间（分钟）*</label><input id="impact-baseline" name="baselineMinutes" type="number" min="1" required value="${escapeAttr(record?.baselineMinutes || "")}" placeholder="真实测量值"></div>
+        <div class="field"><label for="impact-assisted">使用授渔后（分钟）*</label><input id="impact-assisted" name="assistedMinutes" type="number" min="1" required value="${escapeAttr(record?.assistedMinutes || "")}" placeholder="真实测量值"></div>
+        <div class="field"><label for="impact-resources">生成资源数量</label><input id="impact-resources" name="generatedResources" type="number" min="0" value="${escapeAttr(record?.generatedResources ?? "")}" placeholder="实际生成数量"></div>
+        <div class="field"><label for="impact-manual">人工修改比例（%）</label><input id="impact-manual" name="manualEditRatio" type="number" min="0" max="100" value="${escapeAttr(record?.manualEditRatio ?? "")}" placeholder="教师实际修改比例"></div>
+        <div class="field"><label for="impact-rating">教师评价（1—5）</label><input id="impact-rating" name="teacherRating" type="number" min="1" max="5" value="${escapeAttr(record?.teacherRating ?? "")}"></div>
+        <div class="field"><label for="impact-expert">专家审核结果</label><select id="impact-expert" name="expertResult">${IMPACT_EXPERT_RESULTS.map((value) => `<option value="${escapeAttr(value)}" ${record?.expertResult === value ? "selected" : ""}>${escapeHtml(value)}</option>`).join("")}</select></div>
+        <div class="field"><label for="impact-reviewer">审核人/教研组（可匿名）</label><input id="impact-reviewer" name="expertReviewer" value="${escapeAttr(record?.expertReviewer || "")}" placeholder="如：机电教研组"></div>
+        <div class="field field-full"><label for="impact-notes">备注（会进入原始记录；匿名导出时清空）</label><textarea id="impact-notes" name="notes" rows="2">${escapeHtml(record?.notes || "")}</textarea></div>
+        <label class="impact-real-check field-full"><input type="checkbox" name="isRealData" value="1" ${record ? "checked" : ""} required> 我确认这些数字来自实际测量或学校/教研组记录，不是模拟数据。</label>
+      </form>
+    `,
+    footer: `<button class="btn btn-ghost" type="button" data-action="close-modal">取消</button><span class="spacer"></span><button class="btn btn-solid" type="submit" form="impact-form">${record ? "保存修改" : "保存真实记录"}</button>`
+  });
+}
+
+async function saveImpactForm(form) {
+  if (state.impactBusy) return;
+  const data = Object.fromEntries(new FormData(form).entries());
+  if (!data.isRealData) {
+    showToast("请确认这是实际测量或真实记录，不是模拟数据");
+    return;
+  }
+  state.impactBusy = true;
+  try {
+    const id = form.dataset.id;
+    if (id) await updateImpactRecord(id, data);
+    else await addImpactRecord(data);
+    closeModal();
+    showToast(id ? "记录已更新" : "真实应用记录已保存");
+    renderApp({ preserveScroll: true });
+  } catch (error) {
+    showToast(error.message || "保存失败");
+  } finally {
+    state.impactBusy = false;
+  }
+}
+
+function handleImpactFile(file) {
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      const payload = JSON.parse(String(reader.result || ""));
+      const list = Array.isArray(payload) ? payload : payload.records;
+      if (!Array.isArray(list)) throw new Error("JSON 缺少 records 数组");
+      state.impactImportPayload = payload;
+      openModal({
+        kind: "confirm",
+        narrow: true,
+        kicker: "IMPORT / 应用成效",
+        title: `导入 ${list.length} 条记录？`,
+        sub: "导入会替换当前本机应用成效记录；不会修改课程库、成果库或对话。",
+        body: `<p>先确认文件来源可信。导入后仍可在列表中逐条检查、编辑或删除。</p>`,
+        footer: `<button class="btn btn-ghost" type="button" data-action="close-modal">取消</button><span class="spacer"></span><button class="btn btn-solid" type="button" data-action="impact-confirm-import">确认导入</button>`
+      });
+    } catch (error) {
+      showToast(error.message || "JSON 格式错误");
+    }
+  };
+  reader.onerror = () => showToast("文件读取失败");
+  reader.readAsText(file);
+}
+
+const DEMO_RUN_KEY = "shouyu.demo.last.v1";
+
+function readDemoRun() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(DEMO_RUN_KEY) || "null");
+    return raw && raw.status ? raw : null;
+  } catch (error) {
+    return null;
+  }
+}
+
+function writeDemoRun(patch) {
+  state.demoRun = { ...(state.demoRun || {}), ...patch, at: new Date().toISOString() };
+  try {
+    localStorage.setItem(DEMO_RUN_KEY, JSON.stringify(state.demoRun));
+  } catch (error) {
+    // 演示状态只用于恢复提示，写入失败不影响主流程。
+  }
+}
+
+function renderDemoRunStatus() {
+  const run = state.demoRun;
+  if (!run) return `<div class="demo-run-status"><span class="status-dot"></span>尚未运行演示。固定案例可在无 AI Key 的情况下完整运行。</div>`;
+  const label = run.status === "success" ? "上次运行成功" : run.status === "error" ? "上次运行失败" : "演示进行中";
+  return `<div class="demo-run-status is-${escapeAttr(run.status)}"><span class="status-dot"></span><b>${label}</b><span>${escapeHtml(run.at ? new Date(run.at).toLocaleString("zh-CN") : "")} · ${escapeHtml(run.step || "")}</span>${run.message ? `<em>${escapeHtml(run.message)}</em>` : ""}${run.status === "error" ? `<button class="btn btn-ghost" type="button" data-action="demo-resume">从固定案例重新运行</button>` : ""}</div>`;
+}
+
 function renderDemoPage() {
   return `
     <div class="page demo-page">
       <div class="page-head"><div><div class="page-kicker">COMPETITION DEMO / 演示模式</div><h1 class="page-title">一套可重复验证的教学资源开发流程。</h1><p class="page-intro">固定演示案例：机电一体化技术 · PLC技术及应用 · 物料分拣站 I/O 分配与接线检查。演示数据来自校本示例 PK-PLC-01/02，课程身份来自专业数据库；不是学院官方课程标准。</p></div><div class="page-head-side"><strong>演示状态</strong>本地可运行<br>无需 AI Key · 可离线<br>${getStudioBundleStats().total} 份成果已保存</div></div>
+      ${renderDemoRunStatus()}
       <div class="demo-steps">
         ${[
           ["01", "选择课程", "从专业数据库选择“机电一体化技术 / PLC技术及应用”。"],
@@ -3854,7 +4110,7 @@ function renderDemoPage() {
           ["07", "讲解证据", "页面展示来源、审核状态、质检依据和演示数据边界。"]
         ].map(([no, title, desc]) => `<div class="demo-step"><b>${no}</b><div><h3>${title}</h3><p>${desc}</p></div></div>`).join("")}
       </div>
-      <div class="demo-actions"><button class="btn btn-solid" type="button" data-action="demo-start">${icon("play", 13)} 运行演示案例</button><button class="btn btn-ghost" type="button" data-action="nav" data-path="/studio">手动进入开发中心</button><button class="btn btn-ghost" type="button" data-action="nav" data-path="/graph">查看知识图谱</button></div>
+      <div class="demo-actions"><button class="btn btn-solid" type="button" data-action="demo-start" ${state.demoBusy ? "disabled" : ""}>${icon("play", 13)} ${state.demoBusy ? "演示运行中…" : "一键运行完整案例"}</button><button class="btn btn-ghost" type="button" data-action="demo-step-select">从课程选择开始</button><button class="btn btn-ghost" type="button" data-action="demo-step-quality">查看质量检测</button><button class="btn btn-ghost" type="button" data-action="demo-step-portfolio">查看成果与版本</button><button class="btn btn-ghost" type="button" data-action="nav" data-path="/graph">知识图谱</button></div>
       <div class="demo-architecture">
         <div><div class="page-kicker">ARCHITECTURE / 架构</div><h3>数据 → 装配 → 质检 → 审核 → 导出</h3><p>专业数据库提供课程身份；课程知识包提供章节、知识点、任务和来源；资源引擎装配 10 类共享上下文文档；规则质检给出证据与建议；教师审核后进入成果库与标准文档。</p></div>
         <div><div class="page-kicker">INNOVATION / 创新</div><h3>不是“让 AI 写一篇教案”</h3><p>专业知识关联、10 类资源共享任务上下文、可解释质检、跨文档一致性和来源边界分层，构成本作品与普通 AI 教学助手的差异。</p></div>
@@ -3866,6 +4122,15 @@ function renderDemoPage() {
 }
 
 async function runStudioDemo() {
+  if (state.demoBusy) {
+    showToast("演示正在运行，请等待当前步骤完成");
+    return;
+  }
+  state.demoBusy = true;
+  writeDemoRun({ status: "running", step: "装配固定 PLC 案例" });
+  showToast("演示 1/3：装配固定课程知识包与 10 类资源");
+  if (state.route.name === "demo") renderApp({ preserveScroll: true });
+  await sleep(60);
   try {
     const ctx = studioEnsureContext();
     const bundle = buildTeachingBundle({
@@ -3878,6 +4143,8 @@ async function runStudioDemo() {
     }, ctx.catalog);
     const report = inspectStudioBundle(bundle);
     bundle.quality = report;
+    writeDemoRun({ status: "running", step: "保存成果并运行 10 维质检" });
+    showToast("演示 2/3：保存成果并运行质量检测");
     const saved = await saveStudioBundle(bundle);
     await saveStudioQuality(saved.id, report);
     state.studioCourseId = "course-0010";
@@ -3886,10 +4153,42 @@ async function runStudioDemo() {
     state.studioBundle = { ...saved, quality: report };
     state.studioQuality = report;
     state.studioDocId = "design";
-    showToast("演示资源包已生成，可查看质检与导出");
+    state.demoBusy = false;
+    writeDemoRun({ status: "success", step: "已生成 10 类资源与质检报告", bundleId: saved.id });
+    showToast("演示 3/3：完成；可检查问题、编辑、审核和导出");
     navigate("/studio");
   } catch (error) {
-    showToast(error.message || "演示运行失败");
+    state.demoBusy = false;
+    writeDemoRun({ status: "error", step: "生成资源包", message: error.message || "演示运行失败" });
+    showToast(error.message || "演示运行失败，可从当前步骤重新运行");
+    if (state.route.name === "demo") renderApp({ preserveScroll: true });
+  }
+}
+
+function demoGoStep(step) {
+  if (step === "select") {
+    state.studioCourseId = "course-0010";
+    state.studioChapterId = "CH-PLC-01";
+    state.studioTaskId = "TASK-PLC-01";
+    state.studioBundle = null;
+    state.studioQuality = null;
+    writeDemoRun({ status: "running", step: "步骤 1：选择固定课程与任务" });
+    showToast("演示步骤 1：已带入固定课程，点击“生成 10 类教学资源”继续");
+    navigate("/studio");
+    return;
+  }
+  if (!getStudioBundles().length) {
+    showToast("还没有演示成果；请先运行完整案例");
+    return;
+  }
+  if (step === "quality") {
+    writeDemoRun({ status: "running", step: "步骤 2：查看质量检测" });
+    navigate("/quality");
+    return;
+  }
+  if (step === "portfolio") {
+    writeDemoRun({ status: "running", step: "步骤 3：查看成果与版本" });
+    navigate("/portfolio");
   }
 }
 
@@ -3936,7 +4235,7 @@ function renderGraphPage() {
       <div class="graph-toolbar"><label>课程<select data-role="graph-course">${packs.map((item) => `<option value="${escapeAttr(item.courseId)}" ${item.courseId === pack.courseId ? "selected" : ""}>${escapeHtml(item.title)}</option>`).join("")}</select></label><span>${escapeHtml(pack.statusLabel)} · 实线表示有明确数据/任务关联，不生成装饰性连线</span></div>
       <div class="graph-layout">
         <div class="graph-canvas"><svg viewBox="0 0 ${width} ${height}" role="img" aria-label="课程知识图谱">${edgeHtml}${nodeHtml}</svg><div class="graph-legend"><span><i class="is-course"></i>课程</span><span><i class="is-chapter"></i>章节</span><span><i class="is-kp"></i>知识点</span><span><i class="is-task"></i>工作任务</span></div></div>
-        <aside class="graph-detail"><div class="page-kicker">NODE / 节点详情</div>${selected ? `<h2>${escapeHtml(selected.label)}</h2><p>${escapeHtml(selected.statement || "")}</p><div class="programs-tags">${(selected.refs || []).map((ref) => `<span>${escapeHtml(ref)}</span>`).join("")}</div><div class="graph-status">${escapeHtml(selected.status || "")}</div>${selected.type === "task" ? `<div class="graph-related"><strong>设备与考核</strong>${(pack.tasks.find((item) => item.id === selected.id)?.equipment || []).map((item) => `<span>${escapeHtml(item)}</span>`).join("")}<span>评价：${pack.assessment.map((item) => `${item.dimension} ${item.weight}%`).join("；")}</span></div>` : ""}<div class="graph-related"><strong>相关任务</strong>${taskNodes.filter((task) => (pack.tasks.find((item) => item.id === task.id)?.knowledgePointIds || []).includes(selected.id)).map((task) => `<button class="btn-link" type="button" data-action="graph-node" data-id="${escapeAttr(task.id)}">${escapeHtml(task.label)}</button>`).join("") || `<span>${selected.type === "chapter" ? "该章节的任务通过知识点关联" : "该节点未直接关联任务"}</span>`}</div>` : ""}</aside>
+        <aside class="graph-detail"><div class="page-kicker">NODE / 节点详情</div>${selected ? `<h2>${escapeHtml(selected.label)}</h2><p>${escapeHtml(selected.statement || "")}</p><div class="programs-tags">${(selected.refs || []).map((ref) => `<span>${escapeHtml(ref)}</span>`).join("")}</div><div class="graph-status">${escapeHtml(selected.status || "")}</div><div class="graph-pack-meta">版本 ${escapeHtml(pack.version || "1.0")} · 更新 ${escapeHtml(pack.updatedAt || "未标注")} · 审核人 ${escapeHtml(pack.reviewer || "未指定")}</div>${selected.type === "task" ? `<div class="graph-related"><strong>设备与考核</strong>${(pack.tasks.find((item) => item.id === selected.id)?.equipment || []).map((item) => `<span>${escapeHtml(item)}</span>`).join("")}<span>评价：${pack.assessment.map((item) => `${item.dimension} ${item.weight}%`).join("；")}</span></div>` : ""}<div class="graph-related"><strong>相关任务</strong>${taskNodes.filter((task) => (pack.tasks.find((item) => item.id === task.id)?.knowledgePointIds || []).includes(selected.id)).map((task) => `<button class="btn-link" type="button" data-action="graph-node" data-id="${escapeAttr(task.id)}">${escapeHtml(task.label)}</button>`).join("") || `<span>${selected.type === "chapter" ? "该章节的任务通过知识点关联" : "该节点未直接关联任务"}</span>`}</div>` : ""}</aside>
       </div>
     </div>
   `;
@@ -3955,7 +4254,17 @@ function handleStudioAction(action, el) {
       navigate("/studio");
       break;
     case "demo-start":
+    case "demo-resume":
       runStudioDemo();
+      break;
+    case "demo-step-select":
+      demoGoStep("select");
+      break;
+    case "demo-step-quality":
+      demoGoStep("quality");
+      break;
+    case "demo-step-portfolio":
+      demoGoStep("portfolio");
       break;
     case "portfolio":
       navigate("/portfolio");
@@ -4002,6 +4311,18 @@ function handleStudioAction(action, el) {
         renderApp({ preserveScroll: true });
       }).catch((error) => showToast(error.message || "删除失败"));
       break;
+    case "studio-pick-pack": {
+      const pack = CURRICULUM_PACKS.find((item) => item.courseId === el.dataset.course);
+      if (!pack) break;
+      state.studioCourseId = pack.courseId;
+      state.studioChapterId = pack.chapters[0]?.id || "";
+      state.studioTaskId = pack.tasks[0]?.id || "";
+      state.studioBundle = null;
+      state.studioQuality = null;
+      state.studioDocId = "design";
+      renderApp({ preserveScroll: true });
+      break;
+    }
     case "studio-reset":
       state.studioCourseId = "course-0010";
       state.studioChapterId = "CH-PLC-01";
@@ -4083,6 +4404,69 @@ function handleStudioAction(action, el) {
     case "graph-node":
       state.graphNodeId = id;
       renderApp({ preserveScroll: true });
+      break;
+    default:
+      return false;
+  }
+  return true;
+}
+
+function handleImpactAction(action, el) {
+  const id = el.dataset.id || "";
+  const records = getImpactRecords();
+  switch (action) {
+    case "impact-add":
+      openImpactForm();
+      break;
+    case "impact-edit":
+      openImpactForm(id);
+      break;
+    case "impact-delete": {
+      const record = records.find((item) => item.id === id);
+      if (!record) break;
+      openModal({
+        kind: "confirm",
+        narrow: true,
+        kicker: "DELETE / 应用成效",
+        title: "删除这条真实记录？",
+        sub: "只删除本机应用成效记录，不影响课程、成果包或专业库。",
+        body: `<p>${escapeHtml(record.teacherAlias)} · ${escapeHtml(record.courseName)} · ${escapeHtml(record.trialDate)}</p>`,
+        footer: `<button class="btn btn-ghost" type="button" data-action="close-modal">取消</button><span class="spacer"></span><button class="btn btn-solid" type="button" data-action="impact-delete-confirm" data-id="${escapeAttr(id)}">确认删除</button>`
+      });
+      break;
+    }
+    case "impact-delete-confirm":
+      deleteImpactRecord(id).then(() => {
+        closeModal();
+        showToast("记录已删除");
+        renderApp({ preserveScroll: true });
+      }).catch((error) => showToast(error.message || "删除失败"));
+      break;
+    case "impact-import-button":
+      document.querySelector("[data-role='impact-file']")?.click();
+      break;
+    case "impact-confirm-import":
+      if (!state.impactImportPayload) break;
+      importImpactState(state.impactImportPayload).then(() => {
+        state.impactImportPayload = null;
+        closeModal();
+        showToast("应用成效记录已导入");
+        renderApp({ preserveScroll: true });
+      }).catch((error) => showToast(error.message || "导入失败"));
+      break;
+    case "impact-export":
+      downloadTextFile(`授渔-教学应用成效-原始记录-${new Date().toISOString().slice(0, 10)}.json`, JSON.stringify(exportImpactState(), null, 2), "application/json");
+      break;
+    case "impact-export-anon": {
+      const payload = { schema: "shouyu.impact.v1", exportedAt: new Date().toISOString(), anonymized: true, records: anonymizeImpactRecords(records) };
+      downloadTextFile(`授渔-教学应用成效-匿名-${new Date().toISOString().slice(0, 10)}.json`, JSON.stringify(payload, null, 2), "application/json");
+      break;
+    }
+    case "impact-export-csv":
+      downloadTextFile(`授渔-教学应用成效-${new Date().toISOString().slice(0, 10)}.csv`, impactToCSV(records), "text/csv;charset=utf-8");
+      break;
+    case "impact-export-template":
+      downloadTextFile("授渔-教学应用成效-字段模板.csv", impactToCSV([]), "text/csv;charset=utf-8");
       break;
     default:
       return false;
@@ -4658,6 +5042,7 @@ async function exportBackup({ conversationsOnly = false } = {}) {
     if (!conversationsOnly) {
       backup.programs = exportProgramState();
       backup.studio = exportStudioState();
+      backup.impact = exportImpactState();
     }
     const stamp = new Date().toISOString().replace(/[:T]/g, "-").slice(0, 16);
     downloadTextFile(`授渔_${conversationsOnly ? "对话" : "完整备份"}_${stamp}.json`, JSON.stringify(backup, null, 2), "application/json;charset=utf-8");
@@ -4702,6 +5087,7 @@ async function handleBackupFile(file) {
               <li>资料文件：${Array.isArray(data.files) ? data.files.length : 0} 份</li>
               <li>专业课程修订：${data.programs ? "有" : "无"}</li>
               <li>教学成果包：${Array.isArray(data.studio?.bundles) ? data.studio.bundles.length : 0} 份</li>
+              <li>应用成效记录：${Array.isArray(data.impact?.records) ? data.impact.records.length : 0} 条</li>
               <li>导出时间：${escapeHtml(data.exportedAt || "未知")}</li>
             </ul>
           </div>
@@ -6988,9 +7374,10 @@ function getActiveDoc(artifact, messageId) {
 
 function handleAction(action, el, event) {
   if (action.startsWith("program-") && handleProgramsAction(action, el)) return;
-  if (action.startsWith("studio-") || action.startsWith("quality-") || action.startsWith("portfolio") || action.startsWith("graph-") || action === "home-start-studio" || action === "demo-start") {
+  if (action.startsWith("studio-") || action.startsWith("quality-") || action.startsWith("portfolio") || action.startsWith("graph-") || action.startsWith("demo-") || action === "home-start-studio") {
     if (handleStudioAction(action, el)) return;
   }
+  if (action.startsWith("impact-") && handleImpactAction(action, el)) return;
   switch (action) {
     case "nav": {
       navigate(el.dataset.path || "/");
@@ -7254,6 +7641,9 @@ function handleAction(action, el, event) {
         if (state.pendingRestore.studio) {
           await importStudioState(state.pendingRestore.studio);
         }
+        if (state.pendingRestore.impact) {
+          await importImpactState(state.pendingRestore.impact);
+        }
         closeModal();
         showToast("备份已恢复，页面即将重新加载");
         setTimeout(() => location.reload(), 500);
@@ -7279,6 +7669,7 @@ function handleAction(action, el, event) {
         localDB.clearAllData().catch(() => null),
         clearProgramStore().catch(() => null),
         clearStudioStore().catch(() => null),
+        clearImpactStore().catch(() => null),
         new Promise((resolve) => {
           try {
             localStorage.removeItem(DB_KEY);
@@ -7867,6 +8258,11 @@ document.addEventListener("submit", (event) => {
     saveQualityWeightsForm(form);
     return;
   }
+  if (form.id === "impact-form") {
+    event.preventDefault();
+    saveImpactForm(form);
+    return;
+  }
   if (form.id === "program-resource-form") {
     event.preventDefault();
     programsSaveResourceForm(form);
@@ -7957,6 +8353,11 @@ document.addEventListener("change", (event) => {
   }
   if (target.matches("[data-role='backup-file']")) {
     handleBackupFile(target.files?.[0]);
+    target.value = "";
+    return;
+  }
+  if (target.matches("[data-role='impact-file']")) {
+    handleImpactFile(target.files?.[0]);
     target.value = "";
     return;
   }
@@ -8323,6 +8724,22 @@ async function bootstrapApp() {
   await loadStudioStore().catch((error) => {
     console.warn("教学成果库初始化失败，将使用空成果库。", error);
   });
+  await loadImpactStore().catch((error) => {
+    console.warn("教学应用成效库初始化失败，将使用空记录。", error);
+  });
+  state.demoRun = readDemoRun();
+  if (state.demoRun?.status === "running") {
+    state.demoRun = {
+      ...state.demoRun,
+      status: "error",
+      message: "上次演示未正常结束（可能刷新或关闭页面），可从固定案例重新运行。"
+    };
+    try {
+      localStorage.setItem(DEMO_RUN_KEY, JSON.stringify(state.demoRun));
+    } catch (error) {
+      // 忽略状态恢复写入失败。
+    }
+  }
   handleRoute();
 }
 

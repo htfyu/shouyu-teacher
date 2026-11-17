@@ -183,12 +183,22 @@ export async function saveStudioQuality(id, report) {
 }
 
 export async function setStudioReview(id, review = {}) {
+  const reviewedAt = review.reviewedAt || new Date().toISOString();
+  const expertStatus = review.status === "已通过" ? "approved" : review.status === "退回修改" ? "needs_revision" : "pending";
   return updateStudioBundle(id, {
     reviewStatus: review.status || "待审核",
     status: review.status === "已通过" ? "approved" : review.status === "退回修改" ? "needs_revision" : "draft",
-    reviewedAt: review.reviewedAt || new Date().toISOString(),
+    reviewedAt,
     reviewNote: review.note || "",
-    reviewer: review.reviewer || ""
+    reviewer: review.reviewer || "",
+    expertReview: {
+      status: expertStatus,
+      reviewer: review.reviewer || "",
+      reviewedAt,
+      note: review.note || "",
+      items: Array.isArray(review.items) ? review.items : [],
+      source: "teacher_recorded"
+    }
   });
 }
 

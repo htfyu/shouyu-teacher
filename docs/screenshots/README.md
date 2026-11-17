@@ -9,6 +9,7 @@
 | `quality.png` | 质量检测中心 |
 | `portfolio.png` | 成果管理中心 |
 | `graph.png` | 知识图谱 |
+| `impact.png` | 教学应用成效（未采集空态，不造数） |
 | `demo.png` | 竞赛演示页 |
 | `mobile-studio.png` | 390px 移动端智能备课 |
 

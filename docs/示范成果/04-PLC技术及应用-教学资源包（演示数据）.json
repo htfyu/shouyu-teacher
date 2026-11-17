@@ -1,11 +1,11 @@
 {
-  "id": "studio_mwk8ec5e_6yaf",
+  "id": "studio_mwkaiu68_st2y",
   "schema": "shouyu.studio.v1",
   "version": 1,
   "status": "draft",
   "reviewStatus": "待审核",
-  "createdAt": "2026-11-17T05:07:54.241Z",
-  "updatedAt": "2026-11-17T05:07:54.241Z",
+  "createdAt": "2026-11-17T06:07:23.455Z",
+  "updatedAt": "2026-11-17T06:07:23.455Z",
   "courseId": "course-0010",
   "majorId": "major-008",
   "chapterId": "CH-PLC-01",
@@ -108,8 +108,88 @@
     "sourceLabel": "教师教学资料 / 校本示例",
     "curriculumId": "CUR-PLC-001"
   },
+  "knowledge": {
+    "packId": "CUR-PLC-001",
+    "packVersion": "2026.11-demo-v1",
+    "packUpdatedAt": "2026-11-17",
+    "reviewer": "",
+    "reviewStatus": "pending",
+    "reviewStatusLabel": "待教研组审核",
+    "chapterId": "CH-PLC-01",
+    "chapterTitle": "PLC 硬件、I/O 与安全边界",
+    "taskId": "TASK-PLC-01",
+    "taskTitle": "物料分拣站 I/O 分配与接线检查",
+    "knowledgePoints": [
+      {
+        "id": "KP-PLC-01-01",
+        "title": "PLC 的基本组成与扫描过程",
+        "statement": "PLC 由电源、CPU、存储器、输入/输出模块和通信接口等组成；运行时按输入采样、程序执行、输出刷新循环工作。理解扫描过程有助于解释输入变化与输出响应之间的时间关系。",
+        "sourceRefs": [
+          "PK-PLC-01 §01"
+        ],
+        "reviewStatus": "pending"
+      },
+      {
+        "id": "KP-PLC-01-02",
+        "title": "输入/输出类型与接线检查",
+        "statement": "输入信号可能来自按钮、限位、光电/接近传感器等，输出可能驱动继电器、接触器、指示灯或电磁阀。接线前必须核对信号类型、公共端、电源等级和端子定义，不能仅凭线色判断。",
+        "sourceRefs": [
+          "PK-PLC-01 §01"
+        ],
+        "reviewStatus": "pending"
+      },
+      {
+        "id": "KP-PLC-01-03",
+        "title": "I/O 分配表与地址核对",
+        "statement": "I/O 分配表应说明设备/信号名称、输入或输出类型、地址、常开/常闭状态和备注。程序中的地址必须与分配表、外围接线和工作站图纸一致；设备实际地址以设备说明书和图纸为准。",
+        "sourceRefs": [
+          "PK-PLC-01 §01"
+        ],
+        "reviewStatus": "pending"
+      },
+      {
+        "id": "KP-PLC-01-04",
+        "title": "调试安全边界与急停",
+        "statement": "程序下载、复位和强制 I/O 前必须确认输出负载和机械动作范围，保持急停可达并设置警示。不得短接急停、安全门、光栅或其他联锁；人员不得进入未确认安全的机械动作区域。",
+        "sourceRefs": [
+          "PK-PLC-01 §03"
+        ],
+        "reviewStatus": "pending"
+      }
+    ],
+    "taskKnowledgePointIds": [
+      "KP-PLC-01-01",
+      "KP-PLC-01-02",
+      "KP-PLC-01-03",
+      "KP-PLC-01-04"
+    ],
+    "taskSteps": [
+      "阅读工艺流程和图纸，列出输入/输出设备及信号类型。",
+      "为每个信号分配地址，注明常开/常闭、公共端和备注。",
+      "断电核对端子、线号和公共端，记录与图纸不一致处。",
+      "完成上电前安全检查，经教师确认后做输入信号逐点验证。"
+    ],
+    "taskEquipment": [
+      "PLC 实训台",
+      "物料分拣教学工作站",
+      "工作站图纸与 I/O 清单",
+      "万用表",
+      "端子/导线/线号管"
+    ],
+    "taskSafety": [
+      "断电、验电后接线",
+      "上电前经教师确认",
+      "不得擅自短接急停或安全联锁"
+    ],
+    "packKnowledgePointCount": 15,
+    "packTaskCount": 5,
+    "sourceRefs": [
+      "PK-PLC-01 §01",
+      "PK-PLC-01 §03"
+    ]
+  },
   "artifact": {
-    "id": "studio_mwk8ec5e_6yaf",
+    "id": "studio_mwkaiu68_st2y",
     "scene": "studio",
     "sceneLabel": "工学一体化教学资源包",
     "title": "PLC技术及应用 · 物料分拣站 I/O 分配与接线检查 · 教学资源包",
@@ -124,6 +204,8 @@
       "conditions": "PLC 实训室；物料分拣教学工作站；设备型号与台套数以现场为准",
       "curriculumId": "CUR-PLC-001",
       "curriculumStatus": "pending",
+      "curriculumVersion": "2026.11-demo-v1",
+      "knowledgePointCount": 4,
       "sourceLabel": "教师教学资料 / 校本示例"
     },
     "docs": [
@@ -2390,18 +2472,20 @@
         }
       ]
     },
-    "generatedAt": "2026-11-17T05:07:54.241Z",
+    "generatedAt": "2026-11-17T06:07:23.455Z",
     "template": "工学一体化资源包 v1",
     "version": 1
   },
   "quality": {
-    "schema": "shouyu.quality.v1",
+    "schema": "shouyu.quality.v2",
     "overall": 84,
-    "rawOverall": 97,
+    "rawOverall": 99,
     "reviewCap": 84,
+    "curriculumCap": 84,
+    "expertCap": 84,
     "level": "B",
     "status": "review",
-    "statusLabel": "可进入人工复核",
+    "statusLabel": "可进入教师专业审核",
     "dimensions": [
       {
         "id": "objectives_completeness",
@@ -2425,28 +2509,28 @@
         "id": "content_accuracy",
         "label": "教学内容准确性",
         "score": 100,
-        "evidence": "43/43 个章节有来源引用",
+        "evidence": "知识点来源 4/4；正文覆盖 4/4；章节引用 43/43",
         "problems": [],
-        "needsHuman": false,
+        "needsHuman": true,
         "pass": true
       },
       {
         "id": "professional_match",
         "label": "专业知识匹配度",
-        "score": 78,
-        "evidence": "课程：PLC技术及应用；任务：物料分拣站 I/O 分配与接线检查",
+        "score": 90,
+        "evidence": "课程：PLC技术及应用；任务：物料分拣站 I/O 分配与接线检查；知识点覆盖 4/4；专业：机电一体化技术",
         "problems": [
           {
             "severity": "medium",
             "severityLabel": "中",
             "message": "课程知识包状态为“待教研组审核”",
             "location": "课程知识包",
-            "suggestion": "提交课程负责人/教研组审核后再作为正式教学依据。",
+            "suggestion": "提交课程负责人/教研组审核后再作为正式教学依据；系统不会显示为专家已认证。",
             "basis": "知识包审核规则"
           }
         ],
         "needsHuman": true,
-        "pass": false
+        "pass": true
       },
       {
         "id": "task_authenticity",
@@ -2497,19 +2581,150 @@
         "id": "resource_consistency",
         "label": "教学资源一致性",
         "score": 100,
-        "evidence": "10 份资源；任务缺失 0；课程缺失 0；学时不完整 0",
+        "evidence": "10 份资源；任务缺失 0；课程缺失 0；学时不完整 0；阶段分钟 180/180；实训步骤覆盖 4/4",
         "problems": [],
-        "needsHuman": false,
+        "needsHuman": true,
         "pass": true
       }
     ],
+    "layers": {
+      "structural": {
+        "id": "structural",
+        "label": "A. 结构规则检测",
+        "score": 100,
+        "dimensionIds": [
+          "objectives_completeness",
+          "objectives_evaluable",
+          "activity_reasonableness",
+          "practical_completeness",
+          "assessment_alignment",
+          "resource_consistency"
+        ],
+        "note": "检查目标、流程、任务、实训、评价和跨文档结构；不能证明专业事实正确。"
+      },
+      "knowledge": {
+        "id": "knowledge",
+        "label": "B. 专业知识检测",
+        "score": 98,
+        "dimensionIds": [
+          "content_accuracy",
+          "professional_match",
+          "task_authenticity",
+          "safety"
+        ],
+        "checked": true,
+        "pointCount": 4,
+        "packPointCount": 15,
+        "coveredPoints": 4,
+        "sourceCoverage": 100,
+        "pointCoverage": 100,
+        "missingPoints": [],
+        "unsourcedPoints": [],
+        "missingEquipment": [],
+        "parameters": [],
+        "reviewItems": [
+          {
+            "id": "point-KP-PLC-01-01",
+            "type": "知识点",
+            "label": "核对知识点「PLC 的基本组成与扫描过程」与资源表述",
+            "location": "课程知识包 / 本章知识点",
+            "sourceRefs": [
+              "PK-PLC-01 §01"
+            ],
+            "reason": "知识点需要教师确认与教材、设备说明书和本班学情一致。",
+            "required": true
+          },
+          {
+            "id": "point-KP-PLC-01-02",
+            "type": "知识点",
+            "label": "核对知识点「输入/输出类型与接线检查」与资源表述",
+            "location": "课程知识包 / 本章知识点",
+            "sourceRefs": [
+              "PK-PLC-01 §01"
+            ],
+            "reason": "知识点需要教师确认与教材、设备说明书和本班学情一致。",
+            "required": true
+          },
+          {
+            "id": "point-KP-PLC-01-03",
+            "type": "知识点",
+            "label": "核对知识点「I/O 分配表与地址核对」与资源表述",
+            "location": "课程知识包 / 本章知识点",
+            "sourceRefs": [
+              "PK-PLC-01 §01"
+            ],
+            "reason": "知识点需要教师确认与教材、设备说明书和本班学情一致。",
+            "required": true
+          },
+          {
+            "id": "point-KP-PLC-01-04",
+            "type": "知识点",
+            "label": "核对知识点「调试安全边界与急停」与资源表述",
+            "location": "课程知识包 / 本章知识点",
+            "sourceRefs": [
+              "PK-PLC-01 §03"
+            ],
+            "reason": "知识点需要教师确认与教材、设备说明书和本班学情一致。",
+            "required": true
+          },
+          {
+            "id": "pack-review",
+            "type": "审核",
+            "label": "课程知识包「CUR-PLC-001」待教研组审核",
+            "location": "课程知识包 / 审核状态",
+            "sourceRefs": [
+              "PK-PLC-01 §01",
+              "PK-PLC-01 §03"
+            ],
+            "reason": "未经教研组审核的知识包，不能显示为专家认证或学校审核通过。",
+            "required": true
+          }
+        ],
+        "note": "与课程知识包逐点比对；无法自动判断的参数和事实列入教师审核。"
+      },
+      "expert": {
+        "id": "expert",
+        "label": "C. 教师专家审核",
+        "status": "not_submitted",
+        "statusLabel": "未提交教师专业审核",
+        "reviewer": "",
+        "reviewedAt": "",
+        "note": "",
+        "change": "",
+        "approved": false,
+        "itemCount": 0,
+        "checkedItems": 0,
+        "required": true
+      }
+    },
+    "expertReview": {
+      "status": "not_submitted",
+      "label": "未提交教师专业审核",
+      "reviewer": "",
+      "reviewedAt": "",
+      "note": "",
+      "change": "",
+      "approved": false,
+      "items": []
+    },
+    "metrics": {
+      "structureCompleteness": 100,
+      "sourceCoverage": 100,
+      "professionalMatch": 90,
+      "crossResourceConsistency": 100,
+      "practicalSafety": 100,
+      "expertReviewStatus": "not_submitted",
+      "expertReviewLabel": "未提交教师专业审核",
+      "factVerified": false,
+      "note": "结构完整度、来源覆盖率、专业匹配、一致性、实训安全来自规则执行；专家审核状态来自真实教师记录，未提交时不得显示为已认证。"
+    },
     "problems": [
       {
         "severity": "medium",
         "severityLabel": "中",
         "message": "课程知识包状态为“待教研组审核”",
         "location": "课程知识包",
-        "suggestion": "提交课程负责人/教研组审核后再作为正式教学依据。",
+        "suggestion": "提交课程负责人/教研组审核后再作为正式教学依据；系统不会显示为专家已认证。",
         "basis": "知识包审核规则",
         "dimension": "专业知识匹配度",
         "dimensionId": "professional_match"
@@ -2519,12 +2734,17 @@
       "high": 0,
       "medium": 1,
       "low": 0,
-      "passedDimensions": 9,
+      "passedDimensions": 10,
       "totalDimensions": 10,
-      "humanReview": 1,
+      "humanReview": 3,
       "sourceCount": 10,
       "docCount": 10,
-      "reviewed": false
+      "knowledgePointCount": 4,
+      "coveredPoints": 4,
+      "sourceCoverage": 100,
+      "reviewed": false,
+      "expertApproved": false,
+      "factVerified": false
     },
     "weights": {
       "objectives_completeness": 10,
@@ -2538,8 +2758,8 @@
       "assessment_alignment": 8,
       "resource_consistency": 7
     },
-    "generatedAt": "2026-11-17T05:07:54.244Z",
-    "disclaimer": "本分数由授渔规则引擎依据结构、来源、任务、评价和一致性指标计算，不是大模型主观评分，也不代表学校官方认定。标记为需人工审核的内容必须由课程负责人确认。"
+    "generatedAt": "2026-11-17T06:07:23.461Z",
+    "disclaimer": "本分数由授渔规则引擎依据结构、来源、知识点覆盖、任务、评价和一致性指标计算，不是大模型主观评分，不代表学校官方认定。来源数量不等于事实正确率；参数、设备、操作逻辑和无法自动判断的专业内容必须由教师/教研组审核。未提交专家审核或知识包待审核时，系统不会显示“已通过专家认证”。"
   },
   "conversationId": ""
 }
