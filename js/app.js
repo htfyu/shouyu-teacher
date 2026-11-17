@@ -525,6 +525,40 @@ const AI_LOCAL_KEY = "jiangbei.ai.v1";
 const QUALITY_WEIGHT_KEY = "shouyu.quality.weights.v1";
 const QUALITY_IGNORED_KEY = "shouyu.quality.ignored.v1";
 const STUDIO_DRAFT_KEY = "shouyu.studio.wizard.v1";
+const WORKSPACE_CONTEXT_KEY = "shouyu.workspace.context.v1";
+
+function loadWorkspaceContext() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(WORKSPACE_CONTEXT_KEY) || "{}");
+    return raw && typeof raw === "object" ? raw : {};
+  } catch (error) {
+    return {};
+  }
+}
+
+function persistWorkspaceContext(patch = {}) {
+  state.context = {
+    ...(state.context || {}),
+    ...patch,
+    updatedAt: new Date().toISOString()
+  };
+  try {
+    localStorage.setItem(WORKSPACE_CONTEXT_KEY, JSON.stringify(state.context));
+  } catch (error) {
+    console.warn("课程上下文保存失败", error);
+  }
+  if (patch.courseId != null) state.studioCourseId = patch.courseId;
+  if (patch.chapterId != null) state.studioChapterId = patch.chapterId;
+  if (patch.taskId != null) state.studioTaskId = patch.taskId;
+  if (patch.projectId != null) state.context.projectId = patch.projectId;
+  return state.context;
+}
+
+function currentWorkspaceProject() {
+  const id = state.context?.projectId || state.studioBundle?.id || "";
+  const bundle = id ? getStudioBundle(id) : null;
+  return bundle || state.studioBundle || null;
+}
 
 function loadStudioDraft() {
   try {
@@ -726,6 +760,14 @@ const state = {
   studioDraftSavedAt: "",
   studioDraftStatus: "",
   studioReferenceDocs: [],
+  context: loadWorkspaceContext(),
+  courseQuery: "",
+  courseDept: "",
+  courseId: "",
+  courseTab: "overview",
+  studioPanelTab: "quality",
+  studioFocusLocation: "",
+  studioIssueIndex: -1,
   navMoreOpen: false,
   studioBundle: null,
   studioAsideOpen: false,
@@ -877,6 +919,11 @@ function parseRoute() {
     if (conv) return { name: "chat", id, conversation: conv };
     return { name: "notfound" };
   }
+  if (raw === "/courses" || raw === "/courses/") return { name: "courses" };
+  if (raw.startsWith("/course/") || raw.startsWith("/courses/")) {
+    const id = decodeURIComponent(raw.replace(/^\/course\/?/, "").replace(/^\/courses\/?/, ""));
+    return id ? { name: "course", id } : { name: "courses" };
+  }
   if (raw === "/programs" || raw.startsWith("/programs")) return { name: "programs" };
   if (raw === "/studio" || raw.startsWith("/studio")) return { name: "studio" };
   if (raw === "/quality" || raw.startsWith("/quality")) return { name: "quality" };
@@ -976,14 +1023,15 @@ function renderSidebar(activeConv) {
   const activeId = activeConv?.id;
   const studioStats = getStudioBundleStats();
   const coreItems = [
-    { key: "home", path: "/", icon: "grid", label: "教学工作台" },
-    { key: "studio", path: "/studio", icon: "spark", label: "备课中心", count: studioStats.total },
-    { key: "programs", path: "/programs", icon: "book", label: "专业与课程", count: PROGRAM_DATA.courses.length },
-    { key: "kb", path: "/kb", icon: "layers", label: "教学资源", count: KB_DOCS.length },
-    { key: "portfolio", path: "/portfolio", icon: "archive", label: "教学成果", count: studioStats.total }
+    { key: "home", path: "/", icon: "grid", label: "工作台" },
+    { key: "courses", path: "/courses", icon: "book", label: "我的课程", count: PROGRAM_DATA.courses.length },
+    { key: "studio", path: "/studio", icon: "spark", label: "备课工作室", count: studioStats.total },
+    { key: "portfolio", path: "/portfolio", icon: "archive", label: "我的成果", count: studioStats.total }
   ];
   const moreItems = [
-    { key: "quality", path: "/quality", icon: "shield", label: "质量检测", count: studioStats.pending },
+    { key: "programs", path: "/programs", icon: "building", label: "专业数据库", count: PROGRAM_DATA.courses.length },
+    { key: "quality", path: "/quality", icon: "shield", label: "质量检测历史", count: studioStats.pending },
+    { key: "kb", path: "/kb", icon: "layers", label: "专业知识库", count: KB_DOCS.length },
     { key: "graph", path: "/graph", icon: "grid", label: "知识图谱" },
     { key: "files", path: "/files", icon: "file", label: "资料中心", count: state.files.length },
     { key: "templates", path: "/templates", icon: "layers", label: "模板库", count: LESSON_TEMPLATES.length + EVAL_TEMPLATES.length + OBSERVATION_TEMPLATES.length },
@@ -993,9 +1041,10 @@ function renderSidebar(activeConv) {
     { key: "guide", path: "/guide", icon: "help", label: "使用说明" }
   ];
   const moreActive = moreItems.some((item) => route.name === item.key) || route.name === "chat";
+  const coursesActive = route.name === "courses" || route.name === "course";
   const moreOpen = state.navMoreOpen || moreActive;
   const navButton = (item) => {
-    const active = route.name === item.key || (route.name === "chat" && item.key === "studio");
+    const active = item.key === "courses" ? coursesActive : route.name === item.key;
     return `<button class="nav-item${active ? " is-active" : ""}" type="button" data-action="nav" data-nav="${item.key}" data-path="${item.path}" title="${escapeAttr(item.label)}" aria-label="${escapeAttr(item.label)}" ${active ? 'aria-current="page"' : ""}>
       <span class="nav-icon">${icon(item.icon, 16)}</span>
       <span class="nav-label">${item.label}</span>
@@ -1085,6 +1134,17 @@ function renderTopbar(activeConv) {
       <button class="btn btn-ghost rail-mobile-btn" type="button" data-action="toggle-rail" aria-label="打开依据与合规自检">${icon("shield", 13)}<span class="topbar-action-label">依据 · 自检</span></button>
       <button class="btn btn-solid" type="button" data-action="new-chat" aria-label="新建对话">${icon("plus", 13)}<span class="topbar-action-label">新建对话</span></button>
     `;
+  } else if (route.name === "courses") {
+    kicker = "MY COURSES / 我的课程";
+    title = "课程工作空间";
+    center = "课程 · 章节 · 任务 · 资料 · 备课项目";
+    actions = `${aiChip}<button class="btn" type="button" data-action="nav" data-path="/programs">${icon("building", 13)}<span class="topbar-action-label">专业数据库</span></button>`;
+  } else if (route.name === "course") {
+    const course = programsFindCourse(studioCatalog(), route.id);
+    kicker = "COURSE SPACE / 课程工作空间";
+    title = course ? programsCourseTitle(course) : "课程";
+    center = "当前课程上下文会带入备课与成果";
+    actions = `${aiChip}<button class="btn" type="button" data-action="nav" data-path="/courses">${icon("arrowLeft", 13)}<span class="topbar-action-label">返回我的课程</span></button>`;
   } else if (route.name === "programs") {
     center = `学院专业体系 · ${PROGRAM_DATA.courses.length} 条课程记录`;
     actions = `${aiChip}<button class="btn" type="button" data-action="nav" data-path="/" aria-label="返回工作台">${icon("arrowLeft", 13)}<span class="topbar-action-label">返回工作台</span></button>`;
@@ -1192,7 +1252,11 @@ function renderView(activeConv, options, previousChatScroll, previousViewScroll)
     document.querySelectorAll("[data-role='composer-input']").forEach(autoResize);
     return;
   }
-  viewEl.innerHTML = route.name === "studio"
+  viewEl.innerHTML = route.name === "courses"
+    ? renderCoursesPage()
+    : route.name === "course"
+      ? renderCourseWorkspacePage(route.id)
+      : route.name === "studio"
     ? renderStudioPage()
     : route.name === "quality"
     ? renderQualityPage()
@@ -1229,6 +1293,253 @@ function renderView(activeConv, options, previousChatScroll, previousViewScroll)
    Home
    ========================================================== */
 
+function courseProjects(courseId) {
+  return getStudioBundles()
+    .filter((bundle) => bundle.courseId === courseId)
+    .sort((a, b) => new Date(b.updatedAt || 0) - new Date(a.updatedAt || 0));
+}
+
+function courseLatestProject(courseId) {
+  return courseProjects(courseId)[0] || null;
+}
+
+function courseForKnowledgeDoc(doc) {
+  if (!doc) return null;
+  const courses = PROGRAM_DATA.courses.filter(studioCourseUsable);
+  const exact = courses.find((course) => doc.course && (doc.course.includes(course.name) || course.name.includes(doc.course)));
+  if (exact) return exact;
+  const token = String(doc.specialty || "").replace(/^专业·/, "").split(/[\s·/]/).filter(Boolean)[0] || "";
+  if (!token) return null;
+  return courses.find((course) => String(course.name || "").includes(token) || String(course.category || "").includes(token)) || null;
+}
+
+function courseKnowledgeDocs(course, major) {
+  if (!course) return [];
+  const name = String(course.name || "");
+  const majorName = String(major?.name || "");
+  return KB_DOCS.filter((doc) => {
+    const docCourse = String(doc.course || "");
+    const docSpecialty = String(doc.specialty || "").replace(/^专业·/, "");
+    if (docCourse && (docCourse.includes(name) || name.includes(docCourse))) return true;
+    if (majorName && docSpecialty && (docSpecialty.includes(majorName) || majorName.includes(docSpecialty))) return true;
+    const matched = courseForKnowledgeDoc(doc);
+    return matched?.id === course.id;
+  }).slice(0, 12);
+}
+
+function courseKnowledgeStatus(course) {
+  const reviewed = CURRICULUM_PACKS.find((pack) => pack.courseId === course.id);
+  if (reviewed) return { reviewed: true, label: reviewed.statusLabel || "待教研组审核", kind: reviewed.status || "pending", pack: reviewed };
+  return { reviewed: false, label: "行业通用结构", kind: "reference", pack: null };
+}
+
+function courseProjectStats(courseId) {
+  const projects = courseProjects(courseId);
+  return {
+    projects: projects.length,
+    latest: projects[0] || null,
+    pending: projects.filter((bundle) => bundle.reviewStatus !== "已通过").length,
+    quality: projects.map((bundle) => bundle.quality?.overall).filter(Number.isFinite)
+  };
+}
+
+function renderCoursesPage() {
+  const catalog = studioCatalog();
+  const query = String(state.courseQuery || "").trim().toLowerCase();
+  const deptId = state.courseDept || "";
+  const all = catalog.courses;
+  const filtered = all.filter((course) => {
+    if (deptId && course.deptId !== deptId) return false;
+    if (!query) return true;
+    const major = catalog.majors.find((item) => item.id === course.majorId);
+    const group = catalog.groups.find((item) => item.id === course.groupId);
+    return [course.name, course.category, major?.name, group?.name].filter(Boolean).join(" ").toLowerCase().includes(query);
+  });
+  const visible = filtered.slice(0, 80);
+  const completePacks = CURRICULUM_PACKS.filter((pack) => {
+    const course = catalog.courses.find((item) => item.id === pack.courseId);
+    if (!course) return false;
+    if (deptId && course.deptId !== deptId) return false;
+    if (!query) return true;
+    const major = catalog.majors.find((item) => item.id === course.majorId);
+    return [course.name, course.category, major?.name].filter(Boolean).join(" ").toLowerCase().includes(query);
+  });
+  const recentProjects = getStudioBundles().slice(0, 4);
+  return `
+    <div class="page courses-page">
+      <header class="work-context-head">
+        <div>
+          <p class="work-breadcrumb">我的课程 / 课程工作空间</p>
+          <h1 class="page-title">我的课程</h1>
+          <p class="work-context-path">选一门课，查看章节、任务、知识资料、备课项目和成果；课程上下文会一直保留。</p>
+        </div>
+        <div class="work-context-actions">
+          <button class="btn btn-solid" type="button" data-action="start-studio">${icon("plus", 12)} 新建备课</button>
+          <button class="btn" type="button" data-action="nav" data-path="/programs">专业数据库</button>
+        </div>
+      </header>
+
+      <div class="courses-toolbar">
+        <label class="courses-search">${icon("search", 14)}<input type="search" data-role="course-search" value="${escapeAttr(state.courseQuery)}" placeholder="搜索课程、专业、专业组…" aria-label="搜索课程"></label>
+        <select data-role="course-dept" aria-label="按教学单位筛选">
+          <option value="">全部教学单位</option>
+          ${catalog.departments.map((dept) => `<option value="${escapeAttr(dept.id)}" ${deptId === dept.id ? "selected" : ""}>${escapeHtml(dept.name)}</option>`).join("")}
+        </select>
+        <span class="courses-count">${filtered.length} 门课程${filtered.length > visible.length ? ` · 显示前 ${visible.length} 门` : ""}</span>
+      </div>
+
+      <section class="courses-section">
+        <div class="work-section-head"><h2>有完整知识包的课程</h2><span>${completePacks.length} 门 · 全部待教研组审核</span></div>
+        <div class="courses-table">
+          ${completePacks.map((pack) => {
+            const course = catalog.courses.find((item) => item.id === pack.courseId);
+            if (!course) return "";
+            const project = courseLatestProject(course.id);
+            return `<button class="course-row is-complete" type="button" data-action="course-open" data-id="${escapeAttr(course.id)}">
+              <span class="course-row-main"><strong>${escapeHtml(programsCourseTitle(course))}</strong><small>${escapeHtml(pack.title)} · ${pack.chapters.length} 章 · ${pack.tasks.length} 个任务</small></span>
+              <span class="course-row-meta"><b>${pack.statusLabel}</b><small>${project ? `最近项目 v${project.version || 1}` : "还没有备课项目"}</small></span>
+              <span class="course-row-arrow">${icon("chevronRight", 13)}</span>
+            </button>`;
+          }).join("")}
+        </div>
+      </section>
+
+      ${!query && !deptId && recentProjects.length ? `<section class="courses-section">
+        <div class="work-section-head"><h2>最近使用的课程</h2><span>来自最近备课项目</span></div>
+        <div class="courses-table">${recentProjects.map((bundle) => {
+          const course = catalog.courses.find((item) => item.id === bundle.courseId);
+          if (!course) return "";
+          return `<button class="course-row" type="button" data-action="course-open" data-id="${escapeAttr(course.id)}">
+            <span class="course-row-main"><strong>${escapeHtml(programsCourseTitle(course))}</strong><small>${escapeHtml(bundle.context?.task || "")}</small></span>
+            <span class="course-row-meta"><b>${bundle.quality ? `质检 ${bundle.quality.overall}` : "未质检"}</b><small>v${bundle.version || 1} · ${escapeHtml(bundle.reviewStatus || "待审核")}</small></span>
+            <span class="course-row-arrow">${icon("chevronRight", 13)}</span>
+          </button>`;
+        }).join("")}</div>
+      </section>` : ""}
+
+      <section class="courses-section">
+        <div class="work-section-head"><h2>课程目录</h2><span>${query || deptId ? "筛选结果" : "按专业数据库顺序"}</span></div>
+        ${visible.length ? `<div class="courses-table">${visible.map((course) => {
+          const major = catalog.majors.find((item) => item.id === course.majorId);
+          const group = catalog.groups.find((item) => item.id === course.groupId);
+          const status = courseKnowledgeStatus(course);
+          const stats = courseProjectStats(course.id);
+          return `<button class="course-row${studioCourseUsable(course) ? "" : " is-placeholder"}" type="button" data-action="course-open" data-id="${escapeAttr(course.id)}">
+            <span class="course-row-main"><strong>${escapeHtml(programsCourseTitle(course))}</strong><small>${escapeHtml(group?.name || "")} · ${escapeHtml(major?.name || "")} · ${escapeHtml(course.category || "课程")}</small></span>
+            <span class="course-row-meta"><b>${status.reviewed ? "完整知识包" : "通用结构"}</b><small>${stats.projects ? `${stats.projects} 个备课项目` : "未备课"}</small></span>
+            <span class="course-row-arrow">${icon("chevronRight", 13)}</span>
+          </button>`;
+        }).join("")}</div>` : `<div class="programs-empty"><strong>没有匹配的课程</strong><p>换一个关键词，或清除教学单位筛选。</p><button class="btn" type="button" data-action="course-clear-filter">清除筛选</button></div>`}
+        ${filtered.length > visible.length ? `<p class="work-muted">还有 ${filtered.length - visible.length} 门课程未显示。输入关键词或选择教学单位缩小范围，也可到专业数据库查看全部记录。</p>` : ""}
+      </section>
+    </div>
+  `;
+}
+
+function renderCourseWorkspacePage(courseId) {
+  const catalog = studioCatalog();
+  const course = catalog.courses.find((item) => item.id === courseId);
+  if (!course) {
+    return `<div class="page"><div class="programs-empty"><strong>没有找到这门课程</strong><p>专业数据库可能已更新，请回到我的课程重新选择。</p><button class="btn" type="button" data-action="nav" data-path="/courses">返回我的课程</button></div></div>`;
+  }
+  state.courseId = course.id;
+  if (state.context?.courseId !== course.id) {
+    persistWorkspaceContext({ courseId: course.id, chapterId: "", taskId: "", projectId: state.context?.projectId && getStudioBundle(state.context.projectId)?.courseId === course.id ? state.context.projectId : "" });
+  }
+  const major = catalog.majors.find((item) => item.id === course.majorId);
+  const group = catalog.groups.find((item) => item.id === course.groupId);
+  const department = catalog.departments.find((item) => item.id === course.deptId);
+  const pack = resolveCurriculum(course, catalog);
+  const status = courseKnowledgeStatus(course);
+  const projects = courseProjects(course.id);
+  const latest = projects[0];
+  const docs = courseKnowledgeDocs(course, major);
+  const tab = state.courseTab || "overview";
+  const tabs = [
+    ["overview", "课程概览"],
+    ["chapters", "章节与任务"],
+    ["knowledge", "专业知识"],
+    ["materials", "课程资料"],
+    ["projects", "备课项目"],
+    ["outcomes", "教学成果"]
+  ];
+  const projectRows = (list) => list.length ? `<div class="course-project-list">${list.map((bundle) => `<div class="course-project-row">
+    <button class="course-project-main" type="button" data-action="course-open-project" data-id="${escapeAttr(bundle.id)}"><strong>${escapeHtml(bundle.title)}</strong><small>${escapeHtml(bundle.context?.chapter || "")} · ${escapeHtml(bundle.context?.task || "")} · v${bundle.version || 1}</small></button>
+    <span class="course-project-meta">${bundle.quality ? `质检 ${bundle.quality.overall}` : "未质检"}<small>${escapeHtml(bundle.reviewStatus || "待审核")}</small></span>
+    <button class="btn btn-ghost" type="button" data-action="portfolio-history" data-id="${escapeAttr(bundle.id)}">版本</button>
+  </div>`).join("")}</div>` : `<div class="course-empty"><strong>还没有备课项目</strong><p>从这门课的章节或任务开始，生成 10 类资源。</p><button class="btn btn-solid" type="button" data-action="course-start-prep" data-id="${escapeAttr(course.id)}">开始备课</button></div>`;
+  return `
+    <div class="page course-workspace">
+      <header class="work-context-head">
+        <div>
+          <p class="work-breadcrumb">我的课程 / ${escapeHtml(department?.name || "")} / ${escapeHtml(group?.name || "")} / ${escapeHtml(major?.name || "")}</p>
+          <h1 class="page-title">${escapeHtml(programsCourseTitle(course))}</h1>
+          <p class="work-context-path">${escapeHtml(course.category || "课程")} · ${status.reviewed ? "有完整知识包" : "通用知识结构"} · ${projects.length} 个备课项目${course.hasOfficialIntro ? " · 有官方简介" : ""}</p>
+        </div>
+        <div class="work-context-actions">
+          <button class="btn btn-solid" type="button" data-action="course-start-prep" data-id="${escapeAttr(course.id)}">${icon("plus", 12)} 开始备课</button>
+          ${latest ? `<button class="btn" type="button" data-action="course-open-project" data-id="${escapeAttr(latest.id)}">打开当前项目</button>` : ""}
+          <button class="btn btn-ghost" type="button" data-action="course-open-detail" data-id="${escapeAttr(course.id)}">完整课程资料</button>
+        </div>
+      </header>
+
+      <div class="course-context-strip">
+        <span><b>课程知识包</b>${escapeHtml(pack?.title || "")}</span>
+        <span><b>状态</b>${escapeHtml(status.label)}</span>
+        <span><b>版本</b>${escapeHtml(pack?.version || "未标注")}</span>
+        <span><b>章节</b>${pack?.chapters?.length || 0} · <b>任务</b>${pack?.tasks?.length || 0}</span>
+        ${state.context?.projectId ? `<span><b>当前项目</b>${escapeHtml(getStudioBundle(state.context.projectId)?.title || "未找到")}</span>` : ""}
+      </div>
+
+      <nav class="course-tabs" aria-label="课程工作空间">
+        ${tabs.map(([key, label]) => `<button class="${tab === key ? "is-active" : ""}" type="button" data-action="course-tab" data-tab="${key}">${label}</button>`).join("")}
+      </nav>
+
+      <div class="course-tab-panel">
+        ${tab === "overview" ? `
+          <div class="course-overview">
+            <section>
+              <h2>这门课现在能做什么</h2>
+              <p>${status.reviewed ? "已经建立课程知识包，可以直接从章节或典型任务开始备课。" : "还没有教研组审核的完整知识包，系统会按课程和专业信息生成通用结构；设备参数、学校标准需教师核对。"}</p>
+              <div class="course-overview-actions"><button class="btn btn-solid" type="button" data-action="course-start-prep" data-id="${escapeAttr(course.id)}">从章节开始</button><button class="btn" type="button" data-action="nav" data-path="/kb">查知识资料</button></div>
+            </section>
+            <section>
+              <h2>当前备课项目</h2>
+              ${latest ? `<div class="course-latest"><button class="course-project-main" type="button" data-action="course-open-project" data-id="${escapeAttr(latest.id)}"><strong>${escapeHtml(latest.title)}</strong><small>v${latest.version || 1} · ${escapeHtml(latest.updatedAt || "")} · ${escapeHtml(latest.reviewStatus || "待审核")}</small></button><span>${latest.quality ? `质检 ${latest.quality.overall}` : "未质检"}</span></div>` : `<p class="work-muted">还没有项目。开始备课会创建第一个项目。</p>`}
+            </section>
+            <section>
+              <h2>章节与任务</h2>
+              <div class="course-mini-list">${(pack?.chapters || []).slice(0, 4).map((chapter) => `<button type="button" data-action="course-tab" data-tab="chapters"><span>${escapeHtml(chapter.title)}</span><small>${(chapter.knowledgePoints || []).length} 个知识点</small></button>`).join("")}</div>
+            </section>
+          </div>
+        ` : tab === "chapters" ? `
+          <div class="course-chapter-list">
+            ${(pack?.chapters || []).map((chapter) => `<section class="course-chapter">
+              <div class="course-chapter-head"><div><span>CHAPTER</span><h2>${escapeHtml(chapter.title)}</h2><p>${escapeHtml(chapter.summary || "")}</p></div><button class="btn" type="button" data-action="course-start-chapter" data-id="${escapeAttr(course.id)}" data-chapter="${escapeAttr(chapter.id)}">用本章备课</button></div>
+              <div class="course-chapter-grid">
+                <div><h3>知识点</h3>${(chapter.knowledgePoints || []).map((point) => `<div class="course-kp"><strong>${escapeHtml(point.title)}</strong><small>${escapeHtml((point.sourceRefs || []).join("、") || "待补来源")}</small></div>`).join("") || `<p class="work-muted">本章暂无知识点。</p>`}</div>
+                <div><h3>典型工作任务</h3>${(pack?.tasks || []).filter((task) => task.chapterId === chapter.id || (task.knowledgePointIds || []).some((id) => (chapter.knowledgePoints || []).some((point) => point.id === id))).map((task) => `<button class="course-task" type="button" data-action="course-start-task" data-id="${escapeAttr(course.id)}" data-chapter="${escapeAttr(chapter.id)}" data-task="${escapeAttr(task.id)}"><strong>${escapeHtml(task.title)}</strong><small>${(task.knowledgePointIds || []).length} 个知识点关联</small></button>`).join("") || `<p class="work-muted">暂无任务。</p>`}</div>
+              </div>
+            </section>`).join("")}
+          </div>
+        ` : tab === "knowledge" ? `
+          <div class="course-knowledge-layout">
+            <section><h2>课程知识点</h2>${(pack?.chapters || []).flatMap((chapter) => (chapter.knowledgePoints || []).map((point) => `<div class="course-kp"><strong>${escapeHtml(point.title)}</strong><small>${escapeHtml(point.statement || "")}</small><span>${escapeHtml((point.sourceRefs || []).join("、") || "待补来源")}</span></div>`)).join("") || `<p class="work-muted">暂无知识点。</p>`}</section>
+            <aside><h2>相关教学资源</h2>${docs.length ? docs.map((doc) => `<button class="course-doc" type="button" data-action="kb-use-doc" data-doc="${escapeAttr(doc.id)}"><strong>${escapeHtml(doc.title)}</strong><small>${escapeHtml(doc.category)} · ${escapeHtml(doc.version || "v1")}</small></button>`).join("") : `<p class="work-muted">知识库没有直接匹配的课程资料，可到教学资源中检索。</p>`}<button class="btn btn-ghost" type="button" data-action="nav" data-path="/kb">打开教学资源 →</button></aside>
+          </div>
+        ` : tab === "materials" ? `
+          <div class="course-materials">
+            <section><h2>知识资料</h2>${docs.length ? docs.map((doc) => `<button class="course-doc" type="button" data-action="kb-use-doc" data-doc="${escapeAttr(doc.id)}"><strong>${escapeHtml(doc.title)}</strong><small>${escapeHtml(doc.category)} · ${escapeHtml(doc.updated || "")}</small></button>`).join("") : `<p class="work-muted">暂无直接匹配资料。</p>`}</section>
+            <section><h2>来源与边界</h2><p>${escapeHtml(pack?.disclaimer || "正式使用前请核对学院现行文件、设备说明书和实训室规程。")}</p><button class="btn" type="button" data-action="course-open-detail" data-id="${escapeAttr(course.id)}">查看课程原始资料</button></section>
+          </div>
+        ` : tab === "projects" ? projectRows(projects)
+          : projectRows(projects)}
+      </div>
+      <p class="work-footnote">课程上下文会保留。所有备课项目都和本课程、章节、任务关联，不生成脱离课程的独立记录。</p>
+    </div>
+  `;
+}
+
 function renderHomePage() {
   const stats = knowledgeStats();
   const studioStats = getStudioBundleStats();
@@ -1252,7 +1563,7 @@ function renderHomePage() {
   const now = new Date();
   const dateText = new Intl.DateTimeFormat("zh-CN", { month: "long", day: "numeric", weekday: "long" }).format(now);
   const greeting = now.getHours() < 11 ? "上午好" : now.getHours() < 14 ? "中午好" : now.getHours() < 18 ? "下午好" : "晚上好";
-  const last = recent[0];
+  const last = currentWorkspaceProject() || recent[0];
   const draft = state.studioDraft;
   const draftCourse = draft ? PROGRAM_DATA.courses.find((course) => course.id === draft.courseId) : null;
   const pendingQuality = recent.reduce((sum, bundle) => sum + (bundle.quality?.problems?.filter((problem) => problem.severity === "high").length || 0), 0);
@@ -1268,7 +1579,7 @@ function renderHomePage() {
         </div>
         <div class="work-home-actions">
           <button class="btn btn-solid" type="button" data-action="home-start-studio">${icon("plus", 13)} 新建备课</button>
-          <button class="btn" type="button" data-action="nav" data-path="/programs">课程目录</button>
+          <button class="btn" type="button" data-action="nav" data-path="/courses">我的课程</button>
         </div>
       </header>
 
@@ -1330,9 +1641,9 @@ function renderHomePage() {
             </div>
             <div class="work-list">
               ${CURRICULUM_PACKS.map((pack) => `
-                <button class="work-row" type="button" data-action="home-open-pack" data-id="${escapeAttr(pack.id)}">
+                <button class="work-row" type="button" data-action="course-open" data-id="${escapeAttr(pack.courseId)}">
                   <span class="work-row-main"><strong>${escapeHtml(pack.title)}</strong><small>${escapeHtml(PROGRAM_DATA.majors.find((major) => major.id === pack.majorId)?.name || pack.majorId || "")} · ${pack.chapters.length} 章 · ${(pack.chapters || []).reduce((sum, chapter) => sum + (chapter.knowledgePoints || []).length, 0)} 知识点</small></span>
-                  <span class="work-row-meta">${escapeHtml(pack.statusLabel || "待审核")}<small>打开备课 →</small></span>
+                  <span class="work-row-meta">${escapeHtml(pack.statusLabel || "待审核")}<small>打开课程 →</small></span>
                 </button>`).join("")}
             </div>
           </section>
@@ -3451,6 +3762,12 @@ function beginStudioFlow(options = {}) {
     state.studioChapterId = "";
     state.studioTaskId = "";
   }
+  persistWorkspaceContext({
+    courseId: state.studioCourseId || "",
+    chapterId: state.studioChapterId || "",
+    taskId: state.studioTaskId || "",
+    projectId: ""
+  });
   navigate("/studio");
 }
 
@@ -3925,6 +4242,149 @@ function renderStudioResult(bundle) {
   `;
 }
 
+function studioVisibleQualityProblems(bundle) {
+  const report = bundle?.quality;
+  if (!report) return [];
+  const ignored = new Set(state.qualityIgnored[bundle.id] || []);
+  return report.problems.filter((problem) => !ignored.has(problem.message));
+}
+
+function studioProjectQualityPanel(bundle, report) {
+  if (!report) {
+    return `<div class="studio-project-panel-empty"><strong>还没有质检结果</strong><p>点击“质量检查”运行 10 个规则维度。</p><button class="btn" type="button" data-action="studio-quality" data-id="${escapeAttr(bundle.id)}">运行质检</button></div>`;
+  }
+  return `
+    <div class="studio-score ${report.overall < 80 ? "is-low" : ""}"><strong>${report.overall}</strong><span>/ 100</span><small>${escapeHtml(report.statusLabel)}</small></div>
+    ${studioQualityLayers(report)}
+    <div class="studio-project-panel-head"><h3>10 个维度</h3><span>${report.summary?.passedDimensions ?? 0}/${report.summary?.totalDimensions ?? 10} 通过</span></div>
+    ${studioQualityBars(report)}
+    ${(() => {
+      const visible = studioVisibleQualityProblems(bundle);
+      const ignoredCount = report.problems.length - visible.length;
+      const index = Math.max(0, Math.min(Number(state.studioIssueIndex) || 0, visible.length - 1));
+      const current = visible[index] || null;
+      return `<div class="studio-project-panel-head"><h3>问题</h3><span>${visible.length} 条${ignoredCount ? ` · 已忽略 ${ignoredCount}` : ""}</span></div>
+        ${visible.length ? `<div class="studio-project-issues">${visible.slice(0, 8).map((problem, i) => `<button class="studio-project-issue is-${escapeAttr(problem.severity)}${i === index ? " is-active" : ""}" type="button" data-action="studio-quality-issue" data-id="${escapeAttr(bundle.id)}" data-index="${i}"><span>${escapeHtml(problem.severityLabel)}</span><strong>${escapeHtml(problem.message)}</strong><small>${escapeHtml(problem.location)}</small></button>`).join("")}</div>` : `<p class="studio-quality-pass">${icon("check", 12)} 规则检查未发现明显问题；专业内容仍需人工审核。</p>`}
+        ${current ? `<div class="studio-issue-detail"><div><span>${escapeHtml(current.severityLabel)}</span><small>${escapeHtml(current.location)}</small></div><strong>${escapeHtml(current.message)}</strong><p>${escapeHtml(current.suggestion)}</p><small>依据：${escapeHtml(current.basis)}</small><div class="studio-issue-detail-actions"><button class="btn btn-solid" type="button" data-action="studio-open-editor" data-id="${escapeAttr(bundle.id)}">在编辑器中修改</button><button class="btn" type="button" data-action="studio-fix" data-id="${escapeAttr(bundle.id)}">应用结构修复</button>${current.severity !== "high" ? `<button class="btn btn-ghost" type="button" data-action="studio-ignore-issue" data-id="${escapeAttr(bundle.id)}" data-key="${escapeAttr(current.message)}">忽略</button>` : ""}</div></div>` : ""}
+        <div class="studio-project-panel-actions"><button class="btn" type="button" data-action="studio-quality" data-id="${escapeAttr(bundle.id)}">重新检测</button><button class="btn btn-ghost" type="button" data-action="nav" data-path="/quality">完整审阅</button></div>`;
+    })()}
+  `;
+}
+
+function studioProjectResourcesPanel(ctx, bundle) {
+  const { pack, chapter } = ctx;
+  const points = chapter.knowledgePoints || [];
+  const refs = Array.from(new Set(points.flatMap((point) => point.sourceRefs || [])));
+  return `
+    <div class="studio-resource-panel">
+      <div class="studio-project-panel-head"><h3>本章知识点</h3><span>${points.length} 项</span></div>
+      ${points.length ? `<ul class="studio-kp-list">${points.map((point) => `<li><span>${escapeHtml(point.title)}</span><small>${escapeHtml((point.sourceRefs || []).join("、") || "待补来源")}</small></li>`).join("")}</ul>` : `<p class="work-muted">本章暂无知识点。</p>`}
+      <div class="studio-project-panel-head"><h3>来源与限制</h3><span>${refs.length} 条</span></div>
+      <p class="studio-aside-note">${escapeHtml(pack.disclaimer)}</p>
+      <button class="btn btn-ghost" type="button" data-action="nav" data-path="/kb">查看知识库依据 →</button>
+      ${bundle ? `<div class="studio-project-panel-head"><h3>最近质检</h3><span>${bundle.quality?.overall || "—"}</span></div><button class="btn btn-ghost" type="button" data-action="nav" data-path="/quality">打开完整审阅 →</button>` : ""}
+    </div>
+  `;
+}
+
+function studioProjectPropertiesPanel(ctx, bundle) {
+  return `
+    <div class="studio-project-props">
+      <div><span>课程</span><b>${escapeHtml(ctx.course.name)}</b></div>
+      <div><span>专业</span><b>${escapeHtml(ctx.major?.name || "")}</b></div>
+      <div><span>章节</span><b>${escapeHtml(ctx.chapter.title)}</b></div>
+      <div><span>典型任务</span><b>${escapeHtml(ctx.task.title)}</b></div>
+      <div><span>教学对象</span><b>${escapeHtml(bundle.context?.learners || "未填写")}</b></div>
+      <div><span>学时</span><b>${escapeHtml(String(bundle.context?.hours || "4"))} 学时</b></div>
+      <div><span>教学条件</span><b>${escapeHtml(bundle.context?.conditions || "未填写")}</b></div>
+      <div><span>知识包</span><b>${escapeHtml(bundle.context?.reviewStatus || "待审核")}</b></div>
+      <div><span>成果版本</span><b>v${bundle.version || 1}</b></div>
+      <div><span>审核状态</span><b>${escapeHtml(bundle.reviewStatus || "待审核")}</b></div>
+      ${(bundle.context?.referenceDocs || []).length ? `<div><span>参考材料</span><b>${bundle.context.referenceDocs.map((doc) => escapeHtml(doc.title)).join("；")}</b></div>` : ""}
+      <div><span>质检记录</span><b>${(bundle.qualityHistory || []).length} 次</b></div>
+      <div><span>版本记录</span><b>${(bundle.history || []).length} 个历史版本</b></div>
+      <div><span>导出记录</span><b>${(bundle.exports || []).length} 次${bundle.exports?.length ? ` · 最近 ${escapeHtml(bundle.exports.slice(-1)[0].type.toUpperCase())}` : ""}</b></div>
+    </div>
+    <button class="btn" type="button" data-action="studio-open-editor" data-id="${escapeAttr(bundle.id)}">打开完整编辑器</button>
+    <button class="btn btn-ghost" type="button" data-action="studio-wizard-edit">修改教学配置</button>
+  `;
+}
+
+function studioProjectAIPanel(bundle) {
+  return `
+    <div class="studio-ai-panel">
+      <p>AI 只读取当前文档片段，基于课程知识包提出改进建议；结果不会自动覆盖教师文档。</p>
+      <button class="btn" type="button" data-action="studio-ai-review" data-id="${escapeAttr(bundle.id)}">${icon("spark", 12)} 生成教研建议</button>
+      ${state.studioAiText ? `<div class="studio-ai-output">${mdLite(state.studioAiText)}</div>` : `<p class="work-muted">还没有建议。</p>`}
+    </div>
+  `;
+}
+
+function renderStudioProjectWorkspace(bundle, ctx) {
+  const report = bundle.quality || state.studioQuality;
+  const docs = bundle.artifact?.docs || [];
+  const selected = docs.find((doc) => doc.id === state.studioDocId) || docs[0];
+  const panel = state.studioPanelTab || "quality";
+  const panels = [
+    ["quality", `质量${report ? ` ${report.overall}` : ""}`],
+    ["resources", "资料"],
+    ["properties", "属性"],
+    ["ai", "AI 建议"]
+  ];
+  const panelBody = panel === "quality" ? studioProjectQualityPanel(bundle, report)
+    : panel === "resources" ? studioProjectResourcesPanel(ctx, bundle)
+      : panel === "properties" ? studioProjectPropertiesPanel(ctx, bundle)
+        : studioProjectAIPanel(bundle);
+  return `
+    <section class="studio-result studio-project" data-project-id="${escapeAttr(bundle.id)}">
+      <header class="studio-project-head">
+        <div>
+          <p class="work-breadcrumb">备课工作室 / ${escapeHtml(ctx.course.name)} / ${escapeHtml(ctx.chapter.title)}</p>
+          <h2>${escapeHtml(bundle.title)}</h2>
+          <p>${escapeHtml(ctx.task.title)} · ${escapeHtml(String(bundle.context?.hours || "4"))} 学时 · v${bundle.version || 1} · ${escapeHtml(bundle.reviewStatus || "待审核")}</p>
+        </div>
+        <div class="studio-project-save"><span class="status-dot"></span>已保存到本机<small>${escapeHtml(bundle.updatedAt ? new Date(bundle.updatedAt).toLocaleString("zh-CN", { hour12: false }) : "刚刚")}</small></div>
+      </header>
+      <div class="studio-project-toolbar">
+        <div class="studio-project-toolbar-main">
+          <button class="btn btn-solid" type="button" data-action="studio-open-editor" data-id="${escapeAttr(bundle.id)}">${icon("sliders", 12)} 编辑当前文档</button>
+          <button class="btn" type="button" data-action="studio-quality" data-id="${escapeAttr(bundle.id)}">质量检查</button>
+          <button class="btn" type="button" data-action="studio-export-docx" data-id="${escapeAttr(bundle.id)}">导出 DOCX</button>
+          <button class="btn btn-ghost" type="button" data-action="studio-review" data-id="${escapeAttr(bundle.id)}">提交审核</button>
+        </div>
+        <button class="btn btn-ghost" type="button" data-action="course-open" data-id="${escapeAttr(ctx.course.id)}">返回课程</button>
+      </div>
+      <div class="studio-doc-workspace">
+        <aside class="studio-doc-tree" aria-label="项目文档">
+          <div class="studio-doc-tree-head"><span>项目文档</span><b>${docs.length}</b></div>
+          <div class="studio-doc-tree-group"><span>教学文件</span>${docs.slice(0, 6).map((doc) => `<button class="studio-doc-tab${selected?.id === doc.id ? " is-active" : ""}" type="button" data-action="studio-doc" data-id="${escapeAttr(doc.id)}"><span>${escapeHtml(doc.label.replace(/^\d+\s*/, ""))}</span></button>`).join("")}</div>
+          <div class="studio-doc-tree-group"><span>评价与支持</span>${docs.slice(6).map((doc) => `<button class="studio-doc-tab${selected?.id === doc.id ? " is-active" : ""}" type="button" data-action="studio-doc" data-id="${escapeAttr(doc.id)}"><span>${escapeHtml(doc.label.replace(/^\d+\s*/, ""))}</span></button>`).join("")}</div>
+        </aside>
+        <section class="studio-doc-main" id="studio-main">
+          <div class="studio-doc-main-head">
+            <div><span>${escapeHtml(selected?.label || "")}</span><h3>${escapeHtml(selected?.title || "")}</h3></div>
+            <div class="studio-doc-main-actions"><span>${selected?.sections?.length || 0} 节</span><button class="btn btn-ghost" type="button" data-action="studio-open-editor" data-id="${escapeAttr(bundle.id)}">编辑</button></div>
+          </div>
+          ${(selected?.meta || []).length ? `<div class="studio-doc-meta">${selected.meta.map((item) => `<span><b>${escapeHtml(item.label)}</b>${escapeHtml(item.value)}</span>`).join("")}</div>` : ""}
+          <article class="studio-doc-body">${selected ? selected.sections.map((section) => {
+            const flagged = state.studioFocusLocation && String(state.studioFocusLocation).includes(section.title);
+            return `<section class="studio-doc-section${flagged ? " is-flagged" : ""}" id="sec-${escapeAttr(section.id)}"><h4>${escapeHtml(section.no)} ${escapeHtml(section.title)}</h4>${renderBlocks(section.blocks)}${(section.refs || []).length ? `<p class="programs-muted">依据：${section.refs.map(escapeHtml).join("；")}</p>` : ""}</section>`;
+          }).join("") : `<p class="work-muted">该成果没有文档。</p>`}</article>
+        </section>
+        <aside class="studio-context-panel" aria-label="项目辅助面板">
+          <div class="studio-panel-tabs">${panels.map(([key, label]) => `<button class="${panel === key ? "is-active" : ""}" type="button" data-action="studio-panel-tab" data-tab="${key}">${label}</button>`).join("")}</div>
+          <div class="studio-panel-body">${panelBody}</div>
+        </aside>
+      </div>
+      <footer class="studio-project-footer">
+        <span>导出关联当前项目：${escapeHtml(ctx.course.name)} · ${escapeHtml(ctx.task.title)}</span>
+        <div><button class="btn btn-ghost" type="button" data-action="studio-export-xlsx" data-id="${escapeAttr(bundle.id)}">Excel</button><button class="btn btn-ghost" type="button" data-action="studio-export-md" data-id="${escapeAttr(bundle.id)}">Markdown</button><button class="btn btn-ghost" type="button" data-action="studio-export-pdf" data-id="${escapeAttr(bundle.id)}">PDF</button></div>
+      </footer>
+    </section>
+    <div class="studio-resource-store" hidden>${renderStudioAside(ctx, bundle)}</div>
+  `;
+}
+
 function renderStudioEmpty(ctx) {
   return `
     <div class="studio-work-empty">
@@ -4047,8 +4507,41 @@ function renderStudioStepPanel(bundle, ctx) {
   `;
 }
 
+function renderStudioLanding() {
+  const catalog = studioCatalog();
+  const course = catalog.courses.find((item) => item.id === (state.context?.courseId || state.studioCourseId));
+  const major = course ? catalog.majors.find((item) => item.id === course.majorId) : null;
+  const recent = getStudioBundles().slice(0, 4);
+  return `
+    <div class="page studio-page work-studio studio-landing">
+      <header class="work-context-head">
+        <div>
+          <p class="work-breadcrumb">备课工作室 / 项目中心</p>
+          <h1 class="page-title">备课工作室</h1>
+          <p class="work-context-path">从一个课程上下文开始，或继续最近的项目；所有文档、质检、版本和导出都在同一个项目里。</p>
+        </div>
+        <div class="work-context-actions">
+          <button class="btn btn-solid" type="button" data-action="start-studio">${icon("plus", 12)} 新建备课</button>
+          <button class="btn" type="button" data-action="nav" data-path="/courses">从课程选择</button>
+        </div>
+      </header>
+      ${course ? `<section class="studio-landing-course">
+        <div><span>当前课程</span><h2>${escapeHtml(programsCourseTitle(course))}</h2><p>${escapeHtml(major?.name || "")} · ${escapeHtml(course.category || "课程")}</p></div>
+        <div class="studio-landing-actions"><button class="btn btn-solid" type="button" data-action="course-start-prep" data-id="${escapeAttr(course.id)}">从这门课开始新项目</button><button class="btn" type="button" data-action="course-open" data-id="${escapeAttr(course.id)}">打开课程空间</button></div>
+      </section>` : `<div class="course-empty"><strong>还没有当前课程</strong><p>先到“我的课程”选一门课，课程上下文会自动带入之后的所有页面。</p><button class="btn btn-solid" type="button" data-action="start-studio">选择课程并备课</button></div>`}
+      ${state.studioDraft ? `<div class="studio-draft-banner"><span>未完成草稿：${escapeHtml(studioDraftLabel(state.studioDraft))}</span><button class="btn-link" type="button" data-action="studio-wizard-restore">继续草稿</button><button class="btn-link" type="button" data-action="studio-wizard-discard">放弃</button></div>` : ""}
+      <section class="courses-section">
+        <div class="work-section-head"><h2>最近项目</h2><button class="btn-link" type="button" data-action="nav" data-path="/portfolio">全部成果 →</button></div>
+        ${recent.length ? `<div class="course-project-list">${recent.map((bundle) => `<div class="course-project-row"><button class="course-project-main" type="button" data-action="course-open-project" data-id="${escapeAttr(bundle.id)}"><strong>${escapeHtml(bundle.title)}</strong><small>${escapeHtml(bundle.context?.course || "")} · ${escapeHtml(bundle.context?.task || "")} · v${bundle.version || 1}</small></button><span class="course-project-meta">${bundle.quality ? `质检 ${bundle.quality.overall}` : "未质检"}<small>${escapeHtml(bundle.reviewStatus || "待审核")}</small></span></div>`).join("")}</div>` : `<p class="work-muted">还没有备课项目。选一门课开始。</p>`}
+      </section>
+      <p class="work-footnote">当前课程和项目会保存在本机；刷新后继续上次项目，不需要重新选择课程。</p>
+    </div>
+  `;
+}
+
 function renderStudioPage() {
   if (state.studioFlowActive && state.studioFlowStep <= 4) return renderStudioWizardPage();
+  if (!state.studioBundle && !state.studioFlowActive) return renderStudioLanding();
   let ctx;
   try {
     ctx = studioEnsureContext();
@@ -4069,7 +4562,7 @@ function renderStudioPage() {
         <div class="work-context-actions">
           ${bundle ? `<button class="btn" type="button" data-action="studio-open-editor" data-id="${escapeAttr(bundle.id)}">编辑</button><button class="btn" type="button" data-action="studio-quality" data-id="${escapeAttr(bundle.id)}">质检</button><button class="btn" type="button" data-action="studio-export-docx" data-id="${escapeAttr(bundle.id)}">导出</button>` : `<button class="btn btn-solid" type="submit" form="studio-config-form" ${state.studioBusy ? "disabled" : ""}>${state.studioBusy ? "正在生成…" : "生成资源"}</button><button class="btn" type="button" data-action="nav" data-path="/demo">演示案例</button>`}
           <button class="btn btn-ghost" type="button" data-action="start-studio">新建备课</button>
-          <button class="btn" type="button" data-action="studio-toggle-aside">${state.studioAsideOpen ? "收起资料" : "资料"}</button>
+          ${bundle ? "" : `<button class="btn" type="button" data-action="studio-toggle-aside">${state.studioAsideOpen ? "收起资料" : "资料"}</button>`}
         </div>
       </header>
       <div class="studio-work-status">
@@ -4087,11 +4580,11 @@ function renderStudioPage() {
         <span>审核导出</span>
       </div>`}
       ${flowStep ? renderStudioStepPanel(bundle, ctx) : ""}
-      <div class="studio-workspace${state.studioAsideOpen ? "" : " is-aside-closed"}">
-        <aside class="studio-config-column">${flowStep && bundle ? renderStudioRunSummary(ctx, bundle) : renderStudioConfig(ctx)}</aside>
-        <section class="studio-editor-column" id="studio-main">${bundle ? renderStudioResult(bundle) : renderStudioEmpty(ctx)}</section>
+      ${bundle ? renderStudioProjectWorkspace(bundle, ctx) : `<div class="studio-workspace${state.studioAsideOpen ? "" : " is-aside-closed"}">
+        <aside class="studio-config-column">${renderStudioConfig(ctx)}</aside>
+        <section class="studio-editor-column" id="studio-main">${renderStudioEmpty(ctx)}</section>
         ${renderStudioAside(ctx, bundle)}
-      </div>
+      </div>`}
       <p class="work-footnote">“${escapeHtml(ctx.pack.statusLabel)}”不是学院正式课程标准。设备参数、I/O 地址、安全条款与来源编号仍须教师和教研组确认。</p>
     </div>
   `;
@@ -4131,6 +4624,7 @@ async function generateStudioBundle(form) {
     }, ctx.catalog);
     const report = inspectStudioBundle(bundle);
     bundle.quality = report;
+    bundle.qualityHistory = [{ at: new Date().toISOString(), overall: report.overall, problems: report.problems.length, statusLabel: report.statusLabel }];
     const saved = await saveStudioBundle(bundle);
     await saveStudioQuality(saved.id, report);
     state.studioBundle = { ...saved, quality: report };
@@ -4141,6 +4635,12 @@ async function generateStudioBundle(form) {
       state.studioFlowStep = 5;
       clearStudioDraft();
     }
+    persistWorkspaceContext({
+      courseId: ctx.course.id,
+      chapterId: ctx.chapter.id,
+      taskId: ctx.task.id,
+      projectId: saved.id
+    });
     showToast(`已生成 10 类资源 · 质检 ${report.overall} 分`);
     renderApp({ preserveScroll: true });
     if (window.matchMedia("(max-width: 900px)").matches) {
@@ -4159,7 +4659,9 @@ async function runStudioQuality(bundleId) {
   try {
     const report = inspectStudioBundle(bundle);
     bundle.quality = report;
+    bundle.qualityHistory = [...(bundle.qualityHistory || []), { at: new Date().toISOString(), overall: report.overall, problems: report.problems.length, statusLabel: report.statusLabel }].slice(-6);
     await saveStudioQuality(bundle.id, report);
+    await saveStudioBundle(bundle);
     state.studioBundle = bundle;
     state.studioQuality = report;
     showToast(`质检完成：${report.overall} 分`);
@@ -4207,6 +4709,7 @@ async function aiStudioReview(bundleId) {
     });
     state.studioAiText = response.text;
     await updateStudioBundle(bundle.id, { aiReviewAt: new Date().toISOString() }).catch(() => null);
+    renderApp({ preserveScroll: true });
   } catch (error) {
     showToast(error.message || "教研建议暂不可用，已保留本地成果");
   }
@@ -4255,6 +4758,7 @@ async function openStudioInEditor(bundleId) {
     showToast("没有可编辑的资源包");
     return;
   }
+  persistWorkspaceContext({ courseId: bundle.courseId, chapterId: bundle.chapterId, taskId: bundle.taskId, projectId: bundle.id });
   try {
     const conv = createConversation();
     conv.title = truncate(`${bundle.context.course} · ${bundle.context.task}`, 40);
@@ -4297,7 +4801,7 @@ async function openStudioInEditor(bundleId) {
   }
 }
 
-function studioExport(bundleId, type) {
+async function studioExport(bundleId, type) {
   const bundle = getStudioBundle(bundleId) || state.studioBundle;
   if (!bundle) return;
   try {
@@ -4305,6 +4809,12 @@ function studioExport(bundleId, type) {
     else if (type === "xlsx") downloadXLSX(bundle.artifact, { title: bundle.title });
     else if (type === "md") downloadMarkdown(bundle.artifact);
     else if (type === "pdf") printArtifact(bundle.artifact);
+    const exportRecord = { type, at: new Date().toISOString(), title: bundle.title };
+    bundle.exports = [...(bundle.exports || []), exportRecord].slice(-10);
+    const saved = await saveStudioBundle(bundle);
+    if (state.studioBundle?.id === saved.id) state.studioBundle = saved;
+    showToast(`已导出 ${type.toUpperCase()}，项目已记录`);
+    renderApp({ preserveScroll: true });
   } catch (error) {
     showToast(error.message || "导出失败");
   }
@@ -4432,7 +4942,10 @@ function renderQualityPage() {
     `;
   }
 
-  const selected = reports.find((bundle) => bundle.id === state.qualitySelectedId) || reports[0];
+  const contextProject = currentWorkspaceProject();
+  const selected = reports.find((bundle) => bundle.id === state.qualitySelectedId)
+    || reports.find((bundle) => bundle.id === contextProject?.id)
+    || reports[0];
   const report = selected.quality;
   const allProblems = report.problems.slice().sort((a, b) => qualitySeverityRank(a.severity) - qualitySeverityRank(b.severity));
   const ignoredMessages = new Set(state.qualityIgnored[selected.id] || []);
@@ -4536,17 +5049,27 @@ function renderPortfolioPage() {
   const stats = getStudioBundleStats();
   return `
     <div class="page portfolio-page">
-      <div class="page-head"><div><div class="page-kicker">PORTFOLIO / 成果管理</div><h1 class="page-title">教学成果</h1><p class="page-intro">统一保存教学资源包、版本、质检结果与教师审核状态；可打开编辑器、导出标准文档，或回到开发中心调整。</p></div><div class="page-head-side"><strong>成果库</strong>${stats.total} 份资源包<br>${stats.pending} 份待审核 · ${stats.approved} 份已通过<br><div class="page-head-actions"><button class="btn btn-ghost" type="button" data-action="nav" data-path="/studio">新建资源包</button></div></div></div>
+      <header class="work-context-head">
+        <div>
+          <p class="work-breadcrumb">我的成果 / 备课项目与文档</p>
+          <h1 class="page-title">我的成果</h1>
+          <p class="work-context-path">每份成果都关联课程、章节、典型任务和备课项目；版本、质检、审核、导出记录随项目保存。</p>
+        </div>
+        <div class="work-context-actions">
+          <button class="btn btn-solid" type="button" data-action="start-studio">${icon("plus", 12)} 新建备课</button>
+          <button class="btn" type="button" data-action="nav" data-path="/courses">我的课程</button>
+        </div>
+      </header>
       <div class="page-stats">
-        <div class="stat"><div class="stat-value">${stats.total}</div><div class="stat-label">BUNDLES / 成果</div></div>
+        <div class="stat"><div class="stat-value">${stats.total}</div><div class="stat-label">PROJECTS / 备课项目</div></div>
         <div class="stat"><div class="stat-value">${stats.thisWeek}</div><div class="stat-label">THIS WEEK / 本周更新</div></div>
         <div class="stat"><div class="stat-value">${stats.pending}</div><div class="stat-label">PENDING / 待审核</div></div>
         <div class="stat"><div class="stat-value">${stats.averageQuality || "—"}</div><div class="stat-label">QUALITY / 平均分</div></div>
       </div>
       <div class="portfolio-list">
         ${bundles.length ? bundles.map((bundle) => `<div class="portfolio-card">
-          <div class="portfolio-card-main"><div class="page-kicker">${escapeHtml(bundle.context?.major || "")} · v${bundle.version || 1}</div><h3>${escapeHtml(bundle.title)}</h3><p>${escapeHtml(bundle.context?.course || "")} · ${escapeHtml(bundle.context?.task || "")} · ${escapeHtml(bundle.context?.hours || "")} 学时</p><div class="portfolio-tags"><span>${escapeHtml(bundle.reviewStatus || "待审核")}</span>${bundle.quality ? `<span>质检 ${bundle.quality.overall}</span>` : `<span>未质检</span>`}${bundle.history?.length ? `<span>${bundle.history.length} 个历史版本</span>` : ""}${bundle.demo ? `<span>演示数据</span>` : ""}</div></div>
-          <div class="portfolio-actions"><button class="btn btn-solid" type="button" data-action="portfolio-open" data-id="${escapeAttr(bundle.id)}">打开</button><button class="btn btn-ghost" type="button" data-action="portfolio-review" data-id="${escapeAttr(bundle.id)}">审核</button>${bundle.history?.length ? `<button class="btn btn-ghost" type="button" data-action="portfolio-history" data-id="${escapeAttr(bundle.id)}">版本</button>` : ""}<button class="btn btn-ghost" type="button" data-action="portfolio-export" data-id="${escapeAttr(bundle.id)}">DOCX</button><button class="btn btn-ghost" type="button" data-action="portfolio-delete" data-id="${escapeAttr(bundle.id)}">删除</button></div>
+          <div class="portfolio-card-main"><div class="page-kicker">${escapeHtml(bundle.context?.course || "")} · v${bundle.version || 1}</div><h3>${escapeHtml(bundle.title)}</h3><p>${escapeHtml(bundle.context?.chapter || "")} · ${escapeHtml(bundle.context?.task || "")} · ${escapeHtml(bundle.context?.hours || "")} 学时</p><div class="portfolio-tags">${state.context?.projectId === bundle.id ? "<span>当前项目</span>" : ""}<span>${escapeHtml(bundle.reviewStatus || "待审核")}</span>${bundle.quality ? `<span>质检 ${bundle.quality.overall}</span>` : `<span>未质检</span>`}${bundle.history?.length ? `<span>${bundle.history.length} 个历史版本</span>` : ""}${bundle.exports?.length ? `<span>导出 ${bundle.exports.length} 次</span>` : ""}${bundle.demo ? `<span>演示数据</span>` : ""}</div></div>
+          <div class="portfolio-actions"><button class="btn btn-solid" type="button" data-action="portfolio-open" data-id="${escapeAttr(bundle.id)}">打开项目</button><button class="btn btn-ghost" type="button" data-action="course-open" data-id="${escapeAttr(bundle.courseId)}">课程</button><button class="btn btn-ghost" type="button" data-action="portfolio-review" data-id="${escapeAttr(bundle.id)}">审核</button>${bundle.history?.length ? `<button class="btn btn-ghost" type="button" data-action="portfolio-history" data-id="${escapeAttr(bundle.id)}">版本</button>` : ""}<button class="btn btn-ghost" type="button" data-action="portfolio-export" data-id="${escapeAttr(bundle.id)}">DOCX</button><button class="btn btn-ghost" type="button" data-action="portfolio-delete" data-id="${escapeAttr(bundle.id)}">删除</button></div>
         </div>`).join("") : `<div class="programs-empty"><strong>成果库还空着</strong><p>完成一次备课，资源包、质检和版本会出现在这里。</p><button class="btn btn-solid" type="button" data-action="start-studio">开始备课</button></div>`}
       </div>
     </div>
@@ -5039,6 +5562,9 @@ function handleStudioAction(action, el) {
       state.studioTaskId = bundle.taskId;
       state.studioQuality = bundle.quality;
       state.studioDocId = bundle.artifact?.docs?.[0]?.id || "design";
+      state.studioFlowActive = true;
+      state.studioFlowStep = 5;
+      persistWorkspaceContext({ courseId: bundle.courseId, chapterId: bundle.chapterId, taskId: bundle.taskId, projectId: bundle.id });
       navigate("/studio");
       break;
     case "portfolio-review":
@@ -5098,6 +5624,39 @@ function handleStudioAction(action, el) {
       state.studioDocId = id;
       renderApp({ preserveScroll: true });
       break;
+    case "studio-panel-tab":
+      state.studioPanelTab = el.dataset.tab || "quality";
+      renderApp({ preserveScroll: true });
+      break;
+    case "studio-ignore-issue": {
+      const key = el.dataset.key || "";
+      if (!bundle?.id || !key) break;
+      state.qualityIgnored[bundle.id] = Array.from(new Set([...(state.qualityIgnored[bundle.id] || []), key]));
+      saveQualityIgnored();
+      state.studioIssueIndex = 0;
+      showToast("已忽略这条提醒，不改变质检分数");
+      renderApp({ preserveScroll: true });
+      break;
+    }
+    case "studio-quality-issue": {
+      if (!bundle?.quality) break;
+      const index = Number(el.dataset.index) || 0;
+      const problem = studioVisibleQualityProblems(bundle)[index];
+      if (!problem) break;
+      state.studioFocusLocation = problem.location || "";
+      state.studioIssueIndex = index;
+      state.studioPanelTab = "quality";
+      const docs = bundle.artifact?.docs || [];
+      const matched = docs.find((doc) => String(problem.location || "").includes(doc.label));
+      if (matched) state.studioDocId = matched.id;
+      renderApp({ preserveScroll: true });
+      if (matched) {
+        requestAnimationFrame(() => document.querySelector(".studio-doc-section.is-flagged")?.scrollIntoView({ block: "center", behavior: "smooth" }));
+      } else {
+        showToast("这个问题定位在课程知识包，当前文档没有对应章节；请到完整审阅查看依据");
+      }
+      break;
+    }
     case "studio-open-editor":
       openStudioInEditor(id);
       break;
@@ -8190,6 +8749,43 @@ function handleAction(action, el, event) {
       navigate(el.dataset.path || "/");
       break;
     }
+    case "course-open":
+      navigate(`/course/${encodeURIComponent(el.dataset.id || "")}`);
+      break;
+    case "course-tab":
+      state.courseTab = el.dataset.tab || "overview";
+      renderApp({ preserveScroll: true });
+      break;
+    case "course-start-prep":
+      beginStudioFlow({ courseId: el.dataset.id || state.courseId, step: 2 });
+      break;
+    case "course-start-chapter":
+      beginStudioFlow({ courseId: el.dataset.id || state.courseId, chapterId: el.dataset.chapter || "", step: 3 });
+      break;
+    case "course-start-task":
+      beginStudioFlow({ courseId: el.dataset.id || state.courseId, chapterId: el.dataset.chapter || "", taskId: el.dataset.task || "", step: 3 });
+      break;
+    case "course-open-project": {
+      const bundle = getStudioBundle(el.dataset.id || "");
+      if (!bundle) break;
+      state.studioBundle = bundle;
+      state.studioQuality = bundle.quality || null;
+      state.studioDocId = bundle.artifact?.docs?.[0]?.id || "design";
+      state.studioFlowActive = true;
+      state.studioFlowStep = 5;
+      state.studioPanelTab = "quality";
+      persistWorkspaceContext({ courseId: bundle.courseId, chapterId: bundle.chapterId, taskId: bundle.taskId, projectId: bundle.id });
+      navigate("/studio");
+      break;
+    }
+    case "course-open-detail":
+      openProgramsCourse(el.dataset.id || "");
+      break;
+    case "course-clear-filter":
+      state.courseQuery = "";
+      state.courseDept = "";
+      renderApp({ preserveScroll: true });
+      break;
     case "start-studio": {
       beginStudioFlow();
       break;
@@ -8816,7 +9412,7 @@ function handleAction(action, el, event) {
     case "kb-use-doc": {
       const doc = getDoc(el.dataset.doc || "");
       if (!doc) break;
-      const course = PROGRAM_DATA.courses.find((item) => item.name === doc.course && studioCourseUsable(item));
+      const course = courseForKnowledgeDoc(doc);
       const reference = { id: doc.id, title: doc.title, category: doc.category || "教学资源", summary: doc.summary || "" };
       if (course) {
         beginStudioFlow({ courseId: course.id, step: 2, referenceDocs: [reference] });
@@ -9153,6 +9749,18 @@ document.addEventListener("input", (event) => {
     if (send) send.disabled = !target.value.trim() && state.attachments.length === 0;
     return;
   }
+  if (target.matches("[data-role='course-search']")) {
+    state.courseQuery = target.value;
+    renderApp({ preserveScroll: true });
+    requestAnimationFrame(() => {
+      const input = document.querySelector("[data-role='course-search']");
+      if (input) {
+        input.focus();
+        input.setSelectionRange(input.value.length, input.value.length);
+      }
+    });
+    return;
+  }
   if (target.matches("[data-role='kb-search']")) {
     state.kbQuery = target.value;
     refreshKbGrid();
@@ -9212,6 +9820,11 @@ document.addEventListener("change", (event) => {
   if (target.matches("[data-role='program-import-state']")) {
     programsImportStateFile(target.files?.[0]);
     target.value = "";
+    return;
+  }
+  if (target.matches("[data-role='course-dept']")) {
+    state.courseDept = target.value || "";
+    renderApp({ preserveScroll: true });
     return;
   }
   if (target.matches("[data-role='studio-wizard-major']")) {
@@ -9575,6 +10188,59 @@ async function hydrateFromIndexedDB() {
   }
 }
 
+async function migrateWorkspaceData() {
+  const bundles = getStudioBundles();
+  const writes = [];
+  for (const bundle of bundles) {
+    let changed = false;
+    if (!Array.isArray(bundle.qualityHistory)) {
+      bundle.qualityHistory = bundle.quality ? [{ at: bundle.updatedAt || bundle.createdAt || new Date().toISOString(), overall: bundle.quality.overall, problems: bundle.quality.problems?.length || 0, statusLabel: bundle.quality.statusLabel || "" }] : [];
+      changed = true;
+    }
+    if (!Array.isArray(bundle.exports)) {
+      bundle.exports = [];
+      changed = true;
+    }
+    if (!bundle.context) {
+      bundle.context = {};
+      changed = true;
+    }
+    if (changed) writes.push(saveStudioBundle(bundle).catch(() => null));
+  }
+  if (!state.context?.courseId && bundles[0]?.courseId) {
+    persistWorkspaceContext({
+      courseId: bundles[0].courseId,
+      chapterId: bundles[0].chapterId || "",
+      taskId: bundles[0].taskId || "",
+      projectId: bundles[0].id
+    });
+  }
+  await Promise.all(writes);
+}
+
+function restoreWorkspaceContext() {
+  const context = state.context || {};
+  const catalog = studioCatalog();
+  const course = catalog.courses.find((item) => item.id === context.courseId);
+  if (!course) return;
+  state.studioCourseId = course.id;
+  state.studioMajor = course.majorId || "";
+  state.studioDept = course.deptId || "";
+  state.studioGroup = course.groupId || "";
+  if (context.chapterId) state.studioChapterId = context.chapterId;
+  if (context.taskId) state.studioTaskId = context.taskId;
+  if (context.projectId) {
+    const bundle = getStudioBundle(context.projectId);
+    if (bundle) {
+      state.studioBundle = bundle;
+      state.studioQuality = bundle.quality || null;
+      state.studioDocId = bundle.artifact?.docs?.[0]?.id || "design";
+      state.studioFlowActive = true;
+      state.studioFlowStep = 5;
+    }
+  }
+}
+
 async function bootstrapApp() {
   if (!location.hash) history.replaceState(null, "", "#/");
   await hydrateFromIndexedDB();
@@ -9584,6 +10250,8 @@ async function bootstrapApp() {
   await loadStudioStore().catch((error) => {
     console.warn("教学成果库初始化失败，将使用空成果库。", error);
   });
+  await migrateWorkspaceData();
+  restoreWorkspaceContext();
   await loadImpactStore().catch((error) => {
     console.warn("教学应用成效库初始化失败，将使用空记录。", error);
   });
