@@ -919,7 +919,7 @@ function renderSidebar(activeConv) {
   ];
   sidebarEl.innerHTML = `
     <a class="brand" href="#/" data-action="nav" data-path="/" aria-label="授渔首页">
-      <span class="brand-mark"><img src="./assets/brand/logo-mark-inverse.png" alt=""></span>
+      <span class="brand-mark"><img src="./assets/brand/logo-mark.png" alt=""></span>
       <span class="brand-copy">
         <span class="brand-name">授渔</span>
         <span class="brand-sub">SHOUYU · TVET STUDIO</span>
@@ -1063,7 +1063,7 @@ function renderTopbar(activeConv) {
   }
   topbarEl.innerHTML = `
     <button class="mobile-menu" type="button" data-action="toggle-sidebar" aria-label="打开导航">${icon("menu", 16)}</button>
-    <a class="mobile-brand" href="#/" data-action="nav" data-path="/" aria-label="授渔首页"><img src="./assets/brand/logo-mark-inverse.png" alt=""></a>
+    <a class="mobile-brand" href="#/" data-action="nav" data-path="/" aria-label="授渔首页"><img src="./assets/brand/logo-mark.png" alt=""></a>
     ${title || kicker ? `<div class="topbar-left">
       <div class="topbar-heading">
         ${kicker ? `<div class="topbar-kicker">${escapeHtml(kicker)}</div>` : ""}

@@ -318,9 +318,33 @@ small {
 }
 
 .brand-mark {
-  background: #30332f;
-  border-radius: 13px 13px 13px 4px;
-  box-shadow: 0 2px 0 rgba(74, 59, 35, 0.09);
+  width: 44px;
+  height: 32px;
+  flex-basis: 44px;
+  overflow: visible;
+  background: transparent;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.brand-mark::after {
+  display: none;
+}
+
+.brand-mark img {
+  width: 44px;
+  height: 32px;
+  object-fit: contain;
+}
+
+.boot-mark {
+  background: transparent;
+  color: var(--ink);
+}
+
+.mobile-brand {
+  background: transparent;
+  border-color: transparent;
 }
 
 .brand-name {

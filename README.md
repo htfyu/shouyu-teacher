@@ -201,7 +201,7 @@ wrangler deploy
 .
 ├─ index.html
 ├─ assets/
-│  ├─ brand/                     # 授渔 logo、反白标与 favicon
+│  ├─ brand/                     # 授渔 logo、透明黑线标与 favicon
 │  ├─ styles.css                 # 原有基础样式与业务组件
 │  ├─ ui-refresh.css             # 原布局与组件层
 │  ├─ brand-theme.css            # 暖纸面、八模块色、编辑部排版主题层

@@ -4,16 +4,18 @@
 
 | 文件 | 用途 |
 |---|---|
-| `logo-mark.png` | 黑色标志，透明背景，用于浅色页面 / 文档 / README |
-| `logo-mark-inverse.png` | 白色标志，透明背景，用于黑色方块、深色底 |
-| `favicon-64.png` | 浏览器图标，64×64，黑底白标 |
-| `favicon-192.png` | Apple Touch Icon / 高分辨率图标 |
+| `logo-mark.png` | 黑色线条标志，透明背景，用于浅色页面 / 文档 / README |
+| `logo-mark-inverse.png` | 白色线条标志，透明背景，仅用于深色底 / 反白场景 |
+| `favicon-64.png` | 浏览器图标，64×64，透明背景 + 纯黑线条 |
+| `favicon-192.png` | Apple Touch Icon / 高分辨率图标，透明背景 + 纯黑线条 |
 
 站内使用：
 
-- 侧栏品牌：黑底方块 + `logo-mark-inverse.png`；
-- 启动页：黑底方块 + `logo-mark-inverse.png`；
-- favicon：`favicon-64.png`，Apple Touch Icon：`favicon-192.png`。
+- 侧栏品牌：直接使用 `logo-mark.png`，不再加黑色方块；
+- 启动页：直接使用 `logo-mark.png`；
+- favicon / Apple Touch Icon：`favicon-64.png` / `favicon-192.png`，均为透明背景黑色线条。
+
+图标生成方式：从 `logo-mark.png` 裁切透明画布内的鱼钩线条，按比例居中放入方形透明画布，边缘保留 6% 安全区；所有非透明像素统一为纯黑 `#000000`，不保留黑底或白色方框。
 
 设计含义：鱼钩与无限回环结合，对应「授人以渔」——不是代替教师完成一次任务，而是让教师获得可持续的工作方法。
 
