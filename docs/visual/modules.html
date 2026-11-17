@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>授渔 · 八大模块视觉对照</title>
+<style>
+  :root {
+    --canvas: #f7f5ef;
+    --paper: #fffdf8;
+    --ink: #30332f;
+    --muted: #686b64;
+    --line: #e7e2d8;
+    --sans: "Source Han Sans SC", "Noto Sans SC", "Microsoft YaHei", system-ui, sans-serif;
+    --serif: "Noto Serif SC", "Source Han Serif SC", "Songti SC", "SimSun", serif;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--canvas);
+    color: var(--ink);
+    font-family: var(--sans);
+    padding: 38px 42px 30px;
+  }
+  .head { display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 1px solid var(--line); padding-bottom: 16px; margin-bottom: 20px; }
+  .eyebrow { color: #815514; font-size: 11px; letter-spacing: .14em; font-weight: 700; }
+  h1 { font-family: var(--serif); font-size: 38px; letter-spacing: -.03em; margin: 7px 0 5px; }
+  .sub { color: var(--muted); font-size: 12px; margin: 0; }
+  .mark { width: 58px; height: 58px; border: 1px solid #d9d0c2; border-radius: 50%; display: grid; place-items: center; color: #815514; font-family: var(--serif); font-size: 17px; background: var(--paper); }
+  .grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
+  .module { background: var(--paper); border: 1px solid var(--line); border-top: 4px solid var(--accent); border-radius: 3px 16px 16px 16px; padding: 17px 17px 15px; min-height: 264px; position: relative; overflow: hidden; }
+  .module::after { content: ""; position: absolute; right: -38px; top: -45px; width: 116px; height: 116px; border: 1px solid var(--accent-line); border-radius: 50%; opacity: .65; }
+  .top { display: flex; align-items: center; gap: 9px; position: relative; z-index: 1; }
+  .icon { width: 29px; height: 29px; display: grid; place-items: center; border-radius: 3px 9px 9px 9px; background: var(--soft); color: var(--accent-ink); }
+  .icon svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+  .num { color: var(--accent); font: 11px/1 var(--sans); letter-spacing: .12em; }
+  h2 { font-family: var(--serif); font-size: 20px; letter-spacing: -.02em; margin: 15px 0 3px; position: relative; z-index: 1; }
+  .personality { color: var(--accent-ink); font-size: 11px; margin-bottom: 11px; position: relative; z-index: 1; }
+  .use { color: var(--muted); font-size: 10.5px; line-height: 1.65; min-height: 34px; margin: 0 0 12px; position: relative; z-index: 1; }
+  .swatches { display: flex; gap: 5px; margin-bottom: 12px; position: relative; z-index: 1; }
+  .swatch { height: 18px; border-radius: 3px; border: 1px solid rgba(48,51,47,.09); }
+  .swatch.main { flex: 1.5; background: var(--accent); }
+  .swatch.soft { flex: 2.2; background: var(--soft); }
+  .swatch.ink { flex: 1; background: var(--accent-ink); }
+  .mini { border: 1px solid var(--line); background: #fffefa; border-radius: 3px 8px 8px 8px; padding: 7px 8px; position: relative; z-index: 1; }
+  .mini-title { font-size: 9px; color: var(--muted); display: flex; justify-content: space-between; }
+  .mini-line { height: 4px; background: var(--soft); border-radius: 4px; margin-top: 5px; overflow: hidden; }
+  .mini-line i { display: block; width: 74%; height: 100%; background: var(--accent); opacity: .78; }
+  .home { --accent: #c58b35; --accent-ink: #815514; --soft: #fff4df; --accent-line: #e8c98d; }
+  .programs { --accent: #4f7fa8; --accent-ink: #315d82; --soft: #eaf2f8; --accent-line: #c2d7e6; }
+  .kb { --accent: #49846d; --accent-ink: #2f6551; --soft: #eaf4ef; --accent-line: #bfd9cb; }
+  .studio { --accent: #d47a57; --accent-ink: #9c4f32; --soft: #fff0e9; --accent-line: #edc3b2; }
+  .quality { --accent: #8068a8; --accent-ink: #5e4789; --soft: #f1ecf8; --accent-line: #d4c6e6; }
+  .graph { --accent: #3e8b8c; --accent-ink: #286769; --soft: #e7f4f3; --accent-line: #b9dcda; }
+  .files { --accent: #647c9b; --accent-ink: #425b79; --soft: #edf2f7; --accent-line: #c8d5e2; }
+  .portfolio { --accent: #7d8754; --accent-ink: #5b6538; --soft: #f0f2e5; --accent-line: #cfd5b2; }
+  .foot { margin-top: 16px; display: flex; justify-content: space-between; color: var(--muted); font-size: 10px; border-top: 1px solid var(--line); padding-top: 11px; }
+  .foot b { color: #5b6538; }
+  @media (max-width: 900px) { .grid { grid-template-columns: repeat(2, 1fr); } body { padding: 22px; } }
+</style>
+</head>
+<body>
+  <header class="head">
+    <div>
+      <div class="eyebrow">SHOUYU · VISUAL SYSTEM V2.2</div>
+      <h1>八个功能板块，八种工作气质。</h1>
+      <p class="sub">编辑部式排版 · 温暖纸面 · 模块颜色识别 · 同一套交互规则</p>
+    </div>
+    <div class="mark">授渔</div>
+  </header>
+
+  <main class="grid">
+    <section class="module home">
+      <div class="top"><span class="icon"><svg viewBox="0 0 16 16"><path d="M3 7.5 8 3l5 4.5V13H3z"/><path d="M6.5 13V9h3v4"/></svg></span><span class="num">01 / HOME</span></div>
+      <h2>教学工作台</h2>
+      <div class="personality">温暖 · 积极 · 轻松</div>
+      <p class="use">欢迎语、当前工作、开始备课入口、最近成果与待处理任务。金色只出现在行动与标记上。</p>
+      <div class="swatches"><span class="swatch main"></span><span class="swatch soft"></span><span class="swatch ink"></span></div>
+      <div class="mini"><div class="mini-title"><span>今日工作</span><span>开始备课 →</span></div><div class="mini-line"><i></i></div></div>
+    </section>
+
+    <section class="module programs">
+      <div class="top"><span class="icon"><svg viewBox="0 0 16 16"><rect x="2.5" y="3" width="11" height="10" rx="1"/><path d="M5 6h6M5 9h6M5 12h4"/></svg></span><span class="num">02 / PROGRAMS</span></div>
+      <h2>专业体系数据库</h2>
+      <div class="personality">严谨 · 清晰 · 有秩序</div>
+      <p class="use">系 → 组 → 专业 → 课程四级目录；左侧索引、右侧内容，蓝色用于层级和当前位置。</p>
+      <div class="swatches"><span class="swatch main"></span><span class="swatch soft"></span><span class="swatch ink"></span></div>
+      <div class="mini"><div class="mini-title"><span>智能制造产业系</span><span>12 专业</span></div><div class="mini-line"><i></i></div></div>
+    </section>
+
+    <section class="module kb">
+      <div class="top"><span class="icon"><svg viewBox="0 0 16 16"><path d="M3 4.5 8 2l5 2.5-5 2.5z"/><path d="M3 8l5 2.5L13 8M3 11.5 8 14l5-2.5"/></svg></span><span class="num">03 / KNOWLEDGE</span></div>
+      <h2>专业知识库</h2>
+      <div class="personality">成长 · 积累 · 学习</div>
+      <p class="use">像专业档案室：书脊式分类、来源与版本前置；绿色标记资料，不用装饰压过内容。</p>
+      <div class="swatches"><span class="swatch main"></span><span class="swatch soft"></span><span class="swatch ink"></span></div>
+      <div class="mini"><div class="mini-title"><span>KB-05 / 实训安全</span><span>33 份</span></div><div class="mini-line"><i></i></div></div>
+    </section>
+
+    <section class="module studio">
+      <div class="top"><span class="icon"><svg viewBox="0 0 16 16"><path d="m3 13 1-4 7-7 3 3-7 7z"/><path d="m9.5 3.5 3 3"/></svg></span><span class="num">04 / STUDIO</span></div>
+      <h2>智能备课中心</h2>
+      <div class="personality">创作 · 实践 · 活力</div>
+      <p class="use">教师工作桌面：课程条件 → 任务 → 阶段提示 → 纸面预览；人工编辑始终可见。</p>
+      <div class="swatches"><span class="swatch main"></span><span class="swatch soft"></span><span class="swatch ink"></span></div>
+      <div class="mini"><div class="mini-title"><span>03 生成资源</span><span>10 类</span></div><div class="mini-line"><i></i></div></div>
+    </section>
+
+    <section class="module quality">
+      <div class="top"><span class="icon"><svg viewBox="0 0 16 16"><path d="M8 2.5 13 4v4c0 3-2.2 5-5 6-2.8-1-5-3-5-6V4z"/><path d="m5.8 8 1.5 1.5 3-3"/></svg></span><span class="num">05 / QUALITY</span></div>
+      <h2>教学质量检测中心</h2>
+      <div class="personality">严谨 · 判断 · 分析</div>
+      <p class="use">审稿工作台：先问题、后分数；通过、警告与待人工确认分开显示，紫色服务于判断。</p>
+      <div class="swatches"><span class="swatch main"></span><span class="swatch soft"></span><span class="swatch ink"></span></div>
+      <div class="mini"><div class="mini-title"><span>待核对 5 项</span><span>84 / 100</span></div><div class="mini-line"><i></i></div></div>
+    </section>
+
+    <section class="module graph">
+      <div class="top"><span class="icon"><svg viewBox="0 0 16 16"><circle cx="4" cy="8" r="2"/><circle cx="12" cy="4" r="2"/><circle cx="12" cy="12" r="2"/><path d="m6 7 4-2M6 9l4 2"/></svg></span><span class="num">06 / GRAPH</span></div>
+      <h2>知识图谱</h2>
+      <div class="personality">探索 · 连接 · 发现</div>
+      <p class="use">可探索的专业知识网络：节点、连线、来源与审核状态；没有数据支撑的关系不画。</p>
+      <div class="swatches"><span class="swatch main"></span><span class="swatch soft"></span><span class="swatch ink"></span></div>
+      <div class="mini"><div class="mini-title"><span>课程 → 章节 → 知识点</span><span>26 节点</span></div><div class="mini-line"><i></i></div></div>
+    </section>
+
+    <section class="module files">
+      <div class="top"><span class="icon"><svg viewBox="0 0 16 16"><path d="M4 2.5h5l3 3V13H4z"/><path d="M9 2.5v3.5h3"/></svg></span><span class="num">07 / FILES</span></div>
+      <h2>资料管理中心</h2>
+      <div class="personality">整齐 · 沉稳 · 可靠</div>
+      <p class="use">数字档案室：文件类型、解析进度、预览状态清楚可见；雾霾蓝降低操作焦虑。</p>
+      <div class="swatches"><span class="swatch main"></span><span class="swatch soft"></span><span class="swatch ink"></span></div>
+      <div class="mini"><div class="mini-title"><span>课程资料.docx</span><span>已解析</span></div><div class="mini-line"><i></i></div></div>
+    </section>
+
+    <section class="module portfolio">
+      <div class="top"><span class="icon"><svg viewBox="0 0 16 16"><rect x="2.5" y="4" width="11" height="9" rx="1"/><path d="M5 4V2.8h6V4M5 7h6M5 10h4"/></svg></span><span class="num">08 / PORTFOLIO</span></div>
+      <h2>教学成果管理中心</h2>
+      <div class="personality">沉淀 · 收获 · 成熟</div>
+      <p class="use">成果档案柜：版本、审核、修改记录与导出状态优先；橄榄绿表达可归档、可复用。</p>
+      <div class="swatches"><span class="swatch main"></span><span class="swatch soft"></span><span class="swatch ink"></span></div>
+      <div class="mini"><div class="mini-title"><span>PLC技术及应用 · v1</span><span>待审核</span></div><div class="mini-line"><i></i></div></div>
+    </section>
+  </main>
+
+  <footer class="foot"><span>纸面底色 #F7F5EF · 内容面板 #FFFDF8 · 正文 #30332F · 边框 #E7E2D8</span><b>每个模块只改变自己的强调色，不改变交互规则。</b></footer>
+</body>
+</html>

@@ -870,6 +870,8 @@ function renderApp(options = {}) {
   const previousViewScroll = viewEl.scrollTop;
   const activeConv = state.activeId ? findConversation(state.activeId) : null;
 
+  appEl.dataset.route = state.route.name;
+  document.documentElement.dataset.route = state.route.name;
   appEl.classList.toggle("sidebar-open", state.sidebarOpen);
   appEl.classList.toggle("sidebar-collapsed", state.sidebarCollapsed);
   renderSidebar(activeConv);
@@ -924,9 +926,9 @@ function renderSidebar(activeConv) {
       </span>
     </a>
     <div class="side-scroll">
-      <button class="new-chat" type="button" data-action="new-chat" title="新建对话">
+      <button class="new-chat" type="button" data-action="new-chat" title="新建备课">
         ${icon("plus", 15)}
-        <span class="new-chat-label">新对话</span>
+        <span class="new-chat-label">新建备课</span>
         <kbd>N</kbd>
       </button>
       ${navGroups.map((group) => `
@@ -934,8 +936,8 @@ function renderSidebar(activeConv) {
           <div class="side-label">${group.label}</div>
           <nav class="side-nav" aria-label="${group.label}">
             ${group.items.map((item) => {
-              const active = route.name === item.key;
-              return `<button class="nav-item${active ? " is-active" : ""}" type="button" data-action="nav" data-path="${item.path}" title="${escapeAttr(item.label)}" aria-label="${escapeAttr(item.label)}" ${active ? 'aria-current="page"' : ""}>
+              const active = route.name === item.key || (route.name === "chat" && item.key === "studio");
+              return `<button class="nav-item${active ? " is-active" : ""}" type="button" data-action="nav" data-nav="${item.key}" data-path="${item.path}" title="${escapeAttr(item.label)}" aria-label="${escapeAttr(item.label)}" ${active ? 'aria-current="page"' : ""}>
                 <span class="nav-icon">${icon(item.icon, 16)}</span>
                 <span class="nav-label">${item.label}</span>
                 ${item.count != null ? `<span class="nav-count">${String(item.count).padStart(2, "0")}</span>` : ""}
@@ -963,8 +965,8 @@ function renderSidebar(activeConv) {
       </div>
     </div>
     <div class="side-foot">
-      <div class="side-foot-row"><span class="status-dot"></span><span class="side-foot-status">${aiModeActive() ? (hasValidConsent(state.ai) ? "AI MODE · 发送前隐私检查" : "AI MODE · 待授权") : "LOCAL-FIRST · 数据不出浏览器"}</span></div>
-      <a href="#/settings" data-action="nav" data-path="/settings" class="side-foot-link">AI 模式 · 数据与隐私 <span aria-hidden="true">→</span></a>
+      <div class="side-foot-row"><span class="status-dot"></span><span class="side-foot-status">${aiModeActive() ? (hasValidConsent(state.ai) ? "增强模式 · 发送前检查" : "增强模式 · 待授权") : "本地优先 · 数据不出浏览器"}</span></div>
+      <a href="#/settings" data-action="nav" data-path="/settings" class="side-foot-link">增强模式 · 数据与隐私 <span aria-hidden="true">→</span></a>
       <button class="sidebar-collapse" type="button" data-action="toggle-sidebar-collapse" aria-expanded="${state.sidebarCollapsed ? "false" : "true"}" aria-controls="sidebar" aria-label="${state.sidebarCollapsed ? "展开侧栏" : "收起侧栏"}" title="${state.sidebarCollapsed ? "展开侧栏" : "收起侧栏"}">
         ${icon(state.sidebarCollapsed ? "arrowRight" : "arrowLeft", 14)}
         <span class="sidebar-collapse-label">${state.sidebarCollapsed ? "展开侧栏" : "收起侧栏"}</span>
@@ -979,9 +981,9 @@ function sceneShort(scene) {
 
 function renderTopbar(activeConv) {
   const route = state.route;
-  const aiChip = `<button class="ai-mode-chip${aiModeActive() ? " is-ai" : ""}" type="button" data-action="toggle-ai-mode" aria-label="${aiModeActive() ? "切换到本地模式" : "启用 AI 增强模式"}">
+  const aiChip = `<button class="ai-mode-chip${aiModeActive() ? " is-ai" : ""}" type="button" data-action="toggle-ai-mode" aria-label="${aiModeActive() ? "切换到本地模式" : "启用增强模式"}">
     ${icon(aiModeActive() ? "spark" : "shield", 12)}
-    <span>${aiModeActive() ? (hasValidConsent(state.ai) ? "AI 增强" : "AI 待授权") : "本地模式"}</span>
+    <span>${aiModeActive() ? (hasValidConsent(state.ai) ? "增强模式" : "增强待授权") : "本地模式"}</span>
   </button>`;
   let kicker = "";
   let title = "";
@@ -1000,7 +1002,7 @@ function renderTopbar(activeConv) {
       ${aiChip}
       ${activeConv.latestArtifact ? `<button class="btn btn-ghost" type="button" data-action="edit-params" aria-label="调整任务参数">${icon("sliders", 13)}<span class="topbar-action-label">调整参数</span></button>` : ""}
       <button class="btn btn-ghost rail-mobile-btn" type="button" data-action="toggle-rail" aria-label="打开依据与合规自检">${icon("shield", 13)}<span class="topbar-action-label">依据 · 自检</span></button>
-      <button class="btn btn-solid" type="button" data-action="new-chat" aria-label="新建对话">${icon("plus", 13)}<span class="topbar-action-label">新对话</span></button>
+      <button class="btn btn-solid" type="button" data-action="new-chat" aria-label="新建备课">${icon("plus", 13)}<span class="topbar-action-label">新建备课</span></button>
     `;
   } else if (route.name === "programs") {
     center = `学院专业体系 · ${PROGRAM_DATA.courses.length} 条课程记录`;
@@ -1176,7 +1178,7 @@ function renderHomePage() {
         <span class="workbench-recent-score">${bundle.quality?.overall ? `${bundle.quality.overall}` : "未检"}</span>
       </button>
     `).join("")
-    : `<button class="workbench-empty" type="button" data-action="home-start-studio">${icon("spark", 15)} 还没有资源包，从演示课程开始</button>`;
+    : `<button class="workbench-empty" type="button" data-action="home-start-studio">${icon("spark", 15)} 还没有资源包，先从演示课程试试</button>`;
 
   return `
     <div class="home workbench-home">
@@ -1193,7 +1195,7 @@ function renderHomePage() {
         </div>
         <div class="workbench-hero-note">
           <span class="status-dot"></span>
-          ${studioStats.pending ? `${studioStats.pending} 份成果待审核` : "当前没有待审核成果"} · ${getStudioStorageMode() === "indexeddb" ? "本机成果库已连接" : "本机兼容存储"}
+          ${studioStats.pending ? `${studioStats.pending} 份成果待审核` : "今天没有待审核的成果"} · ${getStudioStorageMode() === "indexeddb" ? "本机工作区已就绪" : "本机兼容存储"}
           <small class="workbench-impact-line">应用成效：${impactStats.hasData ? `${impactStats.recordCount} 条真实记录` : "尚未采集真实试用数据"}</small>
         </div>
       </section>
@@ -1226,7 +1228,7 @@ function renderHomePage() {
       <div class="composer-wrap workbench-composer">
         <div class="section-row">
           <div><h2 class="section-title">直接描述任务，或从下方选一个入口。</h2></div>
-          <span class="workbench-inline-note">本地模式优先；AI 增强前会做隐私检查</span>
+          <span class="workbench-inline-note">本地优先；使用增强模式前会做隐私检查</span>
         </div>
         ${renderComposer(false)}
       </div>
@@ -1252,7 +1254,7 @@ function renderHomePage() {
           </div>
         </div>
         <div class="home-legal">
-          默认本地处理，不上传输入 · AI 输出仅供参考，正式使用前须人工审核<br>
+          默认本地处理，不上传输入 · 生成内容仅供参考，正式使用前须人工审核<br>
           <a href="#/kb" data-action="nav" data-path="/kb">查看知识库与依据 →</a>
         </div>
       </div>
@@ -1289,7 +1291,7 @@ function renderComposer(compact = false) {
         <input type="file" data-role="file-input" accept="${FILE_ACCEPT}" multiple hidden>
         <span class="composer-hint">Enter 发送 · Shift + Enter 换行</span>
         <span class="composer-privacy">${aiModeActive()
-          ? (hasValidConsent(state.ai) ? `${icon("spark", 10)} AI 增强 · 发送前隐私检查` : `${icon("shield", 10)} AI 待授权 · 本地处理`)
+          ? (hasValidConsent(state.ai) ? `${icon("spark", 10)} 增强模式 · 发送前检查` : `${icon("shield", 10)} 增强待授权 · 本地处理`)
           : `${icon("shield", 10)} 本地处理 · 不上传`}</span>
         <button class="send-btn" type="submit" aria-label="发送" ${busy ? "disabled" : ""}>
           ${icon("arrowUp", 16)}
@@ -1374,9 +1376,9 @@ function renderMessage(message, conv, index) {
         ${renderAssistantHead(message)}
         ${message.aiError ? `
           <div class="ai-error-note">
-            <strong>AI 增强未完成</strong>
+            <strong>增强模式未完成</strong>
             <span>${escapeHtml(message.aiError)}</span>
-            ${message.kind === "result" ? `<button class="btn-link" type="button" data-action="retry-ai-generation">重试 AI 增强</button>` : ""}
+            ${message.kind === "result" ? `<button class="btn-link" type="button" data-action="retry-ai-generation">重试增强</button>` : ""}
           </div>
         ` : ""}
         <div class="assistant-body">${mdLite(message.text || "")}</div>
@@ -1424,7 +1426,7 @@ function renderAIMessageMeta(message) {
   const ai = message.ai;
   return `<div class="ai-message-meta">
     ${icon("spark", 10)}
-    <span>AI 增强 · ${escapeHtml(ai.provider || "")} ${escapeHtml(ai.model || "")}</span>
+    <span>增强模式 · ${escapeHtml(ai.provider || "")} ${escapeHtml(ai.model || "")}</span>
     ${ai.duration ? `<span>${(ai.duration / 1000).toFixed(1)} 秒</span>` : ""}
     ${ai.truncated || ai.finishReason === "length" ? `<span class="ai-truncated">输出达到长度上限，可能未写完</span>` : ""}
     <span>人工审核后方可使用</span>
@@ -1438,7 +1440,7 @@ function renderAIStreamPanel(message) {
     <div class="ai-stream-card" data-ai-stream="${escapeAttr(message.id)}" aria-live="polite">
       <div class="ai-stream-head">
         <span class="ai-live-dot" aria-hidden="true"></span>
-        <strong>${isChat ? "AI 正在结合知识库回答" : "AI 正在深度改写教学成果"}</strong>
+        <strong>${isChat ? "正在结合知识库整理回答" : "正在整理教学成果"}</strong>
         <span class="ai-stream-model">${escapeHtml(ai.provider || "AI")} · ${escapeHtml(ai.model || "")}</span>
         <button class="btn btn-ghost ai-stop-btn" type="button" data-action="stop-ai-stream">停止</button>
       </div>
@@ -1501,9 +1503,9 @@ function renderResultCard(message, conv) {
         </div>
         <h2 class="result-title">${escapeHtml(doc?.title || artifact.title || result.title)}</h2>
         <div class="result-sub">
-          <span class="mini-tag">AI 辅助草稿</span>
+          <span class="mini-tag">增强草稿</span>
           <span class="mini-tag">待人工审核</span>
-          ${artifact.ai?.used ? `<span class="mini-tag mini-tag-ai">${icon("spark", 9)} AI 深度改写 · ${escapeHtml(artifact.ai.model || "")}</span>` : ""}
+          ${artifact.ai?.used ? `<span class="mini-tag mini-tag-ai">${icon("spark", 9)} 增强改写 · ${escapeHtml(artifact.ai.model || "")}</span>` : ""}
           <span class="mini-tag">${artifact.sources?.length || 0} 处知识库依据</span>
           ${result.metaSummary?.filter(Boolean).slice(0, 3).map((item) => `<span class="mini-tag">${escapeHtml(item)}</span>`).join("") || ""}
         </div>
@@ -1516,7 +1518,7 @@ function renderResultCard(message, conv) {
         <button class="btn btn-ghost" type="button" data-action="print-doc" data-message="${escapeAttr(message.id)}">${icon("printer", 12)}PDF / 打印</button>
         <button class="btn btn-ghost" type="button" data-action="download-txt" data-message="${escapeAttr(message.id)}">TXT</button>
         <button class="btn btn-ghost" type="button" data-action="download-md" data-message="${escapeAttr(message.id)}">Markdown</button>
-        ${artifact.ai?.rawMarkdown ? `<button class="btn btn-ghost" type="button" data-action="view-ai-raw" data-message="${escapeAttr(message.id)}">${icon("spark", 12)}AI 原文</button>` : ""}
+        ${artifact.ai?.rawMarkdown ? `<button class="btn btn-ghost" type="button" data-action="view-ai-raw" data-message="${escapeAttr(message.id)}">${icon("spark", 12)}模型原文</button>` : ""}
         <span class="spacer"></span>
         <button class="btn btn-ghost" type="button" data-action="edit-artifact" data-message="${escapeAttr(message.id)}">${icon("sliders", 12)}编辑成果</button>
         <button class="btn btn-ghost" type="button" data-action="edit-params">${icon("sliders", 12)}调整参数</button>
@@ -1545,7 +1547,7 @@ function renderResultCard(message, conv) {
         <button class="feedback-btn${feedback === "down" ? " is-active" : ""}" type="button" data-action="feedback" data-value="down" data-message="${escapeAttr(message.id)}" aria-pressed="${feedback === "down"}">${icon("down", 10)}需改进</button>
       </div>
     </div>
-    <div class="result-note">AI 辅助草稿 · 正式使用前请由教师逐项审核，尤其是设备参数、企业标准、评价权重与安全条款。反馈仅保存在本机。</div>
+    <div class="result-note">增强草稿 · 正式使用前请由教师逐项审核，尤其是设备参数、企业标准、评价权重与安全条款。反馈仅保存在本机。</div>
   `;
 }
 
@@ -1561,7 +1563,7 @@ function renderDocSection(section, sources, messageId, docId) {
       <div class="doc-section-head">
         <span class="section-index">${escapeHtml(section.no)}</span>
         <h3 class="section-title-text">${escapeHtml(section.title)}</h3>
-        ${section.aiEnhanced ? `<span class="section-ai-badge">${icon("spark", 8)} AI 改写 · 待审核</span>` : ""}
+        ${section.aiEnhanced ? `<span class="section-ai-badge">${icon("spark", 8)} 增强改写 · 待审核</span>` : ""}
         <button class="section-copy" type="button" data-action="copy-section" data-message="${escapeAttr(messageId)}" data-doc="${escapeAttr(docId)}" data-section="${escapeAttr(section.id)}" title="复制本节" aria-label="复制本节 ${escapeAttr(section.title)}">${icon("copy", 10)}<span>复制</span></button>
       </div>
       <div class="doc-section-body">
@@ -1663,7 +1665,7 @@ function renderContextRail(railData, conv) {
           </section>
         ` : ""}
         <div class="rail-note">
-          依据来自本机知识库 ${KB_VERSION}。材料为可替换的校本示例，正式使用前请对照学院现行文件。AI 不替代教师判断，也不替代现场安全交底。
+          依据来自本机知识库 ${KB_VERSION}。材料为可替换的校本示例，正式使用前请对照学院现行文件。工具不替代教师判断，也不替代现场安全交底。
         </div>
       ` : `
         <div class="rail-empty">
@@ -3447,7 +3449,7 @@ function renderStudioResult(bundle) {
         </div>
         <div class="studio-result-actions">
           <button class="btn btn-solid" type="button" data-action="studio-open-editor" data-id="${escapeAttr(bundle.id)}">${icon("sliders", 12)} 在编辑器中修改</button>
-          <button class="btn btn-ghost" type="button" data-action="studio-ai-review" data-id="${escapeAttr(bundle.id)}">${icon("spark", 12)} AI 教研建议</button>
+          <button class="btn btn-ghost" type="button" data-action="studio-ai-review" data-id="${escapeAttr(bundle.id)}">${icon("spark", 12)} 教研建议</button>
           <button class="btn btn-ghost" type="button" data-action="studio-review" data-id="${escapeAttr(bundle.id)}">${icon("check", 12)} 提交审核</button>
         </div>
       </div>
@@ -3528,11 +3530,18 @@ function renderStudioPage() {
         <div class="stat"><div class="stat-value">10</div><div class="stat-label">RESOURCES / 资源类型</div></div>
         <div class="stat"><div class="stat-value">${bundle?.quality?.overall ?? "—"}</div><div class="stat-label">QUALITY / 最近质检</div></div>
       </div>
+      <div class="studio-flow" aria-label="备课流程">
+        <span class="is-done">01 选课程</span><i></i>
+        <span class="is-done">02 定任务</span><i></i>
+        <span class="${bundle ? "is-done" : "is-current"}">03 生成资源</span><i></i>
+        <span class="${bundle?.quality ? "is-done" : bundle ? "is-current" : ""}">04 检查质量</span><i></i>
+        <span>05 审核导出</span>
+      </div>
       <div class="studio-layout">
         <aside class="studio-config-column">${renderStudioConfig(ctx)}</aside>
         <section class="studio-main-column" id="studio-main">${bundle ? renderStudioResult(bundle) : renderStudioReadiness(ctx)}</section>
       </div>
-      <p class="programs-footnote">“${escapeHtml(ctx.pack.statusLabel)}”不是学院正式课程标准。教师必须审核设备、参数、安全条款和教学内容；AI/规则生成内容不能直接作为学校官方文件。</p>
+      <p class="programs-footnote">“${escapeHtml(ctx.pack.statusLabel)}”不是学院正式课程标准。教师必须审核设备、参数、安全条款和教学内容；规则或增强模式生成的内容不能直接作为学校官方文件。</p>
     </div>
   `;
 }
@@ -3621,7 +3630,7 @@ async function aiStudioReview(bundleId) {
     }
   ];
   try {
-    showToast("AI 正在审阅当前资源包，请稍候");
+    showToast("正在整理教研建议，请稍候");
     const safeMessages = await prepareAIPayload(messages);
     const response = await streamAIWithRetry({
       messages: safeMessages,
@@ -3631,16 +3640,16 @@ async function aiStudioReview(bundleId) {
     openModal({
       kind: "confirm",
       wide: true,
-      kicker: "AI REVIEW / 教研建议",
-      title: "AI 教研建议（不是官方结论）",
-      sub: "AI 只读取当前资源片段，不修改成果、不替代教师审核。建议中的设备、参数和安全条款必须人工核对。",
+      kicker: "REVIEW / 教研建议",
+      title: "教研建议（不是官方结论）",
+      sub: "增强模式只读取当前资源片段，不修改成果、不替代教师审核。建议中的设备、参数和安全条款必须人工核对。",
       body: `<div class="programs-rich">${mdLite(response.text)}</div>`,
       footer: `<button class="btn btn-ghost" type="button" data-action="close-modal">关闭</button><span class="spacer"></span><button class="btn btn-ghost" type="button" data-action="studio-ai-copy" data-id="${escapeAttr(bundle.id)}">复制建议</button>`
     });
     state.studioAiText = response.text;
     await updateStudioBundle(bundle.id, { aiReviewAt: new Date().toISOString() }).catch(() => null);
   } catch (error) {
-    showToast(error.message || "AI 教研建议失败，请回退本地模式");
+    showToast(error.message || "教研建议暂不可用，已保留本地成果");
   }
 }
 
@@ -3891,7 +3900,7 @@ function renderPortfolioPage() {
         ${bundles.length ? bundles.map((bundle) => `<div class="portfolio-card">
           <div class="portfolio-card-main"><div class="page-kicker">${escapeHtml(bundle.context?.major || "")} · v${bundle.version || 1}</div><h3>${escapeHtml(bundle.title)}</h3><p>${escapeHtml(bundle.context?.course || "")} · ${escapeHtml(bundle.context?.task || "")} · ${escapeHtml(bundle.context?.hours || "")} 学时</p><div class="portfolio-tags"><span>${escapeHtml(bundle.reviewStatus || "待审核")}</span>${bundle.quality ? `<span>质检 ${bundle.quality.overall}</span>` : `<span>未质检</span>`}${bundle.history?.length ? `<span>${bundle.history.length} 个历史版本</span>` : ""}${bundle.demo ? `<span>演示数据</span>` : ""}</div></div>
           <div class="portfolio-actions"><button class="btn btn-solid" type="button" data-action="portfolio-open" data-id="${escapeAttr(bundle.id)}">打开</button><button class="btn btn-ghost" type="button" data-action="portfolio-review" data-id="${escapeAttr(bundle.id)}">审核</button>${bundle.history?.length ? `<button class="btn btn-ghost" type="button" data-action="portfolio-history" data-id="${escapeAttr(bundle.id)}">版本</button>` : ""}<button class="btn btn-ghost" type="button" data-action="portfolio-export" data-id="${escapeAttr(bundle.id)}">DOCX</button><button class="btn btn-ghost" type="button" data-action="portfolio-delete" data-id="${escapeAttr(bundle.id)}">删除</button></div>
-        </div>`).join("") : `<div class="programs-empty"><strong>成果库还是空的</strong><p>完成一次智能备课，资源包、质检和版本会出现在这里。</p><button class="btn btn-solid" type="button" data-action="nav" data-path="/studio">去开发</button></div>`}
+        </div>`).join("") : `<div class="programs-empty"><strong>成果库还空着</strong><p>完成一次智能备课，资源包、质检和版本会出现在这里。</p><button class="btn btn-solid" type="button" data-action="nav" data-path="/studio">去开发</button></div>`}
       </div>
     </div>
   `;
@@ -4089,7 +4098,7 @@ function writeDemoRun(patch) {
 
 function renderDemoRunStatus() {
   const run = state.demoRun;
-  if (!run) return `<div class="demo-run-status"><span class="status-dot"></span>尚未运行演示。固定案例可在无 AI Key 的情况下完整运行。</div>`;
+  if (!run) return `<div class="demo-run-status"><span class="status-dot"></span>尚未运行演示。固定案例无需模型密钥即可完整运行。</div>`;
   const label = run.status === "success" ? "上次运行成功" : run.status === "error" ? "上次运行失败" : "演示进行中";
   return `<div class="demo-run-status is-${escapeAttr(run.status)}"><span class="status-dot"></span><b>${label}</b><span>${escapeHtml(run.at ? new Date(run.at).toLocaleString("zh-CN") : "")} · ${escapeHtml(run.step || "")}</span>${run.message ? `<em>${escapeHtml(run.message)}</em>` : ""}${run.status === "error" ? `<button class="btn btn-ghost" type="button" data-action="demo-resume">从固定案例重新运行</button>` : ""}</div>`;
 }
@@ -4097,7 +4106,7 @@ function renderDemoRunStatus() {
 function renderDemoPage() {
   return `
     <div class="page demo-page">
-      <div class="page-head"><div><div class="page-kicker">COMPETITION DEMO / 演示模式</div><h1 class="page-title">一套可重复验证的教学资源开发流程。</h1><p class="page-intro">固定演示案例：机电一体化技术 · PLC技术及应用 · 物料分拣站 I/O 分配与接线检查。演示数据来自校本示例 PK-PLC-01/02，课程身份来自专业数据库；不是学院官方课程标准。</p></div><div class="page-head-side"><strong>演示状态</strong>本地可运行<br>无需 AI Key · 可离线<br>${getStudioBundleStats().total} 份成果已保存</div></div>
+      <div class="page-head"><div><div class="page-kicker">COMPETITION DEMO / 演示模式</div><h1 class="page-title">一套可重复验证的教学资源开发流程。</h1><p class="page-intro">固定演示案例：机电一体化技术 · PLC技术及应用 · 物料分拣站 I/O 分配与接线检查。演示数据来自校本示例 PK-PLC-01/02，课程身份来自专业数据库；不是学院官方课程标准。</p></div><div class="page-head-side"><strong>演示状态</strong>本地可运行<br>无需模型密钥 · 可离线<br>${getStudioBundleStats().total} 份成果已保存</div></div>
       ${renderDemoRunStatus()}
       <div class="demo-steps">
         ${[
@@ -4113,7 +4122,7 @@ function renderDemoPage() {
       <div class="demo-actions"><button class="btn btn-solid" type="button" data-action="demo-start" ${state.demoBusy ? "disabled" : ""}>${icon("play", 13)} ${state.demoBusy ? "演示运行中…" : "一键运行完整案例"}</button><button class="btn btn-ghost" type="button" data-action="demo-step-select">从课程选择开始</button><button class="btn btn-ghost" type="button" data-action="demo-step-quality">查看质量检测</button><button class="btn btn-ghost" type="button" data-action="demo-step-portfolio">查看成果与版本</button><button class="btn btn-ghost" type="button" data-action="nav" data-path="/graph">知识图谱</button></div>
       <div class="demo-architecture">
         <div><div class="page-kicker">ARCHITECTURE / 架构</div><h3>数据 → 装配 → 质检 → 审核 → 导出</h3><p>专业数据库提供课程身份；课程知识包提供章节、知识点、任务和来源；资源引擎装配 10 类共享上下文文档；规则质检给出证据与建议；教师审核后进入成果库与标准文档。</p></div>
-        <div><div class="page-kicker">INNOVATION / 创新</div><h3>不是“让 AI 写一篇教案”</h3><p>专业知识关联、10 类资源共享任务上下文、可解释质检、跨文档一致性和来源边界分层，构成本作品与普通 AI 教学助手的差异。</p></div>
+        <div><div class="page-kicker">INNOVATION / 创新</div><h3>不是“让工具代写一篇教案”</h3><p>专业知识关联、10 类资源共享任务上下文、可解释质检、跨文档一致性和来源边界分层，构成本作品与普通代写工具的区别。</p></div>
         <div><div class="page-kicker">VALUE / 应用价值</div><h3>把重复编写变成可审核的教研流程</h3><p>教师从“找资料、拼模板、反复改格式”转为“选任务、补条件、核证据、做判断”；学校获得可追溯、可复用、可质检的教学资源。</p></div>
       </div>
       <div class="demo-boundary">演示边界：本案例的知识包是“校本示例 · 待教研组审核”，不是学院正式课程标准；设备型号、I/O 地址、软件版本和安全权限以现场为准。演示不会声称已完成真实课堂试用。</div>
@@ -4346,7 +4355,7 @@ function handleStudioAction(action, el) {
       aiStudioReview(id);
       break;
     case "studio-ai-copy":
-      if (state.studioAiText) copyWithFeedback(state.studioAiText, "AI 教研建议已复制");
+      if (state.studioAiText) copyWithFeedback(state.studioAiText, "教研建议已复制");
       break;
     case "studio-fix":
       applyStudioFixes(id);
@@ -4530,7 +4539,7 @@ function renderHistoryPage() {
             ${icon("search", 15)}
             <input type="search" placeholder="搜索标题、专业、任务或分类…" value="${escapeAttr(state.historyQuery)}" data-role="history-search" aria-label="搜索历史对话">
           </div>
-          <button class="btn btn-solid" type="button" data-action="nav" data-path="/">${icon("plus", 12)}新建对话</button>
+          <button class="btn btn-solid" type="button" data-action="nav" data-path="/">${icon("plus", 12)}新建备课</button>
         </div>
         <div class="history-categories" role="group" aria-label="对话分类">
           ${categories.map((cat) => `<button class="filter-btn${state.historyCategory === cat ? " is-active" : ""}" type="button" data-action="set-history-cat" data-cat="${escapeAttr(cat)}">${escapeHtml(cat)}</button>`).join("")}
@@ -5111,14 +5120,14 @@ async function applyEngineMode(mode) {
     openAIConsentModal(async () => {
       state.ai.mode = "ai";
       await saveAISettings(state.ai);
-      showToast("已切换到 AI 增强模式，发送前仍会检查敏感信息");
+      showToast("已切换到增强模式，发送前仍会检查敏感信息");
       renderApp({ preserveScroll: true });
     }, state.ai.provider);
     return;
   }
   state.ai.mode = mode === "ai" ? "ai" : "local";
   await saveAISettings(state.ai);
-  showToast(state.ai.mode === "ai" ? "已切换到 AI 增强模式" : "已切换到本地模式");
+  showToast(state.ai.mode === "ai" ? "已切换到增强模式" : "已切换到本地模式");
   renderApp({ preserveScroll: true });
 }
 
@@ -6199,7 +6208,7 @@ function renderFormModal() {
                 </section>
                 <section class="aside-card aside-card-accent">
                   <div class="panel-kicker">MODE / 当前模式</div>
-                  <h3>${aiModeActive() ? "AI 增强" : "本地模式"}</h3>
+                  <h3>${aiModeActive() ? "增强模式" : "本地模式"}</h3>
                   <p>${aiModeActive() ? "AI 参与改写关键模块；发送前会做隐私检查，失败自动回退本地。" : "全部在本机生成，不联网；成果可编辑、导出与人工审核。"}</p>
                 </section>
               </aside>
@@ -6732,9 +6741,9 @@ function aiFallbackResult(localResult, error, cancelled = false) {
     ...localResult,
     artifact,
     aiError: reason,
-    intro: `${reason}\n\n已自动回退到本地引擎，下面这份成果仍可正常编辑、导出和人工审核。你可以重试 AI 增强，或继续使用本地结果。`,
+    intro: `${reason}\n\n已自动回退到本地引擎，下面这份成果仍可正常编辑、导出和人工审核。你可以重试增强，或继续使用本地结果。`,
     suggestions: [
-      { label: "重试 AI 增强", action: "retry-ai-generation" },
+      { label: "重试增强", action: "retry-ai-generation" },
       ...(localResult.suggestions || [])
     ]
   };
