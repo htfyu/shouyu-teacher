@@ -18,7 +18,8 @@ const SPECIALTIES = [
   "计算机技术",
   "建筑工程",
   "化工技术",
-  "新能源技术"
+  "新能源技术",
+  "网络综合布线"
 ];
 
 const REQUIRED_DOC_FIELDS = [
@@ -64,13 +65,13 @@ test("模块可以被 Node 直接 import，且基础导出存在", () => {
   assert.equal(typeof getPackDocsBySpecialty, "function");
 });
 
-test("覆盖 12 个专业，每包至少 2 份文档，总数为 24—30", () => {
-  assert.equal(SPECIALTY_PACKS.length, 12);
+test("覆盖 13 个专业，每包至少 2 份文档，总数为 26—32", () => {
+  assert.equal(SPECIALTY_PACKS.length, 13);
   assert.deepEqual(
     SPECIALTY_PACKS.map((pack) => pack.name),
     SPECIALTIES
   );
-  assert.ok(PACK_DOCS.length >= 24 && PACK_DOCS.length <= 30);
+  assert.ok(PACK_DOCS.length >= 26 && PACK_DOCS.length <= 32);
   assert.equal(PACK_DOCS.length, SPECIALTY_PACKS.reduce((sum, pack) => sum + pack.docs.length, 0));
 
   for (const pack of SPECIALTY_PACKS) {

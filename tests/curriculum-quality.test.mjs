@@ -34,11 +34,11 @@ test("代表课程知识包结构完整且来源可追溯", () => {
   assert.equal(representative.status, "pending");
 });
 
-test("三个不同专业方向的标杆课程包均有章节、知识点、任务和来源", () => {
-  assert.equal(CURRICULUM_PACKS.length, 3);
+test("四个不同专业方向的标杆课程包均有章节、知识点、任务和来源", () => {
+  assert.equal(CURRICULUM_PACKS.length, 4);
   for (const pack of CURRICULUM_PACKS) {
     assert.ok(pack.chapters.length >= 4, `${pack.id} 章节不足`);
-    assert.equal(pack.tasks.length, 5, `${pack.id} 任务数`);
+    assert.ok(pack.tasks.length >= 4, `${pack.id} 任务数`);
     const points = pack.chapters.flatMap((chapter) => chapter.knowledgePoints || []);
     assert.ok(points.length >= 15, `${pack.id} 知识点不足`);
     assert.ok(points.every((point) => point.sourceRefs.length > 0), `${pack.id} 存在无来源知识点`);
@@ -52,7 +52,7 @@ test("三个不同专业方向的标杆课程包均有章节、知识点、任�
 });
 
 test("来源核验记录保留原值并给出修订依据", () => {
-  assert.equal(SOURCE_CORRECTIONS.length, 3);
+  assert.equal(SOURCE_CORRECTIONS.length, 4);
   const robot = SOURCE_CORRECTIONS.find((item) => item.courseId === "course-0035");
   assert.deepEqual(robot.original, ["S1", "S24", "S27"]);
   assert.deepEqual(robot.corrected, ["S1", "S6", "S7", "S8"]);

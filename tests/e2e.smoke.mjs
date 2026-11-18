@@ -169,7 +169,7 @@ async function main() {
     await page.goto(`${base}#/courses`, { waitUntil: "networkidle" });
     await page.waitForTimeout(350);
     check("我的课程页", (await page.locator(".page-title").innerText()).includes("我的课程"));
-    check("完整知识包课程", await page.locator(".course-row.is-complete").count() === 3);
+    check("完整知识包课程", await page.locator(".course-row.is-complete").count() === 4);
     await page.locator(".course-row.is-complete").first().click();
     await page.waitForTimeout(350);
     check("课程工作空间", await page.locator(".course-tabs button").count() === 6);

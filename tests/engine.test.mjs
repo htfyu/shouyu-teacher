@@ -25,13 +25,13 @@ const lessonParams = {
   template: "standard"
 };
 
-test("12 个专业包已注册，知识库不少于 33 份 / 147 节", () => {
-  assert.equal(SPECIALTY_PACKS.length, 12);
-  assert.ok(KB_DOCS.length >= 33);
-  assert.ok(totalSections() >= 147);
+test("13 个专业包已注册，知识库不少于 35 份 / 155 节", () => {
+  assert.equal(SPECIALTY_PACKS.length, 13);
+  assert.ok(KB_DOCS.length >= 35);
+  assert.ok(totalSections() >= 155);
   assert.ok(MAJORS.includes("PLC 技术"));
   const cats = getKnowledgeCategories();
-  for (const name of ["电气自动化", "PLC 技术", "数控技术", "汽车维修", "工业机器人", "机械加工", "焊接技术", "电子技术", "计算机技术", "建筑工程", "化工技术", "新能源技术"]) {
+  for (const name of ["电气自动化", "PLC 技术", "数控技术", "汽车维修", "工业机器人", "机械加工", "焊接技术", "电子技术", "计算机技术", "建筑工程", "化工技术", "新能源技术", "网络综合布线"]) {
     assert.ok(cats.some((category) => category.includes(name)), `缺少专业分类 ${name}`);
   }
 });

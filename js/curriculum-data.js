@@ -61,6 +61,17 @@ export const SOURCE_CORRECTIONS = [
     status: "recommended",
     statusLabel: "建议修订，待教研组确认",
     checkedAt: "2026-11-17"
+  },
+  {
+    courseId: "course-0159",
+    courseName: "网络综合布线",
+    original: ["S1", "S7", "S36"],
+    corrected: ["S44", "S45"],
+    method: "按来源表 major/title 字段比对；S1/S7/S36 在来源表中属于其他专业或公共来源，S44 为2026招生简章、S45 为计算机网络应用所属的信息安全与智慧网络专业介绍",
+    basis: ["S44", "S45"],
+    status: "recommended",
+    statusLabel: "建议修订，待教研组确认",
+    checkedAt: "2026-11-18"
   }
 ];
 
@@ -1087,6 +1098,332 @@ export const CURRICULUM_PACKS = [
       "PK-CAR-02 §04"
     ],
     disclaimer: "本课程知识包是校本教学示例，不是广州市技师学院正式课程标准。课程名称/类别/阶段来自原表；章节、知识点、任务与评价由 PK-CAR-01/02 整理，需新能源汽车检测与维修教研组审核。高压部件位置、断电顺序、等待时间、验电方法、举升点、制动扭矩和路试条件以整车维修手册、高压安全规程、设备说明书和现场负责人确认结果为准。"
+  },
+  {
+    id: "CUR-CABLING-001",
+    courseId: "course-0159",
+    majorId: "major-034",
+    title: "网络综合布线",
+    subtitle: "双绞线跳线制作、测试与交付",
+    version: "2026.11-demo-v1",
+    updatedAt: "2026-11-18",
+    reviewer: "",
+    reviewedAt: "",
+    reviewStatus: "pending",
+    reviewNote: "由授渔教研示例整理，尚未由计算机网络应用教研组逐条审核。",
+    status: "pending",
+    statusLabel: CURRICULUM_REVIEW_STATUS.pending,
+    demo: true,
+    officialBasis: {
+      sourceIds: ["S44", "S45"],
+      note: "课程名称、课程类别与数据年份来自原表课程记录；S44 为2026年招生简章，S45 为信息安全与智慧网络专业介绍。原表课程行误引 S1/S7/S36，已记录在 SOURCE_CORRECTIONS。原表未公开本课程完整课程标准，故以下内容不冒充官方标准。",
+      sourceType: "A"
+    },
+    contentProvenance: {
+      sourceType: "C",
+      label: "教师教学资料 / 校本示例",
+      note: "章节、知识点与任务由授渔教研示例 PK-CABLING-01 / PK-CABLING-02 整理；线缆类别、连接器件、测试仪型号、验收阈值和安全要求以课程负责人、学校现行实训规程和现场设备说明为准。"
+    },
+    summary: "以双绞线跳线制作为教学载体，围绕施工准备、材料与安全边界、双绞线结构与线序、端接工艺、通断与线序测试、交付记录组织4个章节和4个典型工作任务。",
+    objectives: {
+      knowledge: [
+        "说明双绞线、连接器件和常用工具的基本作用与使用边界",
+        "解释 T568A/T568B 线序、直通线与交叉线的区别",
+        "说明剥线、理线、插入、压接和测试的基本工艺要求"
+      ],
+      skills: [
+        "按任务单核对材料、工具和工位条件，完成上工前检查",
+        "按指定线序完成一根双绞线跳线的端接与压接",
+        "使用测试工具检查通断与线序，记录异常并按要求返工"
+      ],
+      attitude: [
+        "不把“能通”当作唯一质量标准，按工艺和记录要求完成",
+        "不在未经许可的在用链路上操作，不擅自改变设备配置",
+        "如实记录测试现象，不修改原始记录迎合结果"
+      ]
+    },
+    keyPoints: [
+      "线序选择与两端一致性",
+      "剥线、理线、插入深度和压接质量",
+      "通断/线序测试的现象记录与判定",
+      "不合格品的返工边界与复测"
+    ],
+    difficulties: [
+      "把任务书/设计文件中的线序要求准确落到两端端接",
+      "根据测试现象区分线序错误、端接不良、线缆损伤和测试方法问题",
+      "在保证安全与记录真实的前提下完成返工和复测"
+    ],
+    chapters: [
+      {
+        id: "CH-CAB-01",
+        no: "01",
+        title: "施工准备、材料与安全边界",
+        summary: "明确任务与交付物，识别双绞线和连接器件，完成图纸、材料、工具和工位核对。",
+        knowledgePoints: [
+          {
+            id: "KP-CAB-01-01",
+            title: "施工任务与交付边界",
+            statement: "本任务以一根双绞线跳线的制作为载体，交付物包括跳线、线序/测试记录和工位整理结果。学生不进行未经许可的带电设备操作，不把“能上网”作为唯一合格证据；任务范围和返工权限由教师确认。",
+            sourceRefs: ["PK-CABLING-01 §01"],
+            sourceType: "C",
+            reviewStatus: "pending"
+          },
+          {
+            id: "KP-CAB-01-02",
+            title: "双绞线与连接器件识别",
+            statement: "双绞线由四对相互绞合的芯线组成，常见类别包括超五类和六类；连接器件应与线缆类别、使用场景和任务要求匹配。具体线缆类别、长度、连接器件型号以任务书和学校材料为准。",
+            sourceRefs: ["PK-CABLING-01 §02"],
+            sourceType: "C",
+            reviewStatus: "pending"
+          },
+          {
+            id: "KP-CAB-01-03",
+            title: "图纸、标识与材料核对",
+            statement: "施工前应核对任务单、线序要求、线缆标识和材料数量；发现材料型号不明、线缆破损或标识缺失时先报告，不凭猜测替代核对。",
+            sourceRefs: ["PK-CABLING-01 §01"],
+            sourceType: "C",
+            reviewStatus: "pending"
+          },
+          {
+            id: "KP-CAB-01-04",
+            title: "工位安全与工具检查",
+            statement: "使用剥线工具、压线钳和测试仪前检查工具状态；压接时注意手部位置，避免夹伤。不得在带电或未确认安全的链路上操作；涉及在用链路时须取得教师或现场负责人许可。",
+            sourceRefs: ["PK-CABLING-01 §03"],
+            sourceType: "C",
+            reviewStatus: "pending"
+          }
+        ]
+      },
+      {
+        id: "CH-CAB-02",
+        no: "02",
+        title: "双绞线结构与线序",
+        summary: "理解双绞线结构和常用线序，能按任务要求选择直通或交叉连接方式。",
+        knowledgePoints: [
+          {
+            id: "KP-CAB-02-01",
+            title: "双绞线结构与类别",
+            statement: "双绞线通过芯线绞合降低干扰，常见类别包括超五类和六类。屏蔽双绞线增加屏蔽层，需要配合相应的连接器件和接地/屏蔽处理；是否采用屏蔽方案以设计文件和学校要求为准。",
+            sourceRefs: ["PK-CABLING-01 §02"],
+            sourceType: "C",
+            reviewStatus: "pending"
+          },
+          {
+            id: "KP-CAB-02-02",
+            title: "T568A 与 T568B 线序",
+            statement: "T568A 与 T568B 是两种常用线序，差别主要在部分芯线的排列。实际采用哪一种必须以设计文件、设备说明和学校实训规范为准，不能只凭记忆或习惯。",
+            sourceRefs: ["PK-CABLING-01 §02"],
+            sourceType: "C",
+            reviewStatus: "pending"
+          },
+          {
+            id: "KP-CAB-02-03",
+            title: "直通线与交叉线",
+            statement: "直通线两端采用相同线序，交叉线两端采用不同线序。采用直通还是交叉，取决于连接设备和链路要求，不能把所有跳线都按同一种方式制作。",
+            sourceRefs: ["PK-CABLING-01 §02"],
+            sourceType: "C",
+            reviewStatus: "pending"
+          },
+          {
+            id: "KP-CAB-02-04",
+            title: "线序选择依据",
+            statement: "线序选择应能说明依据：任务单、设计文件、设备说明或课程要求。教师应能指出所选线序在两端的具体排列，并解释为什么不采用另一种方案。",
+            sourceRefs: ["PK-CABLING-01 §02", "PK-CABLING-02 §02"],
+            sourceType: "C",
+            reviewStatus: "pending"
+          }
+        ]
+      },
+      {
+        id: "CH-CAB-03",
+        no: "03",
+        title: "网线制作与工艺控制",
+        summary: "完成剥线、理线、剪齐、插入和压接，控制端接质量并识别常见工艺问题。",
+        knowledgePoints: [
+          {
+            id: "KP-CAB-03-01",
+            title: "剥线与理线",
+            statement: "剥线时避免割伤芯线绝缘层；按选定线序整理芯线，尽量缩短解绞长度，剪齐端面，避免芯线长短不齐影响插入和压接。",
+            sourceRefs: ["PK-CABLING-01 §02"],
+            sourceType: "C",
+            reviewStatus: "pending"
+          },
+          {
+            id: "KP-CAB-03-02",
+            title: "插入与压接",
+            statement: "芯线应插到水晶头前端，外护套进入适当位置，压线钳一次压接到位。压接后检查水晶头变形、芯线外露、外护套松脱和线序，不反复压接掩盖问题。",
+            sourceRefs: ["PK-CABLING-01 §02"],
+            sourceType: "C",
+            reviewStatus: "pending"
+          },
+          {
+            id: "KP-CAB-03-03",
+            title: "外观与工艺检查",
+            statement: "外观检查包括外护套、芯线外露、压接部位、接头松动和标识。工艺检查不是只看“通不通”，还要看线序、插入深度、解绞长度和端接牢固程度。",
+            sourceRefs: ["PK-CABLING-01 §04"],
+            sourceType: "C",
+            reviewStatus: "pending"
+          },
+          {
+            id: "KP-CAB-03-04",
+            title: "常见失败原因",
+            statement: "常见失败包括线序错误、芯线未插到底、压接不良、剥线伤芯、解绞过长、接头松动和记录与实际不一致。排查时先记录现象，再按线序、端接、线缆和测试方法逐项定位。",
+            sourceRefs: ["PK-CABLING-01 §04", "PK-CABLING-02 §02"],
+            sourceType: "C",
+            reviewStatus: "pending"
+          }
+        ]
+      },
+      {
+        id: "CH-CAB-04",
+        no: "04",
+        title: "测试、验收与交付",
+        summary: "完成通断和线序测试，记录结果，整理工位并完成交付复盘。",
+        knowledgePoints: [
+          {
+            id: "KP-CAB-04-01",
+            title: "通断与线序测试",
+            statement: "按测试仪说明连接跳线两端，观察通断和线序指示，逐项核对两端线序是否一致。测试仪型号、测试项目和判定阈值以设备说明和课程要求为准，不自行编造标准。",
+            sourceRefs: ["PK-CABLING-02 §01", "PK-CABLING-02 §02"],
+            sourceType: "C",
+            reviewStatus: "pending"
+          },
+          {
+            id: "KP-CAB-04-02",
+            title: "结果判定与记录",
+            statement: "测试记录至少包括日期、线缆标识、线序、测试仪状态、结果和测试人；异常要写明哪一端、哪一芯、什么现象。结果分为通过、不通过、待复测，不能只写“合格”。",
+            sourceRefs: ["PK-CABLING-02 §02"],
+            sourceType: "C",
+            reviewStatus: "pending"
+          },
+          {
+            id: "KP-CAB-04-03",
+            title: "标识、整理与交付",
+            statement: "交付前检查跳线外观、标识、测试记录和工位状态；不合格品单独放置并说明原因。工具、线缆和废弃物按学校要求整理和回收。",
+            sourceRefs: ["PK-CABLING-02 §04", "PK-CABLING-01 §03"],
+            sourceType: "C",
+            reviewStatus: "pending"
+          },
+          {
+            id: "KP-CAB-04-04",
+            title: "返工、复测与复盘",
+            statement: "不通过时先定位原因，再决定是否返工；返工后必须重新测试并保留前后记录。复盘应说明问题出在线序、端接、工具还是测试方法，以及下次如何避免。",
+            sourceRefs: ["PK-CABLING-02 §04", "PK-CABLING-01 §04"],
+            sourceType: "C",
+            reviewStatus: "pending"
+          }
+        ]
+      }
+    ],
+    tasks: [
+      {
+        id: "TASK-CAB-01",
+        chapterId: "CH-CAB-03",
+        title: "网线制作",
+        situation: "网络综合布线实训工位需要制作一根双绞线跳线。你拿到任务单、线缆、连接器件和测试工具，需要按指定线序完成端接，并提交可复核的制作与测试记录。",
+        deliverable: "双绞线跳线、线序/通断测试记录、工位整理结果",
+        knowledgePointIds: ["KP-CAB-01-01", "KP-CAB-01-02", "KP-CAB-02-01", "KP-CAB-02-02", "KP-CAB-02-03", "KP-CAB-02-04", "KP-CAB-03-01", "KP-CAB-03-02", "KP-CAB-03-03", "KP-CAB-03-04"],
+        steps: [
+          "核对任务单、线缆类别、长度、连接器件和指定线序。",
+          "检查剥线工具、压线钳和测试仪状态，确认工位安全。",
+          "按任务要求剥线、理线、排列芯线并剪齐。",
+          "将芯线插入水晶头，确认线序和插入深度后压接。",
+          "检查外观与工艺，按测试流程检查通断和线序。",
+          "记录结果，整理工位并提交跳线与记录。"
+        ],
+        equipment: ["双绞线", "RJ45 水晶头", "剥线工具", "压线钳", "双绞线测试仪", "任务单/记录表", "线缆标识"],
+        safety: ["不得在带电或未确认安全的链路上操作", "压接时注意手部位置", "工具破损立即更换", "废弃线头和水晶头集中回收"],
+        sourceRefs: ["PK-CABLING-01 §01", "PK-CABLING-01 §02", "PK-CABLING-01 §03", "PK-CABLING-01 §04"]
+      },
+      {
+        id: "TASK-CAB-02",
+        chapterId: "CH-CAB-01",
+        title: "施工准备与材料核对",
+        situation: "正式制作前，需要核对任务要求、材料、工具和工位条件，避免因材料或线序理解错误造成返工。",
+        deliverable: "材料核对表、工具检查记录、工位安全确认",
+        knowledgePointIds: ["KP-CAB-01-01", "KP-CAB-01-02", "KP-CAB-01-03", "KP-CAB-01-04"],
+        steps: [
+          "阅读任务单，确认线缆类别、长度、连接器件和线序要求。",
+          "清点材料并检查线缆、水晶头外观。",
+          "检查剥线工具、压线钳和测试仪是否完好。",
+          "确认工位、用电和现场条件，记录待确认项。"
+        ],
+        equipment: ["任务单", "双绞线", "RJ45 水晶头", "剥线工具", "压线钳", "测试仪"],
+        safety: ["不确认的材料和工具不使用", "发现线缆破损或工具异常立即报告", "不在未获许可的现场条件下开始操作"],
+        sourceRefs: ["PK-CABLING-01 §01", "PK-CABLING-01 §02", "PK-CABLING-01 §03"]
+      },
+      {
+        id: "TASK-CAB-03",
+        chapterId: "CH-CAB-04",
+        title: "跳线通断与线序测试",
+        situation: "跳线制作完成后，需要使用测试工具检查通断和线序，并对异常现象做记录和初步定位。",
+        deliverable: "测试记录、异常定位记录、复测记录",
+        knowledgePointIds: ["KP-CAB-04-01", "KP-CAB-04-02", "KP-CAB-03-04"],
+        steps: [
+          "检查测试仪状态并确认接口、跳线标识。",
+          "连接跳线两端，按设备说明完成通断和线序测试。",
+          "记录测试结果；不通过时写明端别、芯线和现象。",
+          "按教师要求排查并决定是否返工，返工后重新测试。"
+        ],
+        equipment: ["双绞线测试仪", "跳线", "记录表", "标识标签"],
+        safety: ["不把测试仪接入未经许可的在用网络", "接口损坏或设备异常时停止测试", "测试记录不得事后修改迎合结果"],
+        sourceRefs: ["PK-CABLING-02 §01", "PK-CABLING-02 §02", "PK-CABLING-01 §04"]
+      },
+      {
+        id: "TASK-CAB-04",
+        chapterId: "CH-CAB-04",
+        title: "工位整理与交付记录",
+        situation: "制作和测试完成后，需要整理工位、标识样品、归档记录，并说明合格、待复测和返工项。",
+        deliverable: "交付清单、工位整理记录、复盘说明",
+        knowledgePointIds: ["KP-CAB-04-03", "KP-CAB-04-04", "KP-CAB-01-01"],
+        steps: [
+          "清点工具、剩余材料和废弃物，按要求归位或回收。",
+          "检查跳线标识、测试记录和样品状态。",
+          "区分合格、待复测和返工项，填写交付说明。",
+          "复盘本次制作中的问题和改进点。"
+        ],
+        equipment: ["交付清单", "标识标签", "工具收纳", "废弃物回收容器"],
+        safety: ["工具和废弃物按学校要求处理", "不把未测试样品标记为合格", "离开前确认工位安全整洁"],
+        sourceRefs: ["PK-CABLING-02 §04", "PK-CABLING-01 §03"]
+      }
+    ],
+    abilities: [
+      "核对网络综合布线任务、材料和工位条件",
+      "按指定线序完成双绞线跳线端接与压接",
+      "使用测试工具检查通断和线序并记录证据",
+      "识别线序、端接和测试中的常见问题",
+      "按安全要求整理工位并完成交付复盘"
+    ],
+    equipment: [
+      { name: "双绞线与 RJ45 水晶头", note: "类别、规格和数量以任务单与学校材料为准" },
+      { name: "剥线工具与压线钳", note: "使用前检查完好性，操作方法以工具说明为准" },
+      { name: "双绞线测试仪", note: "型号、测试项目和判定方式以设备说明与课程要求为准" },
+      { name: "任务单、测试记录表、标识标签", note: "记录应能支持复核，不事后编造结果" }
+    ],
+    safety: [
+      "不得在带电或未确认安全的网络链路上操作。",
+      "使用剥线工具和压线钳时注意手部防护，工具破损立即更换。",
+      "涉及在用链路、设备配置或停机安排时，必须取得教师或现场负责人许可。",
+      "废弃线头、水晶头碎片和包装材料集中回收，保持工位整洁。",
+      "发现线缆异常发热、异味、破损或测试异常时停止操作并报告。"
+    ],
+    assessment: [
+      { dimension: "安全与规范", weight: 25, evidence: "工位检查、工具使用、现场边界、废弃物处理" },
+      { dimension: "线序与端接工艺", weight: 35, evidence: "线序正确、芯线插入、压接质量、外观检查" },
+      { dimension: "测试与记录", weight: 25, evidence: "测试方法、结果判定、异常定位、记录真实性" },
+      { dimension: "交付与复盘", weight: 15, evidence: "标识、工位整理、返工复测、复盘说明" }
+    ],
+    sourceRefs: [
+      "PK-CABLING-01 §01",
+      "PK-CABLING-01 §02",
+      "PK-CABLING-01 §03",
+      "PK-CABLING-01 §04",
+      "PK-CABLING-02 §01",
+      "PK-CABLING-02 §02",
+      "PK-CABLING-02 §03",
+      "PK-CABLING-02 §04"
+    ],
+    disclaimer: "本课程知识包是校本教学示例，不是广州市技师学院正式课程标准。课程名称、类别和数据年份来自专业数据库课程记录；章节、知识点、任务与评价由 PK-CABLING-01/02 整理，需计算机网络应用教研组审核。线缆类别、线序、连接器件、测试项目和验收阈值以课程负责人、学校现行实训规程、设备说明书和现场条件为准；本材料不替代正式教材和现场安全交底。"
   }
 ];
 

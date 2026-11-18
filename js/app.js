@@ -1518,7 +1518,7 @@ function renderCourseWorkspacePage(courseId) {
               <div class="course-chapter-head"><div><span>CHAPTER</span><h2>${escapeHtml(chapter.title)}</h2><p>${escapeHtml(chapter.summary || "")}</p></div><button class="btn" type="button" data-action="course-start-chapter" data-id="${escapeAttr(course.id)}" data-chapter="${escapeAttr(chapter.id)}">用本章备课</button></div>
               <div class="course-chapter-grid">
                 <div><h3>知识点</h3>${(chapter.knowledgePoints || []).map((point) => `<div class="course-kp"><strong>${escapeHtml(point.title)}</strong><small>${escapeHtml((point.sourceRefs || []).join("、") || "待补来源")}</small></div>`).join("") || `<p class="work-muted">本章暂无知识点。</p>`}</div>
-                <div><h3>典型工作任务</h3>${(pack?.tasks || []).filter((task) => task.chapterId === chapter.id || (task.knowledgePointIds || []).some((id) => (chapter.knowledgePoints || []).some((point) => point.id === id))).map((task) => `<button class="course-task" type="button" data-action="course-start-task" data-id="${escapeAttr(course.id)}" data-chapter="${escapeAttr(chapter.id)}" data-task="${escapeAttr(task.id)}"><strong>${escapeHtml(task.title)}</strong><small>${(task.knowledgePointIds || []).length} 个知识点关联</small></button>`).join("") || `<p class="work-muted">暂无任务。</p>`}</div>
+                <div><h3>典型工作任务</h3>${(pack?.tasks || []).filter((task) => task.chapterId ? task.chapterId === chapter.id : (task.knowledgePointIds || []).some((id) => (chapter.knowledgePoints || []).some((point) => point.id === id))).map((task) => `<button class="course-task" type="button" data-action="course-start-task" data-id="${escapeAttr(course.id)}" data-chapter="${escapeAttr(chapter.id)}" data-task="${escapeAttr(task.id)}"><strong>${escapeHtml(task.title)}</strong><small>${(task.knowledgePointIds || []).length} 个知识点关联</small></button>`).join("") || `<p class="work-muted">暂无任务。</p>`}</div>
               </div>
             </section>`).join("")}
           </div>
@@ -3749,8 +3749,14 @@ function beginStudioFlow(options = {}) {
     state.studioChapterId = options.chapterId || "";
     state.studioTaskId = options.taskId || "";
     const pack = resolveCurriculum(course, catalog);
-    if (!state.studioChapterId) state.studioChapterId = pack?.chapters?.[0]?.id || "";
-    if (!state.studioTaskId) state.studioTaskId = pack?.tasks?.[0]?.id || "";
+    const defaultTask = pack?.tasks?.[0] || null;
+    if (!state.studioChapterId) state.studioChapterId = defaultTask?.chapterId || pack?.chapters?.[0]?.id || "";
+    if (!state.studioTaskId) {
+      const chapterTasks = (pack?.tasks || []).filter((task) => !task.chapterId || task.chapterId === state.studioChapterId);
+      state.studioTaskId = chapterTasks[0]?.id || defaultTask?.id || "";
+    }
+    const pickedTask = (pack?.tasks || []).find((task) => task.id === state.studioTaskId);
+    if (pickedTask?.chapterId) state.studioChapterId = pickedTask.chapterId;
     if (options.step === 3 && state.studioChapterId && state.studioTaskId) state.studioFlowStep = 3;
   } else {
     state.studioCourseId = "";
