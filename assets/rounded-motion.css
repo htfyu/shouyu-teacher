@@ -9,6 +9,14 @@
    Business layout, navigation, data and export flows are untouched.
    ========================================================== */
 
+/* Windows/Chromium: keep native subpixel glyph rendering. Forcing
+   -webkit-font-smoothing: antialiased here makes 12–14px Chinese text soft. */
+body {
+  -webkit-font-smoothing: auto;
+  -moz-osx-font-smoothing: auto;
+  text-rendering: auto;
+}
+
 :root {
   /* Control hierarchy: small / control / card / panel / modal / pill */
   --ui-radius-xs: 8px;
@@ -174,7 +182,7 @@ textarea:focus-visible {
 }
 
 .side-nav-more {
-  animation: ui-dropdown-in 190ms var(--ui-ease) both;
+  animation: ui-dropdown-in 190ms var(--ui-ease) backwards;
   transform-origin: top center;
 }
 
@@ -346,7 +354,7 @@ textarea:focus-visible {
 .modal {
   overflow: clip;
   box-shadow: var(--ui-shadow-modal);
-  animation: ui-modal-in 240ms var(--ui-ease) both;
+  animation: ui-modal-in 240ms var(--ui-ease) backwards;
 }
 
 .modal-head,
@@ -376,11 +384,9 @@ textarea:focus-visible {
 
 .view.is-route-enter > .page,
 .view.is-route-enter > .workspace {
-  animation: ui-page-in 270ms var(--ui-ease) both;
-}
-
-.view.is-route-enter > .page {
-  will-change: opacity, transform;
+  /* backwards (not both): once the 270ms entry ends, no transform is left
+     behind, so text does not stay on a composited, slightly soft layer. */
+  animation: ui-page-in 270ms var(--ui-ease) backwards;
 }
 
 /* ---------- Toast ---------- */
@@ -388,7 +394,7 @@ textarea:focus-visible {
 .toast {
   border-radius: var(--ui-radius-control);
   box-shadow: 0 10px 28px rgba(48, 51, 47, 0.14);
-  animation: ui-toast-in 190ms var(--ui-ease) both;
+  animation: ui-toast-in 190ms var(--ui-ease) backwards;
 }
 
 /* ---------- Keyframes ---------- */
