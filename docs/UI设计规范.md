@@ -36,13 +36,15 @@
 
 ## 3. 字体
 
-- 正文：Source Han Sans SC / Noto Sans SC / Microsoft YaHei，14px，行高 1.58；
-- 页面主标题：Noto Serif SC / Source Han Serif SC / Songti SC，24—30px；
-- 工作区标题：16—20px；
-- 列表标题：13px / 600；
-- 辅助文字：12px；
-- 微型标签：10—11px，只用于非关键信息；
-- 不加载外部字体。
+- 正文：Source Han Sans SC / Noto Sans SC / Microsoft YaHei，14px，行高 1.65；
+- 页面主标题：Noto Serif SC / Source Han Serif SC / Songti SC，27—31px；
+- 工作区标题：20—22px；
+- 列表标题：14px / 600；
+- 辅助文字：12px（工作型列表中不低于 11.5px）；
+- 微型标签：10.5—11px，只用于非关键信息；
+- 文档正文：13—13.5px，行高 1.8；
+- 不加载外部字体；
+- 不做强制 `font-smoothing: antialiased`；避免动画结束后残留 transform/will-change 造成文字发虚。
 
 ## 4. 布局体系
 
@@ -50,11 +52,12 @@
 |---|---|
 | 侧栏 | 260px；≤960px 抽屉 |
 | 顶栏 | 56px，只放全局操作 |
-| 页面最大宽度 | 1360—1600px，按信息密度调整 |
-| 页面内边距 | `clamp(20px, 3vw, 40px)` |
-| 双栏工作区 | 主栏 + 280—320px 辅助栏 |
-| 三栏工作区 | 280—300px + 自适应主栏 + 280—300px |
+| 页面最大宽度 | 1240px（≥1600px 屏 1280px）；所有主页面统一 |
+| 页面内边距 | `clamp(24px, 3.2vw, 46px)`，顶部 34px |
+| 双栏工作区 | 主栏 + 300—320px 辅助栏 |
+| 三栏工作区 | 214—224px 文档目录 + 自适应主栏 + 320—328px 辅助面板 |
 | 页面区块间距 | 22—28px |
+| 页面头部 | 统一 `page-head / work-context-head / work-home-head` 的底部边框、18px 内边距、28px 间距 |
 | 表格 | 横向滚动，不压缩列 |
 | 卡片 | 只在独立分组、状态区分或交互时需要 |
 

@@ -10,6 +10,8 @@
 
 > UI 圆润化 · 2026-11-18：统一 8/10/14/16/20/999 圆角层级、150–270ms 动效系统、柔和阴影与 reduced-motion；不改变导航、业务逻辑、数据结构或导出流程。详见 [圆润化与动效优化报告](docs/圆润化与动效优化报告.md)。
 
+> 设计语言 · 2026-11-18：统一主页面 1240px 框架、31px/14px/12px 字号层级、文档 13.5px/1.8 阅读行高、搜索与工具栏节奏；保留原业务功能。详见 [设计语言升级报告](docs/设计语言升级报告.md)。
+
 <img src="assets/brand/logo-mark.png" alt="授渔 · 无限回环鱼钩标识" width="180">
 
 > 专业数据库 → 课程知识包 → 10 类教学资源 → 可解释质检 → 教师审核 → 标准导出。
@@ -225,6 +227,7 @@ wrangler deploy
 │  ├─ ui-refresh.css             # 原布局与组件层
 │  ├─ work-theme.css             # 工作型主题：中性色、统一品牌操作色、页面布局
 │  ├─ rounded-motion.css         # 圆角、柔和阴影、hover/focus、页面与弹窗动效、reduced-motion
+│  ├─ design-language.css        # 页面框架、字号层级、工作区阅读与质量面板密度
 │  └─ vendor/                    # 按需加载的本地解析/导出依赖（约 4MB）
 │     ├─ mammoth/                # DOCX
 │     ├─ pdfjs/                  # PDF + worker + cmaps

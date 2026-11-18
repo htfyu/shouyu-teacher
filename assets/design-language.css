@@ -1,0 +1,822 @@
+/* ==========================================================
+   授渔 · 设计语言层
+   Craft (warm reading surfaces) × Linear (clear hierarchy)
+   × Raycast (compact search) × Framer (quiet motion)
+
+   Loaded after all previous layers. CSS-only: no business logic,
+   route, data or export changes.
+   ========================================================== */
+
+:root {
+  /* Page frame: one reading width for every workspace. */
+  --ds-page-max: 1240px;
+  --ds-page-pad: clamp(24px, 3.2vw, 46px);
+  --ds-page-top: 34px;
+  --ds-page-bottom: 58px;
+
+  /* Type scale: 12 is the floor for supporting copy. */
+  --ds-text-xs: 12px;
+  --ds-text-sm: 13px;
+  --ds-text-base: 14px;
+  --ds-text-md: 15px;
+  --ds-text-lg: 18px;
+  --ds-title-size: clamp(27px, 2.2vw, 31px);
+
+  /* Surface hierarchy: canvas → warm panel → paper. */
+  --ds-canvas: #f7f6f1;
+  --ds-surface: #fbfaf7;
+  --ds-surface-2: #f4f2ec;
+  --ds-paper: #ffffff;
+  --ds-line: #e8e5de;
+  --ds-line-soft: #efede7;
+  --ds-line-strong: #dad6cc;
+  --ds-ink: #2f332e;
+  --ds-muted: #6d716c;
+  --ds-muted-2: #8b8f89;
+}
+
+body {
+  color: var(--ds-ink);
+  font-size: var(--ds-text-base);
+  line-height: 1.65;
+  letter-spacing: 0;
+}
+
+/* ---------- Page frame ---------- */
+
+.view > .page {
+  max-width: var(--ds-page-max);
+  margin-inline: auto;
+  padding: var(--ds-page-top) var(--ds-page-pad) var(--ds-page-bottom);
+}
+
+.work-home,
+.courses-page,
+.course-workspace,
+.studio-page,
+.portfolio-page,
+.quality-page,
+.kb-page,
+.programs-page,
+.files-page,
+.graph-page,
+.templates-page,
+.history-page,
+.settings-page,
+.guide-page,
+.impact-page,
+.demo-page {
+  max-width: var(--ds-page-max);
+}
+
+.studio-landing,
+.studio-wizard-page {
+  max-width: var(--ds-page-max);
+}
+
+/* Consistent title block rhythm across pages. */
+.page-head,
+.work-context-head,
+.work-home-head {
+  gap: 28px;
+  padding-bottom: 18px;
+  border-bottom-color: var(--ds-line);
+}
+
+.page-head {
+  margin-bottom: 2px;
+}
+
+.page-title {
+  color: var(--ds-ink);
+  font-size: var(--ds-title-size);
+  line-height: 1.28;
+  letter-spacing: -0.018em;
+}
+
+.work-home-head .hero-title {
+  color: var(--ds-ink);
+  font-size: clamp(27px, 2.45vw, 33px);
+  line-height: 1.24;
+}
+
+.page-intro,
+.work-home-sub,
+.work-context-path {
+  color: var(--ds-muted);
+  font-size: var(--ds-text-sm);
+  line-height: 1.7;
+}
+
+.work-breadcrumb,
+.work-date,
+.page-kicker,
+.programs-kicker {
+  color: var(--ds-muted);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+}
+
+.page-kicker,
+.programs-kicker {
+  letter-spacing: 0.1em;
+}
+
+/* ---------- Type floor for dense working copy ---------- */
+
+.work-section-head span,
+.work-section-head .btn-link,
+.work-label,
+.work-muted,
+.work-footnote,
+.work-row-main small,
+.work-row-meta,
+.work-row-meta small,
+.courses-count,
+.course-row-main small,
+.course-row-meta small,
+.course-row-meta b,
+.programs-badge,
+.programs-course-category,
+.programs-tags span,
+.programs-mini-tags span,
+.portfolio-tags span,
+.file-row small,
+.kb-row-main small,
+.kb-row-main em,
+.kb-row-meta,
+.quality-issue-row > span,
+.quality-issue-row small,
+.topbar-center {
+  font-size: 12px;
+}
+
+.work-row-main strong,
+.course-row-main strong,
+.kb-row-main strong {
+  color: var(--ds-ink);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.45;
+}
+
+.course-chapter-head p,
+.course-mini-list small,
+.programs-course-card p,
+.programs-dept-card p,
+.programs-group-card p,
+.programs-major-card p,
+.file-row-main small {
+  font-size: 12px;
+  line-height: 1.65;
+}
+
+/* ---------- Navigation and top bar ---------- */
+
+.sidebar {
+  background: var(--ds-surface-2);
+  border-right-color: var(--ds-line);
+}
+
+.brand {
+  height: 66px;
+}
+
+.brand-name {
+  font-size: 18px;
+  letter-spacing: -0.01em;
+}
+
+.brand-sub {
+  color: var(--ds-muted-2);
+  font-size: 9.5px;
+  letter-spacing: 0.04em;
+}
+
+.side-label {
+  color: var(--ds-muted-2);
+  font-size: 9.5px;
+  letter-spacing: 0.09em;
+}
+
+.nav-item {
+  min-height: 36px;
+  border-radius: 11px;
+  color: #50534e;
+  font-size: 13px;
+}
+
+.nav-item.is-active {
+  background: var(--ds-paper);
+  border-color: var(--ds-line);
+  box-shadow: 0 1px 2px rgba(47, 51, 46, 0.035);
+}
+
+.nav-item .nav-count {
+  color: var(--ds-muted-2);
+  font-size: 11px;
+}
+
+.topbar {
+  background: var(--ds-paper);
+  border-bottom-color: var(--ds-line);
+}
+
+.topbar-center {
+  color: var(--ds-muted);
+  font-size: 11.5px;
+}
+
+.topbar-kicker {
+  color: var(--ds-muted-2);
+  font-size: 10px;
+}
+
+.topbar-title {
+  color: var(--ds-ink);
+  font-size: 24px;
+}
+
+/* ---------- Search: compact Raycast-like field ---------- */
+
+.courses-search,
+.programs-search,
+.kb-search,
+.file-search {
+  min-height: 40px;
+  padding-inline: 12px;
+  border: 1px solid var(--ds-line);
+  border-radius: 12px;
+  background: var(--ds-surface);
+  box-shadow: 0 1px 2px rgba(47, 51, 46, 0.025);
+  transition:
+    background-color 160ms var(--ui-ease),
+    border-color 160ms var(--ui-ease),
+    box-shadow 160ms var(--ui-ease);
+}
+
+.courses-search:focus-within,
+.programs-search:focus-within,
+.kb-search:focus-within,
+.file-search:focus-within {
+  background: var(--ds-paper);
+  border-color: var(--brand-line);
+  box-shadow: 0 0 0 3px rgba(74, 95, 82, 0.09);
+}
+
+.courses-search input,
+.programs-search input,
+.kb-search input,
+.file-search input {
+  font-size: 13.5px;
+}
+
+.courses-toolbar {
+  gap: 10px;
+  padding: 14px 0;
+}
+
+.courses-toolbar select {
+  min-height: 40px;
+  border-radius: 12px;
+}
+
+/* ---------- Controls ---------- */
+
+.btn {
+  min-height: 34px;
+  padding-inline: 13px;
+  border-radius: 11px;
+  font-size: 12.5px;
+  font-weight: 550;
+}
+
+.btn-ghost {
+  padding-inline: 10px;
+}
+
+.btn-solid {
+  box-shadow: 0 1px 2px rgba(52, 71, 58, 0.16);
+}
+
+.btn-solid:hover {
+  box-shadow: 0 4px 14px rgba(52, 71, 58, 0.18);
+}
+
+.icon-btn,
+.modal-close {
+  border-radius: 10px;
+}
+
+/* ---------- Surfaces: less border noise, more background hierarchy ---------- */
+
+.work-continue,
+.scene-card,
+.course-chapter,
+.course-project-row,
+.programs-dept-card,
+.programs-group-card,
+.programs-major-card,
+.programs-course-card,
+.programs-summary-card,
+.programs-plan-card,
+.file-row,
+.portfolio-card,
+.quality-report-card,
+.impact-record,
+.kb-row {
+  border-color: var(--ds-line);
+  background: var(--ds-paper);
+}
+
+.work-continue {
+  border-left-color: var(--module-line);
+  background: var(--ds-paper);
+}
+
+.course-chapter {
+  background: transparent;
+}
+
+.course-chapter + .course-chapter {
+  border-top-color: var(--ds-line-soft);
+}
+
+.courses-table {
+  border-top-color: var(--ds-line-soft);
+}
+
+.course-row {
+  border-bottom-color: var(--ds-line-soft);
+}
+
+.course-row:hover {
+  background: var(--ds-surface);
+  box-shadow: inset 0 0 0 1px var(--ds-line);
+}
+
+.programs-tree {
+  background: var(--ds-surface);
+}
+
+.programs-empty,
+.impact-empty {
+  background: var(--ds-surface);
+}
+
+.work-muted,
+.file-row small,
+.programs-empty p {
+  color: var(--ds-muted);
+}
+
+/* ---------- Tabs: quiet, clear, one selected signal ---------- */
+
+.course-tabs {
+  gap: 4px;
+  border-bottom-color: var(--ds-line);
+}
+
+.course-tabs button {
+  padding: 10px 13px;
+  color: var(--ds-muted);
+  font-size: 12.5px;
+}
+
+.course-tabs button:hover {
+  color: var(--ds-ink);
+  background: var(--ds-surface);
+}
+
+.course-tabs button.is-active {
+  color: var(--ds-ink);
+  border-bottom-color: var(--module);
+  font-weight: 600;
+}
+
+/* ---------- Document workspace: reading comfort ---------- */
+
+.studio-project {
+  border-color: var(--ds-line);
+  background: var(--ds-paper);
+}
+
+.studio-project-head {
+  padding: 18px 20px 14px;
+  border-bottom-color: var(--ds-line);
+}
+
+.studio-project-head h2 {
+  font-size: 22px;
+  line-height: 1.4;
+}
+
+.studio-project-head p {
+  color: var(--ds-muted);
+  font-size: 12px;
+}
+
+.studio-project-save {
+  font-size: 11.5px;
+}
+
+.studio-project-save small {
+  font-size: 10.5px;
+}
+
+.studio-project-toolbar {
+  padding: 9px 16px;
+  border-bottom-color: var(--ds-line);
+  background: var(--ds-surface);
+}
+
+.studio-doc-workspace {
+  grid-template-columns: 214px minmax(0, 1fr) 320px;
+  min-height: 640px;
+}
+
+/* Three small quality boxes do not fit a 320px side panel at readable sizes.
+   A/B stay side by side; the teacher-expert status gets its own row. */
+.studio-project .studio-quality-layers {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.studio-project .studio-quality-layers > div:nth-child(3) {
+  grid-column: 1 / -1;
+}
+
+.studio-project .studio-quality-layers span {
+  font-size: 10.5px;
+  line-height: 1.4;
+}
+
+.studio-project .studio-quality-layers small {
+  font-size: 9.5px;
+  line-height: 1.5;
+}
+
+.studio-doc-tree {
+  padding: 12px 10px;
+  border-right-color: var(--ds-line);
+  background: var(--ds-surface);
+}
+
+.studio-doc-tree-head {
+  padding: 4px 8px 9px;
+  font-size: 11px;
+}
+
+.studio-doc-tree-group > span {
+  padding: 5px 8px;
+  color: var(--ds-muted-2);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+}
+
+.studio-doc-tree .studio-doc-tab {
+  min-height: 31px;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.studio-doc-tree .studio-doc-tab.is-active {
+  border-color: var(--ds-line);
+  background: var(--ds-paper);
+}
+
+.studio-doc-main {
+  padding: 20px 22px;
+  background: var(--ds-paper);
+}
+
+.studio-doc-main-head {
+  border-bottom-color: var(--ds-line);
+}
+
+.studio-doc-main-head > div:first-child > span {
+  color: var(--module-ink);
+  font-size: 11.5px;
+}
+
+.studio-doc-main-head h3 {
+  font-size: 21px;
+  line-height: 1.4;
+}
+
+.studio-doc-body .studio-doc-section {
+  padding: 14px 0;
+  border-bottom-color: var(--ds-line-soft);
+}
+
+.studio-doc-body .studio-doc-section h4 {
+  margin-bottom: 7px;
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.studio-doc-body .doc-paragraph,
+.studio-doc-body .doc-list,
+.studio-doc-body p,
+.studio-doc-body li {
+  color: #3c403b;
+  font-size: 13.5px;
+  line-height: 1.8;
+}
+
+.studio-doc-body table {
+  font-size: 12.5px;
+  line-height: 1.65;
+}
+
+.studio-doc-body th,
+.studio-doc-body td {
+  padding: 7px 9px;
+  border-color: var(--ds-line-soft);
+}
+
+.studio-doc-body th {
+  color: var(--ds-muted);
+  font-weight: 600;
+  background: var(--ds-surface);
+}
+
+.studio-context-panel {
+  border-left-color: var(--ds-line);
+  background: var(--ds-paper);
+}
+
+.studio-panel-tabs button,
+.studio-doc-tabs button {
+  font-size: 11.5px;
+}
+
+.studio-project-panel-head h3 {
+  font-size: 12px;
+}
+
+.studio-project-panel-head span {
+  font-size: 10.5px;
+}
+
+.studio-project .studio-score strong {
+  font-size: 32px;
+}
+
+.studio-project .studio-score span,
+.studio-project .studio-score small {
+  font-size: 10.5px;
+}
+
+.studio-project .studio-quality-bar {
+  font-size: 10.5px;
+  line-height: 1.55;
+}
+
+.studio-project .studio-quality-bar small {
+  font-size: 10.5px;
+}
+
+.studio-project .studio-quality-metrics {
+  gap: 5px 12px;
+  color: var(--ds-muted);
+  font-size: 10.5px;
+  line-height: 1.5;
+}
+
+.studio-project .studio-quality-metrics b {
+  font-size: 10.5px;
+}
+
+.studio-doc-meta {
+  color: var(--ds-muted);
+  font-size: 11px;
+  line-height: 1.6;
+}
+
+.studio-doc-main-actions {
+  font-size: 11px;
+}
+
+.studio-panel-tabs button {
+  font-size: 11.5px;
+}
+
+.studio-project .studio-quality-layers > div {
+  font-size: 10.5px;
+  line-height: 1.5;
+}
+
+.studio-project .studio-quality-layers b {
+  font-size: 11.5px;
+}
+
+.studio-project-issue > span {
+  font-size: 10.5px;
+}
+
+.studio-project-issue strong {
+  font-size: 11.5px;
+  line-height: 1.5;
+}
+
+.studio-project-issue small {
+  font-size: 10.5px;
+}
+
+.studio-project .studio-quality-issue > span {
+  font-size: 10.5px;
+}
+
+.studio-project .studio-quality-issue strong {
+  font-size: 11.5px;
+}
+
+.studio-project .studio-quality-issue p {
+  font-size: 10.5px;
+  line-height: 1.6;
+}
+
+.studio-project-props span {
+  font-size: 10.5px;
+}
+
+.studio-project-props b {
+  font-size: 11.5px;
+  line-height: 1.6;
+}
+
+.studio-project-footer {
+  padding: 10px 16px;
+  font-size: 10.5px;
+}
+
+.studio-issue-detail strong {
+  font-size: 11.5px;
+}
+
+.studio-issue-detail p,
+.studio-issue-detail > small {
+  font-size: 10.5px;
+  line-height: 1.6;
+}
+
+/* Quality review: the preview is for reading, not a thumbnail. */
+.quality-document-head h2 {
+  font-size: 20px;
+  line-height: 1.4;
+}
+
+.quality-document-head > span,
+.quality-document-meta {
+  font-size: 10.5px;
+}
+
+.quality-document .doc-paragraph,
+.quality-document .doc-list,
+.quality-document p,
+.quality-document li {
+  color: #3c403b;
+  font-size: 13px;
+  line-height: 1.8;
+}
+
+.quality-document table {
+  font-size: 12px;
+  line-height: 1.65;
+}
+
+.quality-document th,
+.quality-document td {
+  border-color: var(--ds-line-soft);
+}
+
+.quality-issue-row > span {
+  font-size: 10.5px;
+}
+
+.quality-issue-row strong {
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+
+.quality-issue-row small {
+  font-size: 10.5px;
+}
+
+.quality-issue-facts dt {
+  font-size: 10.5px;
+}
+
+.quality-issue-facts dd {
+  font-size: 12px;
+}
+
+.quality-doc-tabs button {
+  font-size: 11px;
+}
+
+/* Editor reading surface. */
+.modal.is-editor .editor-preview-section .doc-paragraph,
+.modal.is-editor .editor-preview-section .doc-list,
+.modal.is-editor .doc-body p,
+.modal.is-editor .doc-body li {
+  color: #3c403b;
+  font-size: 13.5px;
+  line-height: 1.8;
+}
+
+.modal.is-editor .doc-body table {
+  font-size: 12.5px;
+}
+
+/* ---------- Forms and modal content ---------- */
+
+.modal {
+  background: var(--ds-paper);
+}
+
+.modal-head {
+  padding: 20px 22px 16px;
+}
+
+.modal-body {
+  padding: 20px 22px;
+}
+
+.modal-foot {
+  padding: 14px 22px;
+  border-top-color: var(--ds-line);
+}
+
+.modal-sub {
+  font-size: 12.5px;
+  line-height: 1.65;
+}
+
+.form-grid label,
+.studio-field span,
+.quality-review-list span {
+  font-size: 12px;
+}
+
+input,
+select,
+textarea {
+  font-size: 13.5px;
+}
+
+/* ---------- Wide-screen reading measure ---------- */
+
+@media (min-width: 1600px) {
+  :root {
+    --ds-page-max: 1280px;
+  }
+
+  .studio-doc-workspace {
+    grid-template-columns: 224px minmax(0, 1fr) 328px;
+  }
+}
+
+/* ---------- Keep compact on smaller desktops ---------- */
+
+@media (max-width: 1280px) {
+  :root {
+    --ds-page-pad: 28px;
+    --ds-page-top: 28px;
+  }
+
+  .studio-doc-workspace {
+    grid-template-columns: 198px minmax(0, 1fr);
+  }
+
+  .studio-context-panel {
+    grid-column: 1 / -1;
+    border-left: 0;
+    border-top: 1px solid var(--ds-line);
+  }
+}
+
+@media (max-width: 900px) {
+  :root {
+    --ds-page-pad: 20px;
+    --ds-page-top: 22px;
+  }
+
+  .page-title,
+  .work-home-head .hero-title {
+    font-size: 26px;
+  }
+
+  .studio-doc-workspace {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .studio-doc-tree {
+    border-right: 0;
+    border-bottom: 1px solid var(--ds-line);
+  }
+
+  .studio-doc-main {
+    padding: 16px 14px;
+  }
+}
