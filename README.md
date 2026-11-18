@@ -8,6 +8,8 @@
 
 > V3 信息架构 · 2026-11-17：四个一级区域（工作台、我的课程、备课工作室、我的成果）、课程工作空间、统一备课项目、项目内嵌质量检测、持久化课程/项目上下文。
 
+> UI 圆润化 · 2026-11-18：统一 8/10/14/16/20/999 圆角层级、150–270ms 动效系统、柔和阴影与 reduced-motion；不改变导航、业务逻辑、数据结构或导出流程。详见 [圆润化与动效优化报告](docs/圆润化与动效优化报告.md)。
+
 <img src="assets/brand/logo-mark.png" alt="授渔 · 无限回环鱼钩标识" width="180">
 
 > 专业数据库 → 课程知识包 → 10 类教学资源 → 可解释质检 → 教师审核 → 标准导出。
@@ -222,6 +224,7 @@ wrangler deploy
 │  ├─ styles.css                 # 原有基础样式与业务组件
 │  ├─ ui-refresh.css             # 原布局与组件层
 │  ├─ work-theme.css             # 工作型主题：中性色、统一品牌操作色、页面布局
+│  ├─ rounded-motion.css         # 圆角、柔和阴影、hover/focus、页面与弹窗动效、reduced-motion
 │  └─ vendor/                    # 按需加载的本地解析/导出依赖（约 4MB）
 │     ├─ mammoth/                # DOCX
 │     ├─ pdfjs/                  # PDF + worker + cmaps

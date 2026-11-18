@@ -1,0 +1,522 @@
+/* ==========================================================
+   授渔 · 圆润度与丝滑动效层
+   Loaded after work-theme.css. Visual-only:
+   - unified radii / soft shadows
+   - hover, press, focus and focus-ring feedback
+   - route transition, modal enter/leave, dropdown enter
+   - reduced-motion support
+
+   Business layout, navigation, data and export flows are untouched.
+   ========================================================== */
+
+:root {
+  /* Control hierarchy: small / control / card / panel / modal / pill */
+  --ui-radius-xs: 8px;
+  --ui-radius-control: 10px;
+  --ui-radius-card: 14px;
+  --ui-radius-panel: 16px;
+  --ui-radius-modal: 20px;
+  --ui-radius-pill: 999px;
+
+  /* Keep existing component variables in sync with the new language. */
+  --radius-xs: var(--ui-radius-xs);
+  --radius-sm: var(--ui-radius-control);
+  --radius-md: var(--ui-radius-card);
+  --radius-lg: var(--ui-radius-panel);
+
+  --ui-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --ui-ease-soft: cubic-bezier(0.33, 1, 0.68, 1);
+  --ui-fast: 150ms;
+  --ui-base: 200ms;
+  --ui-slow: 280ms;
+
+  --ui-shadow-1: 0 1px 2px rgba(48, 51, 47, 0.04), 0 2px 8px rgba(48, 51, 47, 0.035);
+  --ui-shadow-2: 0 10px 28px rgba(48, 51, 47, 0.075), 0 2px 6px rgba(48, 51, 47, 0.035);
+  --ui-shadow-modal: 0 28px 76px rgba(48, 51, 47, 0.16), 0 6px 18px rgba(48, 51, 47, 0.07);
+  --ui-ring: 0 0 0 3px rgba(74, 95, 82, 0.12);
+  --ui-ring-danger: 0 0 0 3px rgba(163, 61, 50, 0.12);
+}
+
+/* ---------- Shared controls ---------- */
+
+.btn,
+.icon-btn,
+.modal-close,
+.mobile-menu,
+.nav-item,
+.nav-more-toggle,
+.courses-search,
+.programs-search,
+input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+select,
+textarea {
+  border-radius: var(--ui-radius-control);
+}
+
+.btn,
+.icon-btn,
+.modal-close,
+.nav-item,
+.nav-more-toggle {
+  transition:
+    background-color var(--ui-fast) var(--ui-ease),
+    border-color var(--ui-fast) var(--ui-ease),
+    color var(--ui-fast) var(--ui-ease),
+    box-shadow var(--ui-fast) var(--ui-ease),
+    transform var(--ui-fast) var(--ui-ease);
+}
+
+.btn {
+  box-shadow: 0 0 0 rgba(48, 51, 47, 0);
+}
+
+.btn:hover {
+  box-shadow: var(--ui-shadow-1);
+}
+
+.btn:active {
+  transform: translateY(0) scale(0.985);
+  transition-duration: 80ms;
+}
+
+.btn:disabled,
+.btn[disabled] {
+  opacity: 0.52;
+  box-shadow: none;
+  transform: none;
+  filter: saturate(0.72);
+}
+
+.btn-solid:hover {
+  box-shadow: 0 4px 14px rgba(74, 95, 82, 0.18);
+}
+
+.btn-ghost:hover {
+  box-shadow: none;
+}
+
+.icon-btn,
+.modal-close,
+.mobile-menu {
+  transition:
+    background-color var(--ui-fast) var(--ui-ease),
+    border-color var(--ui-fast) var(--ui-ease),
+    color var(--ui-fast) var(--ui-ease),
+    transform var(--ui-fast) var(--ui-ease);
+}
+
+.icon-btn:active,
+.modal-close:active,
+.mobile-menu:active {
+  transform: scale(0.94);
+}
+
+/* Inputs: gentle border and a soft focus ring, never a hard black outline. */
+input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+select,
+textarea,
+.courses-search,
+.programs-search {
+  transition:
+    border-color var(--ui-fast) var(--ui-ease),
+    box-shadow var(--ui-fast) var(--ui-ease),
+    background-color var(--ui-fast) var(--ui-ease);
+}
+
+input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):focus,
+select:focus,
+textarea:focus,
+.courses-search:focus-within,
+.programs-search:focus-within {
+  border-color: var(--brand);
+  box-shadow: var(--ui-ring);
+}
+
+input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: none;
+}
+
+.courses-search input:focus,
+.programs-search input:focus {
+  box-shadow: none !important;
+}
+
+/* Search wrappers should look like one soft field. */
+.courses-search,
+.programs-search {
+  overflow: hidden;
+}
+
+/* ---------- Navigation ---------- */
+
+.nav-item {
+  min-height: 36px;
+  margin: 1px 0;
+}
+
+.nav-item:hover {
+  transform: translateX(1px);
+}
+
+.nav-item.is-active {
+  box-shadow: 0 1px 5px rgba(48, 51, 47, 0.045);
+}
+
+.nav-item.is-active::before {
+  border-radius: 999px;
+}
+
+.nav-more-toggle {
+  min-height: 34px;
+  margin-top: 2px;
+}
+
+.side-nav-more {
+  animation: ui-dropdown-in 190ms var(--ui-ease) both;
+  transform-origin: top center;
+}
+
+.recent-item {
+  border-radius: var(--ui-radius-control);
+  transition: background-color var(--ui-fast) var(--ui-ease), border-color var(--ui-fast) var(--ui-ease);
+}
+
+.work-row,
+.course-mini-list button,
+.work-home-side button:not(.btn):not(.btn-link),
+.course-tabs button {
+  border-radius: var(--ui-radius-control);
+  transition:
+    background-color var(--ui-fast) var(--ui-ease),
+    color var(--ui-fast) var(--ui-ease),
+    border-color var(--ui-fast) var(--ui-ease);
+}
+
+.course-tabs button {
+  border-radius: var(--ui-radius-xs) var(--ui-radius-xs) 0 0;
+}
+
+.work-row:hover,
+.course-mini-list button:hover,
+.work-home-side button:not(.btn):not(.btn-link):hover {
+  background: var(--hover);
+}
+
+/* ---------- Cards and surfaces ---------- */
+
+.scene-card,
+.work-continue,
+.course-chapter,
+.course-kp,
+.course-project-row,
+.courses-table,
+.programs-dept-card,
+.programs-group-card,
+.programs-major-card,
+.programs-course-card,
+.programs-summary-card,
+.programs-plan-card,
+.programs-source,
+.file-row,
+.file-upload,
+.file-library,
+.portfolio-card,
+.quality-report-card,
+.quality-issue-row,
+.impact-panel,
+.impact-record,
+.kb-row,
+.studio-project,
+.studio-doc-workspace,
+.studio-doc-tree,
+.studio-doc-main,
+.studio-context-panel,
+.studio-landing-course,
+.review-check {
+  border-radius: var(--ui-radius-card);
+}
+
+.studio-project,
+.studio-doc-workspace,
+.studio-doc-main,
+.studio-context-panel,
+.file-library,
+.quality-report-card,
+.portfolio-card,
+.impact-panel,
+.programs-summary-card,
+.programs-plan-card {
+  border-radius: var(--ui-radius-panel);
+}
+
+.modal {
+  border-radius: var(--ui-radius-modal);
+}
+
+.scene-card,
+.work-continue,
+.programs-dept-card,
+.programs-group-card,
+.programs-major-card,
+.programs-course-card,
+.programs-plan-card,
+.file-row,
+.portfolio-card,
+.quality-report-card,
+.quality-issue-row,
+.impact-record,
+.kb-row,
+.course-project-row {
+  transition:
+    background-color var(--ui-base) var(--ui-ease),
+    border-color var(--ui-base) var(--ui-ease),
+    box-shadow var(--ui-base) var(--ui-ease),
+    transform var(--ui-base) var(--ui-ease);
+}
+
+/* Hover lift only on real pointers; avoids sticky hover on touch. */
+@media (hover: hover) and (pointer: fine) {
+  .scene-card:hover,
+  .work-continue:hover,
+  .programs-dept-card:hover,
+  .programs-group-card:hover,
+  .programs-major-card:hover,
+  .programs-course-card:hover,
+  .programs-plan-card:hover,
+  .file-row:hover,
+  .portfolio-card:hover,
+  .quality-report-card:hover,
+  .impact-record:hover,
+  .kb-row:hover,
+  .course-project-row:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--ui-shadow-2);
+    border-color: var(--line-strong);
+  }
+
+  .quality-issue-row:hover {
+    transform: translateX(1px);
+  }
+}
+
+.course-row {
+  border-radius: var(--ui-radius-control);
+  transition: background-color var(--ui-fast) var(--ui-ease), box-shadow var(--ui-fast) var(--ui-ease);
+}
+
+.course-row:hover {
+  box-shadow: inset 0 0 0 1px var(--line);
+}
+
+/* Tables keep their data grid; only the outer shell is softened. */
+.courses-table,
+.quality-table,
+.programs-source {
+  overflow: clip;
+}
+
+/* ---------- Pills, tags and status ---------- */
+
+.programs-badge,
+.programs-course-category,
+.programs-tags span,
+.programs-mini-tags span,
+.portfolio-tags span,
+.nav-count,
+.status-dot,
+.scene-dot {
+  border-radius: var(--ui-radius-pill);
+}
+
+.programs-badge,
+.programs-course-category,
+.portfolio-tags span {
+  padding-inline: 8px;
+}
+
+/* ---------- Modal and overlay ---------- */
+
+.modal-backdrop {
+  background: rgba(48, 51, 47, 0.30);
+  animation: ui-backdrop-in 180ms var(--ui-ease) both;
+}
+
+.modal {
+  overflow: clip;
+  box-shadow: var(--ui-shadow-modal);
+  animation: ui-modal-in 240ms var(--ui-ease) both;
+}
+
+.modal-head,
+.modal-foot {
+  border-color: var(--line);
+}
+
+.modal-close {
+  border-radius: var(--ui-radius-control);
+}
+
+.editor-preview-section.is-selected {
+  border-top-color: var(--brand-line);
+  box-shadow: 0 0 0 3px var(--brand-soft);
+}
+
+.modal-backdrop.is-closing {
+  pointer-events: none;
+  animation: ui-backdrop-out 160ms var(--ui-ease) both;
+}
+
+.modal-backdrop.is-closing .modal {
+  animation: ui-modal-out 160ms var(--ui-ease) both;
+}
+
+/* ---------- Page transition ---------- */
+
+.view.is-route-enter > .page,
+.view.is-route-enter > .workspace {
+  animation: ui-page-in 270ms var(--ui-ease) both;
+}
+
+.view.is-route-enter > .page {
+  will-change: opacity, transform;
+}
+
+/* ---------- Toast ---------- */
+
+.toast {
+  border-radius: var(--ui-radius-control);
+  box-shadow: 0 10px 28px rgba(48, 51, 47, 0.14);
+  animation: ui-toast-in 190ms var(--ui-ease) both;
+}
+
+/* ---------- Keyframes ---------- */
+
+@keyframes ui-page-in {
+  from {
+    opacity: 0;
+    transform: translateY(7px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes ui-backdrop-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes ui-backdrop-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+@keyframes ui-modal-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.988);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes ui-modal-out {
+  from {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(6px) scale(0.99);
+  }
+}
+
+@keyframes ui-dropdown-in {
+  from {
+    opacity: 0;
+    transform: translateY(-3px) scaleY(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scaleY(1);
+  }
+}
+
+@keyframes ui-toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(5px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Existing spinner/indeterminate states inherit a calm rhythm. */
+[aria-busy="true"] .status-dot,
+.status-dot.is-running {
+  animation: ui-breathe 1.6s var(--ui-ease-soft) infinite;
+}
+
+@keyframes ui-breathe {
+  0%, 100% { opacity: 0.65; }
+  50% { opacity: 1; }
+}
+
+/* ---------- Reduced motion ---------- */
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  .btn:hover,
+  .nav-item:hover,
+  .scene-card:hover,
+  .work-continue:hover,
+  .programs-dept-card:hover,
+  .programs-group-card:hover,
+  .programs-major-card:hover,
+  .programs-course-card:hover,
+  .programs-plan-card:hover,
+  .file-row:hover,
+  .portfolio-card:hover,
+  .quality-report-card:hover,
+  .impact-record:hover,
+  .kb-row:hover,
+  .course-project-row:hover {
+    transform: none;
+  }
+
+  .view.is-route-enter > .page,
+  .view.is-route-enter > .workspace {
+    will-change: auto;
+  }
+}
+
+/* ---------- Small screens: preserve usable full-height modals ---------- */
+
+@media (max-width: 720px) {
+  .modal {
+    border-radius: var(--ui-radius-panel);
+  }
+
+  .modal.is-editor {
+    border-radius: 0;
+  }
+}

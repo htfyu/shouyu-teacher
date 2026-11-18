@@ -905,6 +905,7 @@ const sidebarEl = document.getElementById("sidebar");
 const topbarEl = document.getElementById("topbar");
 const viewEl = document.getElementById("view");
 const overlayEl = document.getElementById("overlay-root");
+let modalCloseTimer = 0;
 const toastRoot = document.getElementById("toast-root");
 
 /* ==========================================================
@@ -1218,10 +1219,14 @@ function renderTopbar(activeConv) {
 
 function renderView(activeConv, options, previousChatScroll, previousViewScroll) {
   const route = state.route;
+  const routeKey = `${route.name}:${route.id || ""}`;
+  const routeChanged = viewEl.dataset.routeKey !== routeKey;
   viewEl.removeAttribute("class");
   viewEl.className = "view";
   if (route.name === "chat" && activeConv) {
     viewEl.innerHTML = renderChatView(activeConv);
+    viewEl.dataset.routeKey = routeKey;
+    if (routeChanged) viewEl.classList.add("is-route-enter");
     const workspace = viewEl.querySelector(".workspace");
     if (workspace) workspace.classList.toggle("rail-open", state.railOpen);
     requestAnimationFrame(() => {
@@ -1283,6 +1288,8 @@ function renderView(activeConv, options, previousChatScroll, previousViewScroll)
             : route.name === "guide"
               ? renderGuidePage()
               : renderHomePage();
+  viewEl.dataset.routeKey = routeKey;
+  if (routeChanged) viewEl.classList.add("is-route-enter");
   viewEl.scrollTop = options.preserveScroll ? previousViewScroll || 0 : 0;
   state.pendingScroll = "auto";
   if (route.name === "settings") requestAnimationFrame(refreshStorageUsage);
@@ -7030,6 +7037,10 @@ async function deleteFileRecord(recordId) {
    ========================================================== */
 
 function openModal(config) {
+  if (modalCloseTimer) {
+    window.clearTimeout(modalCloseTimer);
+    modalCloseTimer = 0;
+  }
   state.lastFocused = document.activeElement;
   state.modal = config;
   renderModal();
@@ -7057,9 +7068,10 @@ function closeModal() {
   }
   if (state.consentCallback) state.consentCallback = null;
   const wasEditor = state.modal.kind === "editor";
+  const closingBackdrop = overlayEl.querySelector(".modal-backdrop");
+  const reduceMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
   state.modal = null;
   if (wasEditor) state.editor = null;
-  overlayEl.innerHTML = "";
   document.body.classList.remove("modal-open");
   if (wasEditor) setTimeout(() => { if (!state.modal) renderApp({ preserveScroll: true }); }, 0);
   if (state.lastFocused?.isConnected) {
@@ -7070,6 +7082,17 @@ function closeModal() {
     }
   }
   state.lastFocused = null;
+  if (closingBackdrop && !reduceMotion) {
+    closingBackdrop.classList.add("is-closing");
+    const timer = window.setTimeout(() => {
+      if (modalCloseTimer !== timer) return;
+      modalCloseTimer = 0;
+      if (!state.modal) overlayEl.innerHTML = "";
+    }, 180);
+    modalCloseTimer = timer;
+  } else {
+    overlayEl.innerHTML = "";
+  }
 }
 
 function renderModal() {
