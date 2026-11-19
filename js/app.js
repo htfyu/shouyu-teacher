@@ -10350,6 +10350,13 @@ document.addEventListener("keydown", (event) => {
   }
   if (state.modal || target.matches("input, textarea, select") || target.isContentEditable) return;
   if (event.key === "/") {
+    const search = document.querySelector("[data-role='course-search'], [data-role='kb-search'], [data-role='program-search']");
+    if (search) {
+      event.preventDefault();
+      search.focus();
+      search.select?.();
+      return;
+    }
     const input = document.querySelector("[data-role='composer-input']");
     if (input) {
       event.preventDefault();

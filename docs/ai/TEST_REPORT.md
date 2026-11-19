@@ -158,6 +158,7 @@ findings 0
 | 更多功能分组 | 通过 |
 | 搜索、筛选、课程行点击 | 通过 |
 | 质量页问题选中、状态章宽度 | 通过 |
+| `/` 聚焦课程/知识库/专业库搜索 | 通过 |
 | 备课生成、编辑器、质检、导出入口 | E2E 覆盖通过 |
 | 控制台错误 | 0（本轮检查页面） |
 
@@ -166,14 +167,15 @@ findings 0
 新增 `tests/backup.e2e.mjs`，真实执行：
 
 1. 通过 UI 新建一条授课记录；
-2. 导出完整备份，读取 JSON，确认 `teaching.records` 存在；
-3. 删除本机数据，确认记录消失；
-4. 导入同一备份并确认恢复，记录重新出现。
+2. 生成一个真实备课项目；
+3. 导出完整备份，读取 JSON，确认 `teaching.records` 和 `studio.bundles` 存在；
+4. 删除本机数据，确认记录与项目消失；
+5. 导入同一备份，确认授课记录和备课项目重新出现。
 
 结果：
 
 ```text
-{"ok":true,"backupBytes":2543,"teachingRecords":1,"errors":[]}
+{"ok":true,"backupBytes":133481,"teachingRecords":1,"projects":1,"errors":[]}
 ```
 
 命令：

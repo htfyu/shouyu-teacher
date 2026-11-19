@@ -44,10 +44,12 @@
 - 质量页：10px/9px 功能文字、7.5px 反思标签、对比度不足的步骤序号。
 - 工作室：文档目录/上下文面板嵌套卡片与 1px 侧边分隔、问题详情嵌套卡片。
 - 授课记录：章节按任务 `chapterId` 归档，避免章节与任务错配。
+- 键盘：`/` 可直接聚焦当前页搜索（课程 / 知识库 / 专业库）。
+- 文档：新增 `docs/ai/CSS_AUDIT.md`。
 
 ### 验证
 
-- 完整备份：`ok: true`，备份 2543 bytes，授课记录恢复成功。
+- 完整备份：`ok: true`，备份 133481 bytes；授课记录与备课项目均恢复成功。
 - studio detector：exit 0，0 primary findings。
 - quality detector：exit 0，0 findings。
 - 单元 99 / E2E 75 / 文件 18。

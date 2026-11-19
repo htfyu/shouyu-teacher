@@ -36,7 +36,18 @@ try {
   await page.waitForTimeout(500);
   assert.equal(await page.locator(".teaching-record").count(), 1, "teaching record was not created");
 
-  // 2. Export a real full backup and inspect the payload.
+  // 2. A real preparation project, so the backup also covers studio bundles.
+  await page.locator('.work-context-actions [data-action="course-start-prep"]').click();
+  await page.waitForTimeout(250);
+  await page.locator('[data-action="studio-wizard-next"]').click();
+  await page.waitForTimeout(180);
+  await page.locator('[data-action="studio-wizard-next"]').click();
+  await page.waitForTimeout(180);
+  await page.locator('[data-action="studio-wizard-generate"]').click();
+  await page.waitForTimeout(2200);
+  assert.equal(await page.locator(".studio-project").count(), 1, "preparation project was not created");
+
+  // 3. Export a real full backup and inspect the payload.
   await page.goto(`${BASE}#/settings`, { waitUntil: "networkidle" });
   await page.waitForTimeout(300);
   const downloadPromise = page.waitForEvent("download", { timeout: 15000 });
@@ -48,12 +59,16 @@ try {
   assert.equal(payload.teaching?.records?.length, 1, "backup did not include teaching records");
   assert.equal(payload.teaching.records[0].className, "24网络1班");
   assert.match(payload.teaching.records[0].summary, /备份恢复测试/);
+  assert.ok(payload.studio?.bundles?.length >= 1, "backup did not include preparation project");
 
-  // 3. Clear local data, then confirm the teaching record is gone.
+  // 4. Clear local data, then confirm records and projects are gone.
   await page.locator('[data-action="clear-local-data"]').click();
   await page.waitForTimeout(250);
   await page.locator('[data-action="confirm-clear-data"]').click();
   await page.waitForTimeout(1200);
+  await page.goto(`${BASE}#/portfolio`, { waitUntil: "networkidle" });
+  await page.waitForTimeout(300);
+  assert.equal(await page.locator(".portfolio-card").count(), 0, "clear did not remove preparation project");
   await page.goto(`${BASE}#/course/course-0159`, { waitUntil: "networkidle" });
   await page.waitForTimeout(250);
   await page.getByRole("button", { name: "授课记录" }).click();
@@ -76,9 +91,12 @@ try {
   await page.waitForTimeout(300);
   assert.equal(await page.locator(".teaching-record").count(), 1, "restore did not bring teaching record back");
   assert.match(await page.locator(".teaching-record-summary").innerText(), /备份恢复测试/);
+  await page.goto(`${BASE}#/portfolio`, { waitUntil: "networkidle" });
+  await page.waitForTimeout(300);
+  assert.ok(await page.locator(".portfolio-card").count() >= 1, "restore did not bring preparation project back");
 
   assert.deepEqual(errors, [], `console/page errors: ${errors.join(" | ")}`);
-  console.log(JSON.stringify({ ok: true, backupBytes: fs.statSync(backupPath).size, teachingRecords: 1, errors }));
+  console.log(JSON.stringify({ ok: true, backupBytes: fs.statSync(backupPath).size, teachingRecords: 1, projects: await page.locator(".portfolio-card").count(), errors }));
 } catch (error) {
   console.error(JSON.stringify({ ok: false, error: error.message, errors }, null, 2));
   process.exitCode = 1;

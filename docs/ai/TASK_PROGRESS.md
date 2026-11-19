@@ -31,11 +31,13 @@
 
 ## 本轮新增验证（第二批）
 
-- [x] 完整备份端到端：`tests/backup.e2e.mjs`，新建记录 → 导出 JSON → 清空本机数据 → 导入恢复，结果 `{"ok":true,"backupBytes":2543,"teachingRecords":1,"errors":[]}`；复跑仍通过。
+- [x] 完整备份端到端：`tests/backup.e2e.mjs`，新建授课记录 + 生成备课项目 → 导出 JSON → 清空本机数据 → 导入恢复；结果 `{"ok":true,"backupBytes":133481,"teachingRecords":1,"projects":1,"errors":[]}`。
 - [x] `#/studio` 带真实项目的 CDP detector：exit 0，0 primary findings（1 条 em-dash advisory）。
 - [x] `#/quality` 带真实报告：exit 0，0 findings；复跑仍通过。
 - [x] 修复质量页 10px/9px 功能文字、7.5px 反思标签、低对比步骤序号、文档目录/上下文栏嵌套卡片。
 - [x] 修复授课记录任务与章节关联（以任务 chapterId 为准）。
+- [x] 增加 `/` 聚焦当前页搜索（课程 / 知识库 / 专业库），不再只聚焦旧聊天输入。
+- [x] 建立 `docs/ai/CSS_AUDIT.md`，记录六层 CSS 的职责、风险和后续安全合并方案。
 
 ## 待完成
 
