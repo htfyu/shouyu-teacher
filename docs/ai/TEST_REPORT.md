@@ -196,7 +196,26 @@ $env:PLAYWRIGHT_MODULE='<playwright/index.js>'
 node tests/backup.e2e.mjs
 ```
 
-## 8. 未验证/风险
+## 8. 长文档阅读
+
+新增 `tests/long-doc.e2e.mjs`：生成项目 → 打开编辑器 → 写入 80 段、约 9,000 字 → 自动保存 → 返回工作室读取。
+
+结果：
+
+```text
+textLength: 9017
+bodyWidth: 472
+bodyScrollWidth: 472
+mainClientHeight: 760
+mainScrollHeight: 10956
+fontSize: 13.5px
+lineHeight: 24.3px
+pageOverflow: 0
+```
+
+结论：长文档变为纵向滚动，没有横向溢出，正文宽度和行高保持稳定。
+
+## 9. 未验证/风险
 
 1. 真实教师长时间使用、真实课堂记录量下的性能未测试。
 2. 旧 CSS 五层叠加仍有历史死规则；未做物理删除。
@@ -204,7 +223,7 @@ node tests/backup.e2e.mjs
 4. 移动端已验证主要页面 detector 干净；复杂质量审阅的完整操作流程仍未逐项手测。
 5. 极长真实文档下的阅读与 detector 扫描未测试。
 
-## 9. 结论
+## 10. 结论
 
 可自动化的核心回归全部通过；没有发现本轮改造引入的控制台错误、横向溢出或测试回归。
 

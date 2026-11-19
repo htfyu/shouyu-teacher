@@ -10,7 +10,8 @@
     "test:files": "npm --prefix tests run test:files",
     "test:e2e": "node tests/e2e.smoke.mjs",
     "test:backup": "node tests/backup.e2e.mjs",
-    "test:design-qa": "node tests/studio-detect.e2e.mjs"
+    "test:design-qa": "node tests/studio-detect.e2e.mjs",
+    "test:long-doc": "node tests/long-doc.e2e.mjs"
   },
   "engines": {
     "node": ">=20"
