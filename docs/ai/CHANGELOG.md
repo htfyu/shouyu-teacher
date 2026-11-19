@@ -57,6 +57,11 @@
 - quality detector：exit 0，0 findings。
 - 单元 99 / E2E 75 / 文件 18。
 
+### 最终交付
+
+- 公开提交 `08767f0`，Pages `built`。
+- 新增 `docs/ai/DELIVERY.md` 汇总交付范围、验证结果、未实现项和边界。
+
 ### 未完成
 
 - 质量页/编辑器新世界的逐页微调。
