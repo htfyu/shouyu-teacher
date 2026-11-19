@@ -172,7 +172,13 @@ async function main() {
     check("完整知识包课程", await page.locator(".course-row.is-complete").count() === 4);
     await page.locator(".course-row.is-complete").first().click();
     await page.waitForTimeout(350);
-    check("课程工作空间", await page.locator(".course-tabs button").count() === 6);
+    check("课程工作空间", await page.locator(".course-tabs button").count() === 7);
+    check("授课记录入口", await page.locator('.course-tabs button[data-tab="teaching"]').count() === 1);
+    await page.locator('.course-tabs button[data-tab="teaching"]').click();
+    await page.waitForTimeout(200);
+    check("授课记录空状态", await page.locator(".teaching-empty").count() === 1);
+    await page.locator('.course-tabs button[data-tab="overview"]').click();
+    await page.waitForTimeout(150);
     await page.locator('.work-context-actions [data-action="course-start-prep"]').click();
     await page.waitForTimeout(350);
     check("课程上下文进入备课", (await page.locator(".studio-step.is-current").innerText()).includes("定章节任务"));

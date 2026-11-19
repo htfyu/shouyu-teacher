@@ -143,6 +143,17 @@ import {
 } from "./impact-store.js";
 
 import {
+  clearTeachingStore,
+  deleteTeachingRecord,
+  exportTeachingState,
+  getTeachingRecord,
+  importTeachingState,
+  teachingRecordStats,
+  teachingRecordsForCourse,
+  upsertTeachingRecord
+} from "./teaching-store.js";
+
+import {
   clearStudioStore,
   deleteStudioBundle,
   getStudioBundle,
@@ -1029,18 +1040,34 @@ function renderSidebar(activeConv) {
     { key: "studio", path: "/studio", icon: "spark", label: "备课工作室", count: studioStats.total },
     { key: "portfolio", path: "/portfolio", icon: "archive", label: "我的成果", count: studioStats.total }
   ];
-  const moreItems = [
-    { key: "programs", path: "/programs", icon: "building", label: "专业数据库", count: PROGRAM_DATA.courses.length },
-    { key: "quality", path: "/quality", icon: "shield", label: "质量检测历史", count: studioStats.pending },
-    { key: "kb", path: "/kb", icon: "layers", label: "专业知识库", count: KB_DOCS.length },
-    { key: "graph", path: "/graph", icon: "grid", label: "知识图谱" },
-    { key: "files", path: "/files", icon: "file", label: "资料中心", count: state.files.length },
-    { key: "templates", path: "/templates", icon: "layers", label: "模板库", count: LESSON_TEMPLATES.length + EVAL_TEMPLATES.length + OBSERVATION_TEMPLATES.length },
-    { key: "impact", path: "/impact", icon: "chart", label: "教学应用成效", count: getImpactRecords().length },
-    { key: "history", path: "/history", icon: "clock", label: "历史记录", count: db.conversations.length },
-    { key: "settings", path: "/settings", icon: "sliders", label: "系统设置" },
-    { key: "guide", path: "/guide", icon: "help", label: "使用说明" }
+  const moreGroups = [
+    {
+      label: "教学资料 / MATERIALS",
+      items: [
+        { key: "programs", path: "/programs", icon: "building", label: "专业数据库", count: PROGRAM_DATA.courses.length },
+        { key: "kb", path: "/kb", icon: "layers", label: "专业知识库", count: KB_DOCS.length },
+        { key: "graph", path: "/graph", icon: "grid", label: "知识图谱" },
+        { key: "files", path: "/files", icon: "file", label: "资料中心", count: state.files.length },
+        { key: "templates", path: "/templates", icon: "layers", label: "模板库", count: LESSON_TEMPLATES.length + EVAL_TEMPLATES.length + OBSERVATION_TEMPLATES.length }
+      ]
+    },
+    {
+      label: "审阅与记录 / REVIEW",
+      items: [
+        { key: "quality", path: "/quality", icon: "shield", label: "质量检测历史", count: studioStats.pending },
+        { key: "impact", path: "/impact", icon: "chart", label: "教学应用成效", count: getImpactRecords().length },
+        { key: "history", path: "/history", icon: "clock", label: "历史记录", count: db.conversations.length }
+      ]
+    },
+    {
+      label: "设置与帮助 / SYSTEM",
+      items: [
+        { key: "settings", path: "/settings", icon: "sliders", label: "系统设置" },
+        { key: "guide", path: "/guide", icon: "help", label: "使用说明" }
+      ]
+    }
   ];
+  const moreItems = moreGroups.flatMap((group) => group.items);
   const moreActive = moreItems.some((item) => route.name === item.key) || route.name === "chat";
   const coursesActive = route.name === "courses" || route.name === "course";
   const moreOpen = state.navMoreOpen || moreActive;
@@ -1078,10 +1105,13 @@ function renderSidebar(activeConv) {
           <span class="nav-more-chevron">${icon(moreOpen ? "chevronDown" : "chevronRight", 12)}</span>
         </button>
         ${moreOpen ? `<nav class="side-nav side-nav-more" aria-label="更多功能">
-          ${moreItems.map(navButton).join("")}
+          ${moreGroups.map((group) => `
+            <span class="side-nav-group-label">${group.label}</span>
+            ${group.items.map(navButton).join("")}
+          `).join("")}
           <button class="nav-item nav-item-action" type="button" data-action="new-chat" title="新建教学对话">
             <span class="nav-icon">${icon("file", 16)}</span>
-            <span class="nav-label">新建对话</span>
+            <span class="nav-label">AI 教学对话</span>
           </button>
         </nav>` : ""}
       </div>
@@ -1350,6 +1380,137 @@ function courseProjectStats(courseId) {
   };
 }
 
+function teachingDateLabel(value) {
+  const date = new Date(`${value || ""}T00:00:00`);
+  if (Number.isNaN(date.getTime())) return { day: "—", year: "" };
+  return {
+    day: new Intl.DateTimeFormat("zh-CN", { month: "2-digit", day: "2-digit" }).format(date),
+    year: String(date.getFullYear())
+  };
+}
+
+function renderTeachingPanel(course, pack, records, projects, stats) {
+  return `
+    <div class="teaching-panel">
+      <div class="teaching-panel-head">
+        <div>
+          <h2>授课记录</h2>
+          <p>只记录教师真实发生的课堂事实与反思；班级只写别名，不写学生姓名、学号或联系方式。</p>
+        </div>
+        <button class="btn btn-solid" type="button" data-action="teaching-add" data-course="${escapeAttr(course.id)}">${icon("plus", 12)} 记录一次授课</button>
+      </div>
+      <div class="teaching-summary">
+        <span><b>${stats.total}</b> 条记录</span>
+        <span><b>${stats.totalHours}</b> 学时</span>
+        <span>最近：${stats.latestDate ? escapeHtml(stats.latestDate) : "尚未记录"}</span>
+      </div>
+      ${records.length ? `<div class="teaching-records">${records.map((record) => {
+        const date = teachingDateLabel(record.date);
+        return `<article class="teaching-record">
+          <div class="teaching-record-date"><b>${escapeHtml(date.day)}</b><span>${escapeHtml(date.year)}</span></div>
+          <div class="teaching-record-main">
+            <div class="teaching-record-title"><strong>${escapeHtml(record.taskTitle || "未命名任务")}</strong><span class="status-stamp">已记录</span></div>
+            <p>${escapeHtml(record.chapterTitle || "未标章节")} · ${escapeHtml(record.className || "未填班级别名")}${record.hours != null ? ` · ${record.hours} 学时` : ""}</p>
+            ${record.summary ? `<p class="teaching-record-summary">${escapeHtml(record.summary)}</p>` : ""}
+            ${record.reflection ? `<p class="teaching-record-reflection"><b>下一步</b>${escapeHtml(record.reflection)}</p>` : ""}
+            <small>${record.projectTitle ? `${escapeHtml(record.projectTitle)} · v${escapeHtml(record.projectVersion || "1")}` : "未关联备课项目"}${record.resourceVersion ? ` · 资源 ${escapeHtml(record.resourceVersion)}` : ""}</small>
+          </div>
+          <div class="teaching-record-actions">
+            <button class="btn btn-ghost" type="button" data-action="teaching-edit" data-id="${escapeAttr(record.id)}">编辑</button>
+            <button class="btn btn-ghost" type="button" data-action="teaching-delete" data-id="${escapeAttr(record.id)}">删除</button>
+          </div>
+        </article>`;
+      }).join("")}</div>` : `<div class="teaching-empty">
+        <strong>还没有授课记录</strong>
+        <p>第一次真实授课后，再回来记录课堂事实、资源使用情况和下一步调整。系统不会生成演示课堂。</p>
+        <button class="btn btn-solid" type="button" data-action="teaching-add" data-course="${escapeAttr(course.id)}">记录第一次授课</button>
+      </div>`}
+    </div>
+  `;
+}
+
+function renderTeachingModal(course, pack, projects, record = null) {
+  const today = new Date().toISOString().slice(0, 10);
+  const chapters = pack?.chapters || [];
+  const tasks = pack?.tasks || [];
+  const selectedChapter = record?.chapterId || chapters[0]?.id || "";
+  const projectOptions = projects.map((project) => `<option value="${escapeAttr(project.id)}" ${record?.projectId === project.id ? "selected" : ""}>${escapeHtml(project.title)} · v${project.version || 1}</option>`).join("");
+  return `
+    <form id="teaching-form" class="form-grid" data-course="${escapeAttr(course.id)}" data-id="${escapeAttr(record?.id || "")}" data-course-title="${escapeAttr(programsCourseTitle(course))}">
+      <label class="field"><span>授课日期</span><input type="date" name="date" value="${escapeAttr(record?.date || today)}" required></label>
+      <label class="field"><span>班级别名</span><input name="className" value="${escapeAttr(record?.className || "")}" placeholder="如：24电气1班（不写学生姓名）" maxlength="80" required></label>
+      <label class="field"><span>章节</span><select name="chapterId">${chapters.map((chapter) => `<option value="${escapeAttr(chapter.id)}" ${selectedChapter === chapter.id ? "selected" : ""}>${escapeHtml(chapter.title)}</option>`).join("")}</select></label>
+      <label class="field"><span>典型工作任务</span><select name="taskId">${tasks.map((task) => `<option value="${escapeAttr(task.id)}" ${record?.taskId === task.id ? "selected" : ""}>${escapeHtml(task.title)}</option>`).join("")}</select></label>
+      <label class="field"><span>关联备课项目（可选）</span><select name="projectId"><option value="">不关联项目</option>${projectOptions}</select></label>
+      <label class="field"><span>学生人数（可选）</span><input type="number" name="learners" min="0" max="200" value="${record?.learners ?? ""}" placeholder="只记人数，不记个人"></label>
+      <label class="field"><span>实际学时</span><input type="number" name="hours" min="0" max="40" step="0.5" value="${record?.hours ?? ""}" placeholder="如：4"></label>
+      <label class="field"><span>使用的资源版本（可选）</span><input name="resourceVersion" value="${escapeAttr(record?.resourceVersion || "")}" placeholder="如：教学资源包 v1"></label>
+      <label class="field field-full"><span>课堂事实</span><textarea name="summary" rows="4" maxlength="4000" required placeholder="写实际发生了什么：任务完成情况、学生困难、设备/安全问题、时间分配。只写课堂层面，不写学生个人信息。">${escapeHtml(record?.summary || "")}</textarea></label>
+      <label class="field field-full"><span>下一步调整 / 反思</span><textarea name="reflection" rows="3" maxlength="4000" placeholder="下一次要改什么？需要补什么材料或安全提醒？">${escapeHtml(record?.reflection || "")}</textarea></label>
+      <div class="form-privacy field-full">${icon("shield", 11)} <span>所有记录只保存在本机浏览器；不要填写学生姓名、学号、联系方式、家庭信息。</span></div>
+    </form>
+  `;
+}
+
+function openTeachingModal(course, pack, projects, record = null) {
+  openModal({
+    kind: "teaching",
+    title: record ? "编辑授课记录" : "记录一次授课",
+    sub: `${programsCourseTitle(course)} · ${record ? "修改真实课堂记录" : "只记录真实发生的课堂事实"}`,
+    body: renderTeachingModal(course, pack, projects, record),
+    footer: `<button class="btn btn-ghost" type="button" data-action="close-modal">取消</button><span class="spacer"></span><button class="btn btn-solid" type="submit" form="teaching-form">${record ? "保存修改" : "保存记录"}</button>`,
+    focusSelector: "input[name='className']"
+  });
+}
+
+function saveTeachingForm(form) {
+  const data = new FormData(form);
+  const courseId = form.dataset.course;
+  const courseTitle = form.dataset.courseTitle || "";
+  const id = form.dataset.id || "";
+  const chapterId = String(data.get("chapterId") || "");
+  const taskId = String(data.get("taskId") || "");
+  const packCourse = studioCatalog().courses.find((course) => course.id === courseId);
+  const pack = packCourse ? resolveCurriculum(packCourse, studioCatalog()) : null;
+  const task = (pack?.tasks || []).find((item) => item.id === taskId);
+  const taskChapterId = task?.chapterId || chapterId;
+  const chapter = (pack?.chapters || []).find((item) => item.id === taskChapterId);
+  const project = getStudioBundle(String(data.get("projectId") || ""));
+  const summary = String(data.get("summary") || "").trim();
+  if (summary.length < 8) {
+    showToast("请至少写 8 个字的课堂事实，避免空泛记录");
+    form.querySelector("textarea[name='summary']")?.focus();
+    return;
+  }
+  try {
+    upsertTeachingRecord({
+      id,
+      courseId,
+      courseTitle,
+      chapterId: taskChapterId,
+      chapterTitle: chapter?.title || "",
+      taskId,
+      taskTitle: task?.title || "",
+      projectId: project?.id || "",
+      projectTitle: project?.title || "",
+      projectVersion: project?.version || "",
+      date: String(data.get("date") || ""),
+      className: String(data.get("className") || ""),
+      learners: data.get("learners") || "",
+      hours: data.get("hours") || "",
+      resourceVersion: String(data.get("resourceVersion") || ""),
+      summary,
+      reflection: String(data.get("reflection") || "")
+    });
+    closeModal();
+    showToast(id ? "授课记录已更新" : "授课记录已保存");
+    state.courseTab = "teaching";
+    renderApp({ preserveScroll: true });
+  } catch (error) {
+    showToast(error?.message || "授课记录保存失败");
+  }
+}
+
 function renderCoursesPage() {
   const catalog = studioCatalog();
   const query = String(state.courseQuery || "").trim().toLowerCase();
@@ -1404,7 +1565,7 @@ function renderCoursesPage() {
             const project = courseLatestProject(course.id);
             return `<button class="course-row is-complete" type="button" data-action="course-open" data-id="${escapeAttr(course.id)}">
               <span class="course-row-main"><strong>${escapeHtml(programsCourseTitle(course))}</strong><small>${escapeHtml(pack.title)} · ${pack.chapters.length} 章 · ${pack.tasks.length} 个任务</small></span>
-              <span class="course-row-meta"><b>${pack.statusLabel}</b><small>${project ? `最近项目 v${project.version || 1}` : "还没有备课项目"}</small></span>
+              <span class="course-row-meta"><b class="is-pending">${pack.statusLabel}</b><small>${project ? `最近项目 v${project.version || 1}` : "还没有备课项目"}</small></span>
               <span class="course-row-arrow">${icon("chevronRight", 13)}</span>
             </button>`;
           }).join("")}
@@ -1418,7 +1579,7 @@ function renderCoursesPage() {
           if (!course) return "";
           return `<button class="course-row" type="button" data-action="course-open" data-id="${escapeAttr(course.id)}">
             <span class="course-row-main"><strong>${escapeHtml(programsCourseTitle(course))}</strong><small>${escapeHtml(bundle.context?.task || "")}</small></span>
-            <span class="course-row-meta"><b>${bundle.quality ? `质检 ${bundle.quality.overall}` : "未质检"}</b><small>v${bundle.version || 1} · ${escapeHtml(bundle.reviewStatus || "待审核")}</small></span>
+            <span class="course-row-meta"><b class="${bundle.quality ? "is-ok" : "is-pending"}">${bundle.quality ? `质检 ${bundle.quality.overall}` : "未质检"}</b><small>v${bundle.version || 1} · ${escapeHtml(bundle.reviewStatus || "待审核")}</small></span>
             <span class="course-row-arrow">${icon("chevronRight", 13)}</span>
           </button>`;
         }).join("")}</div>
@@ -1433,7 +1594,7 @@ function renderCoursesPage() {
           const stats = courseProjectStats(course.id);
           return `<button class="course-row${studioCourseUsable(course) ? "" : " is-placeholder"}" type="button" data-action="course-open" data-id="${escapeAttr(course.id)}">
             <span class="course-row-main"><strong>${escapeHtml(programsCourseTitle(course))}</strong><small>${escapeHtml(group?.name || "")} · ${escapeHtml(major?.name || "")} · ${escapeHtml(course.category || "课程")}</small></span>
-            <span class="course-row-meta"><b>${status.reviewed ? "完整知识包" : "通用结构"}</b><small>${stats.projects ? `${stats.projects} 个备课项目` : "未备课"}</small></span>
+            <span class="course-row-meta"><b class="${status.reviewed ? "is-ok" : "is-neutral"}">${status.reviewed ? "完整知识包" : "通用结构"}</b><small>${stats.projects ? `${stats.projects} 个备课项目` : "未备课"}</small></span>
             <span class="course-row-arrow">${icon("chevronRight", 13)}</span>
           </button>`;
         }).join("")}</div>` : `<div class="programs-empty"><strong>没有匹配的课程</strong><p>换一个关键词，或清除教学单位筛选。</p><button class="btn" type="button" data-action="course-clear-filter">清除筛选</button></div>`}
@@ -1468,8 +1629,11 @@ function renderCourseWorkspacePage(courseId) {
     ["knowledge", "专业知识"],
     ["materials", "课程资料"],
     ["projects", "备课项目"],
+    ["teaching", "授课记录"],
     ["outcomes", "教学成果"]
   ];
+  const teachingRecords = teachingRecordsForCourse(course.id);
+  const teachingStats = teachingRecordStats(course.id);
   const projectRows = (list) => list.length ? `<div class="course-project-list">${list.map((bundle) => `<div class="course-project-row">
     <button class="course-project-main" type="button" data-action="course-open-project" data-id="${escapeAttr(bundle.id)}"><strong>${escapeHtml(bundle.title)}</strong><small>${escapeHtml(bundle.context?.chapter || "")} · ${escapeHtml(bundle.context?.task || "")} · v${bundle.version || 1}</small></button>
     <span class="course-project-meta">${bundle.quality ? `质检 ${bundle.quality.overall}` : "未质检"}<small>${escapeHtml(bundle.reviewStatus || "待审核")}</small></span>
@@ -1512,7 +1676,7 @@ function renderCourseWorkspacePage(courseId) {
             </section>
             <section>
               <h2>当前备课项目</h2>
-              ${latest ? `<div class="course-latest"><button class="course-project-main" type="button" data-action="course-open-project" data-id="${escapeAttr(latest.id)}"><strong>${escapeHtml(latest.title)}</strong><small>v${latest.version || 1} · ${escapeHtml(latest.updatedAt || "")} · ${escapeHtml(latest.reviewStatus || "待审核")}</small></button><span>${latest.quality ? `质检 ${latest.quality.overall}` : "未质检"}</span></div>` : `<p class="work-muted">还没有项目。开始备课会创建第一个项目。</p>`}
+              ${latest ? `<div class="course-latest"><button class="course-project-main" type="button" data-action="course-open-project" data-id="${escapeAttr(latest.id)}"><strong>${escapeHtml(latest.title)}</strong><small>v${latest.version || 1} · ${escapeHtml(latest.updatedAt || "")} · ${escapeHtml(latest.reviewStatus || "待审核")}</small></button><span>${latest.quality ? `质检 ${latest.quality.overall}` : "未质检"}</span></div>` : `<div class="course-empty course-empty-inline"><strong>还没有备课项目</strong><p>先选一个典型工作任务，生成同一任务下的 10 类资源；也可以先查看本章知识依据。</p><div class="course-empty-actions"><button class="btn btn-solid" type="button" data-action="course-start-prep" data-id="${escapeAttr(course.id)}">从本章开始</button><button class="btn" type="button" data-action="course-tab" data-tab="chapters">先选任务</button><button class="btn btn-ghost" type="button" data-action="nav" data-path="/kb">查知识依据</button></div></div>`}
             </section>
             <section>
               <h2>章节与任务</h2>
@@ -1540,6 +1704,7 @@ function renderCourseWorkspacePage(courseId) {
             <section><h2>来源与边界</h2><p>${escapeHtml(pack?.disclaimer || "正式使用前请核对学院现行文件、设备说明书和实训室规程。")}</p><button class="btn" type="button" data-action="course-open-detail" data-id="${escapeAttr(course.id)}">查看课程原始资料</button></section>
           </div>
         ` : tab === "projects" ? projectRows(projects)
+          : tab === "teaching" ? renderTeachingPanel(course, pack, teachingRecords, projects, teachingStats)
           : projectRows(projects)}
       </div>
       <p class="work-footnote">课程上下文会保留。所有备课项目都和本课程、章节、任务关联，不生成脱离课程的独立记录。</p>
@@ -6422,6 +6587,7 @@ async function exportBackup({ conversationsOnly = false } = {}) {
       backup.programs = exportProgramState();
       backup.studio = exportStudioState();
       backup.impact = exportImpactState();
+      backup.teaching = exportTeachingState();
     }
     const stamp = new Date().toISOString().replace(/[:T]/g, "-").slice(0, 16);
     downloadTextFile(`授渔_${conversationsOnly ? "对话" : "完整备份"}_${stamp}.json`, JSON.stringify(backup, null, 2), "application/json;charset=utf-8");
@@ -6467,6 +6633,7 @@ async function handleBackupFile(file) {
               <li>专业课程修订：${data.programs ? "有" : "无"}</li>
               <li>教学成果包：${Array.isArray(data.studio?.bundles) ? data.studio.bundles.length : 0} 份</li>
               <li>应用成效记录：${Array.isArray(data.impact?.records) ? data.impact.records.length : 0} 条</li>
+              <li>授课记录：${Array.isArray(data.teaching?.records) ? data.teaching.records.length : 0} 条</li>
               <li>导出时间：${escapeHtml(data.exportedAt || "未知")}</li>
             </ul>
           </div>
@@ -8785,6 +8952,43 @@ function handleAction(action, el, event) {
       state.courseTab = el.dataset.tab || "overview";
       renderApp({ preserveScroll: true });
       break;
+    case "teaching-add": {
+      const course = studioCatalog().courses.find((item) => item.id === (el.dataset.course || state.courseId));
+      if (!course) break;
+      const pack = resolveCurriculum(course, studioCatalog());
+      openTeachingModal(course, pack, courseProjects(course.id));
+      break;
+    }
+    case "teaching-edit": {
+      const record = getTeachingRecord(el.dataset.id || "");
+      if (!record) break;
+      const course = studioCatalog().courses.find((item) => item.id === record.courseId);
+      if (!course) break;
+      const pack = resolveCurriculum(course, studioCatalog());
+      openTeachingModal(course, pack, courseProjects(course.id), record);
+      break;
+    }
+    case "teaching-delete": {
+      const record = getTeachingRecord(el.dataset.id || "");
+      if (!record) break;
+      openModal({
+        kind: "confirm",
+        title: "删除这条授课记录？",
+        sub: "删除后只影响本机记录，不会改动备课项目或导出文件。",
+        body: `<p class="work-muted">${escapeHtml(record.date || "")} · ${escapeHtml(record.taskTitle || "")} · ${escapeHtml(record.summary || "").slice(0, 120)}</p>`,
+        footer: `<button class="btn btn-ghost" type="button" data-action="close-modal">取消</button><span class="spacer"></span><button class="btn" type="button" data-action="teaching-delete-confirm" data-id="${escapeAttr(record.id)}">删除记录</button>`
+      });
+      break;
+    }
+    case "teaching-delete-confirm": {
+      if (deleteTeachingRecord(el.dataset.id || "")) {
+        closeModal();
+        showToast("授课记录已删除");
+        state.courseTab = "teaching";
+        renderApp({ preserveScroll: true });
+      }
+      break;
+    }
     case "course-start-prep":
       beginStudioFlow({ courseId: el.dataset.id || state.courseId, step: 2 });
       break;
@@ -9088,6 +9292,9 @@ function handleAction(action, el, event) {
         if (state.pendingRestore.impact) {
           await importImpactState(state.pendingRestore.impact);
         }
+        if (state.pendingRestore.teaching) {
+          importTeachingState(state.pendingRestore.teaching);
+        }
         closeModal();
         showToast("备份已恢复，页面即将重新加载");
         setTimeout(() => location.reload(), 500);
@@ -9114,6 +9321,7 @@ function handleAction(action, el, event) {
         clearProgramStore().catch(() => null),
         clearStudioStore().catch(() => null),
         clearImpactStore().catch(() => null),
+        Promise.resolve(clearTeachingStore()).catch(() => null),
         new Promise((resolve) => {
           try {
             localStorage.removeItem(DB_KEY);
@@ -9724,6 +9932,11 @@ document.addEventListener("submit", (event) => {
   if (form.id === "impact-form") {
     event.preventDefault();
     saveImpactForm(form);
+    return;
+  }
+  if (form.id === "teaching-form") {
+    event.preventDefault();
+    saveTeachingForm(form);
     return;
   }
   if (form.id === "program-resource-form") {

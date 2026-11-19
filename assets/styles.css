@@ -1911,7 +1911,7 @@ svg {
 }
 
 .doc-callout.tone-warn {
-  background: repeating-linear-gradient(135deg, #fbfaf6, #fbfaf6 7px, #f4f1e8 7px, #f4f1e8 8px);
+  background: #fbf1d8;
 }
 
 .doc-lines {

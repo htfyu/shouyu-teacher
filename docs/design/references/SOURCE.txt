@@ -1,0 +1,6 @@
+﻿VoltAgent/awesome-design-md
+commit: fcc70284932276d085f01ef9f83edde90b1258cb
+retrieved: 2026-11-19
+source: https://github.com/VoltAgent/awesome-design-md/tree/main/design-md
+selected: linear.app, notion, stripe, apple, raycast, framer
+license: repository LICENSE (MIT)
