@@ -335,6 +335,12 @@ npm --prefix tests install
 $env:PLAYWRIGHT_CHANNEL='msedge'
 npm --prefix tests run test:files
 node tests/e2e.smoke.mjs
+
+# 完整备份端到端（需要 Playwright 与本机静态服务器）
+node tests/backup.e2e.mjs
+
+# 真实 studio/quality 页面的 Impeccable CDP 检测
+node tests/studio-detect.e2e.mjs
 ```
 
 实际结果见 [docs/测试报告.md](docs/测试报告.md)。包含：
@@ -342,6 +348,8 @@ node tests/e2e.smoke.mjs
 - 99 个单元测试（隐私 33、知识包 8、引擎 7、AI 合并 7、安全代理 Mock 8、专业数据库 9、课程知识包/资源引擎/三层质检/来源完整性/演示标记 17、应用成效 5、授课记录 5）；
 - 18 个文件解析用例（TXT / MD / CSV / JSON / DOCX / PDF / XLSX / PPTX / 分块 / BOM / 进度 / 无上传）；
 - 75 项浏览器 E2E（路由、五场景、品牌标识 / favicon、首页工作台、四个核心导航、我的课程与课程工作空间、课程授课记录空状态、六步备课、统一项目工作区、侧栏折叠、资料分栏、模板标识、专业数据库四级浏览 / 检索 / 课程资源、10 类资源、4 门知识包、质检三层/10 维、质量中心、成果中心、知识图谱、演示一键生成与状态、应用成效未采集/录入/图表、完整备份清空后恢复、编辑器、DOCX / XLSX、文件解析、历史、移动端、控制台）；
+- 完整备份端到端：新建授课记录 → 导出 JSON → 清空本机数据 → 导入恢复，记录恢复成功；
+- 真实 studio/quality 页面 Impeccable CDP 检测：0 primary findings；
 - AI 体验通道真实流式生成、对话、截断提示与失败回退；新增单次自动重试（仅未收到文本时）；
 - DOCX / XLSX 用 `python-docx` / `openpyxl` 独立打开验证；资源包 DOCX 含封面/目录/签字区（394 段、24 表）。
 

@@ -31,6 +31,27 @@
 
 见 `TEST_REPORT.md`。关键结果：单元 99、E2E 75、文件 18、Impeccable 变更检测 0、五个主要渲染页 0 发现、7 档宽度无横向溢出。
 
+## 2026-11-19 · 第二批：验证闭环与真实项目检测
+
+### 新增
+
+- `tests/backup.e2e.mjs`：完整备份下载 / 清空 / 导入恢复端到端。
+- `tests/studio-detect.e2e.mjs`：通过 CDP 扫描运行中的真实 `#/studio` 和 `#/quality` 页面。
+- `npm run test:backup`、`npm run test:design-qa`。
+
+### 修复
+
+- 质量页：10px/9px 功能文字、7.5px 反思标签、对比度不足的步骤序号。
+- 工作室：文档目录/上下文面板嵌套卡片与 1px 侧边分隔、问题详情嵌套卡片。
+- 授课记录：章节按任务 `chapterId` 归档，避免章节与任务错配。
+
+### 验证
+
+- 完整备份：`ok: true`，备份 2543 bytes，授课记录恢复成功。
+- studio detector：exit 0，0 primary findings。
+- quality detector：exit 0，0 findings。
+- 单元 99 / E2E 75 / 文件 18。
+
 ### 未完成
 
 - 质量页/编辑器新世界的逐页微调。

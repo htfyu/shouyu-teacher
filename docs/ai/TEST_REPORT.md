@@ -119,8 +119,30 @@ FINDINGS 0
 | 质量检测（空状态） | 0 findings |
 | 专业数据库 | 0 findings |
 
-检测覆盖：字号下限、对比度、装饰性反模式、侧色条、嵌套卡片。  
-**未验证**：带真实项目的 `#/studio`、带质检报告的 `#/quality` 全量机械检测（需要预置本机项目数据；已用 Playwright 检查可见文本、面板溢出和手动流程，但不等同于 detector 全量扫描）。
+检测覆盖：字号下限、对比度、装饰性反模式、侧色条、嵌套卡片。
+
+### 带真实项目的 CDP 检测
+
+使用 Playwright 启动带 `--remote-debugging-port` 的 Edge，生成一个真实备课项目，再通过 `detect --cdp` 扫描运行中的页面：
+
+```text
+#/studio  with generated project
+EXIT 0
+primary findings 0
+advisory 1（正文 em-dash 饱和，advisory 不改变退出码）
+
+#/quality with generated report
+EXIT 0
+findings 0
+```
+
+文件：
+
+- `tests/studio-detect.e2e.mjs`
+- `资料/impeccable-studio-cdp.json`
+- `资料/impeccable-quality-cdp.json`
+
+**未验证**：极长真实文档（数万字）下的 detector 全量扫描；当前使用课程知识包生成的正常长度项目。
 
 ## 6. 交互手测
 
@@ -139,16 +161,37 @@ FINDINGS 0
 | 备课生成、编辑器、质检、导出入口 | E2E 覆盖通过 |
 | 控制台错误 | 0（本轮检查页面） |
 
-## 7. 未验证/风险
+## 7. 完整备份端到端
 
-1. 完整备份文件的浏览器下载、导入、覆盖恢复未做端到端自动化；授课记录的 store 导入/导出已有单元测试，`exportBackup` 代码已纳入但未实际下载验证。
-2. 真实教师长时间使用、真实课堂记录量下的性能未测试。
-3. 旧 CSS 五层叠加仍有历史死规则；未做物理删除。
-4. 新增课堂记录使用 localStorage；数据量很大时可能触及浏览器配额，当前没有容量提示。
-5. `#/studio` 项目工作区未运行 Impeccable 全量 rendered detector；只做了 Playwright 可见性/溢出/字号抽查。
-6. 移动端只验证无溢出和主要入口；复杂质量审阅三栏在手机上的完整操作未逐项手测。
+新增 `tests/backup.e2e.mjs`，真实执行：
 
-## 8. 结论
+1. 通过 UI 新建一条授课记录；
+2. 导出完整备份，读取 JSON，确认 `teaching.records` 存在；
+3. 删除本机数据，确认记录消失；
+4. 导入同一备份并确认恢复，记录重新出现。
+
+结果：
+
+```text
+{"ok":true,"backupBytes":2543,"teachingRecords":1,"errors":[]}
+```
+
+命令：
+
+```bash
+$env:PLAYWRIGHT_MODULE='<playwright/index.js>'
+node tests/backup.e2e.mjs
+```
+
+## 8. 未验证/风险
+
+1. 真实教师长时间使用、真实课堂记录量下的性能未测试。
+2. 旧 CSS 五层叠加仍有历史死规则；未做物理删除。
+3. 新增课堂记录使用 localStorage；数据量很大时可能触及浏览器配额，当前没有容量提示。
+4. 移动端只验证无溢出和主要入口；复杂质量审阅三栏在手机上的完整操作未逐项手测。
+5. 极长真实文档下的阅读与 detector 扫描未测试。
+
+## 9. 结论
 
 可自动化的核心回归全部通过；没有发现本轮改造引入的控制台错误、横向溢出或测试回归。  
 交付前仍需补：完整备份端到端、真实项目页 detector、真实教师使用测试。

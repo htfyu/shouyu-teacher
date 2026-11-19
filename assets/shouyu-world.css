@@ -1105,7 +1105,8 @@ textarea:focus {
 }
 
 .studio-doc-tree {
-  border-right-color: var(--w-line);
+  border: 0;
+  border-radius: 0;
   background: #f8f3e6;
 }
 
@@ -1176,8 +1177,9 @@ textarea:focus {
 }
 
 .studio-context-panel {
-  border-left-color: var(--w-line);
-  background: var(--w-paper);
+  border: 0;
+  border-radius: 0;
+  background: #fbf7ed;
 }
 
 .studio-panel-tabs button {
@@ -1196,9 +1198,71 @@ textarea:focus {
 }
 
 .studio-project .studio-quality-layers > div {
-  border-color: var(--w-line);
-  border-radius: 5px;
-  background: #fbf7ed;
+  padding: 7px 0 0;
+  border: 0;
+  border-top: 1px solid var(--w-line);
+  border-radius: 0;
+  background: transparent;
+  font-size: 11px;
+}
+
+.studio-project .studio-quality-layers .is-pending,
+.studio-project .studio-quality-layers .is-approved {
+  background: transparent;
+}
+
+.studio-project .studio-quality-layers .is-pending b {
+  color: var(--w-warning);
+}
+
+.studio-project .studio-quality-layers .is-approved b {
+  color: var(--w-approve);
+}
+
+.studio-project .studio-quality-layers span,
+.studio-project-panel-head span {
+  font-size: 11px;
+}
+
+.studio-project .studio-quality-layers small {
+  font-size: 12px;
+}
+
+.studio-issue-detail {
+  margin-top: 10px;
+  padding: 10px 0 0;
+  border: 0;
+  border-top: 1px solid var(--w-line);
+  border-radius: 0;
+  background: transparent;
+}
+
+.studio-issue-detail > div:first-child,
+.studio-issue-detail > div:first-child small,
+.studio-issue-detail > small {
+  font-size: 11px;
+  line-height: 1.55;
+}
+
+.studio-issue-detail > strong {
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.studio-issue-detail p {
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.studio-issue-detail-actions .btn {
+  min-height: 30px;
+  padding: 0 9px;
+  font-size: 11px;
+}
+
+.studio-step.is-current > span {
+  background: var(--w-pine);
+  color: #fffdf5;
 }
 
 .studio-project .studio-quality-layers .is-pending {
@@ -1496,6 +1560,30 @@ textarea:focus {
 
 .quality-issue-facts dd {
   font-size: 12px;
+}
+
+.quality-strip-label,
+.quality-pane-head > span,
+.quality-strip-score > span {
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.quality-review-list strong,
+.quality-review-list span,
+.quality-review-list small {
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.doc-check span {
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.doc-lines-label {
+  font-size: 11px;
+  letter-spacing: 0.04em;
 }
 
 .quality-document .doc-paragraph,
