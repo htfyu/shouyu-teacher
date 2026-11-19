@@ -93,7 +93,9 @@ export function upsertTeachingRecord(input) {
   const next = previous
     ? records.map((item) => (item.id === previous.id ? record : item))
     : [record, ...records];
-  if (!writeAll(next)) throw new Error("无法写入本机授课记录");
+  if (!writeAll(next)) {
+    throw new Error("授课记录未能写入：本机存储可能已满或被浏览器禁用。请先导出完整备份，再清理旧记录后重试。");
+  }
   return record;
 }
 

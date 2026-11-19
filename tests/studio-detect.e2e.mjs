@@ -53,13 +53,18 @@ try {
   await page.goto(`${base}#/quality`, { waitUntil: "networkidle" });
   await page.waitForTimeout(500);
   const quality = scan("quality");
-  console.log(JSON.stringify({
-    ok: studio.ok && quality.ok,
-    studio,
-    quality,
-    errors
-  }, null, 2));
-  if (!studio.ok || !quality.ok) process.exitCode = 1;
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto(`${base}#/studio`, { waitUntil: "networkidle" });
+  await page.waitForTimeout(500);
+  const studioMobile = scan("studio-mobile");
+  await page.goto(`${base}#/quality`, { waitUntil: "networkidle" });
+  await page.waitForTimeout(500);
+  const qualityMobile = scan("quality-mobile");
+
+  const ok = studio.ok && quality.ok && studioMobile.ok && qualityMobile.ok;
+  console.log(JSON.stringify({ ok, studio, quality, studioMobile, qualityMobile, errors }, null, 2));
+  if (!ok) process.exitCode = 1;
 } catch (error) {
   console.error(JSON.stringify({ ok: false, error: error.message, errors }, null, 2));
   process.exitCode = 1;

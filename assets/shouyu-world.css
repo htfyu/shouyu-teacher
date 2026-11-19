@@ -929,6 +929,13 @@ textarea:focus {
   background: transparent;
 }
 
+.programs-scope-actions .btn,
+.programs-mobile-filters label,
+.programs-mobile-filters span {
+  font-size: 11px;
+  line-height: 1.5;
+}
+
 .courses-table {
   border-top-color: var(--w-line);
 }
@@ -1560,6 +1567,10 @@ textarea:focus {
 
 .quality-issue-facts dd {
   font-size: 12px;
+}
+
+.quality-doc-refs {
+  text-wrap: pretty;
 }
 
 .quality-strip-label,

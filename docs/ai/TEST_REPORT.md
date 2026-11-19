@@ -15,8 +15,8 @@ npm run test:unit
 结果：
 
 ```text
-tests 99
-pass 99
+tests 100
+pass 100
 fail 0
 ```
 
@@ -27,7 +27,8 @@ fail 0
 - 编辑保留 id/createdAt；
 - 删除单条；
 - 导出/导入；
-- 拒绝无课程记录。
+- 拒绝无课程记录；
+- 本机存储写入失败时给出可操作错误。
 
 ## 2. 浏览器 E2E
 
@@ -141,6 +142,16 @@ findings 0
 - `tests/studio-detect.e2e.mjs`
 - `资料/impeccable-studio-cdp.json`
 - `资料/impeccable-quality-cdp.json`
+- `资料/impeccable-studio-mobile-cdp.json`
+- `资料/impeccable-quality-mobile-cdp.json`
+
+移动端 390×844：
+
+```text
+#/studio  0 primary findings（1 条 em-dash advisory）
+#/quality 0 findings
+#/programs 0 findings
+```
 
 **未验证**：极长真实文档（数万字）下的 detector 全量扫描；当前使用课程知识包生成的正常长度项目。
 
@@ -189,8 +200,8 @@ node tests/backup.e2e.mjs
 
 1. 真实教师长时间使用、真实课堂记录量下的性能未测试。
 2. 旧 CSS 五层叠加仍有历史死规则；未做物理删除。
-3. 新增课堂记录使用 localStorage；数据量很大时可能触及浏览器配额，当前没有容量提示。
-4. 移动端只验证无溢出和主要入口；复杂质量审阅三栏在手机上的完整操作未逐项手测。
+3. 新增课堂记录使用 localStorage；已有写入失败的可操作错误提示，但没有精确容量预检。
+4. 移动端已验证主要页面 detector 干净；复杂质量审阅的完整操作流程仍未逐项手测。
 5. 极长真实文档下的阅读与 detector 扫描未测试。
 
 ## 9. 结论

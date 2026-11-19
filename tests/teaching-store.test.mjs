@@ -90,6 +90,19 @@ test("teaching records: export/import and clear stay compatible", () => {
   assert.equal(getTeachingRecords().length, 0);
 });
 
+test("teaching records: storage failure is actionable", () => {
+  const original = globalThis.localStorage.setItem;
+  globalThis.localStorage.setItem = () => { throw new Error("quota"); };
+  try {
+    assert.throws(
+      () => upsertTeachingRecord({ courseId: "course-x", summary: "写入失败测试。" }),
+      /授课记录未能写入/
+    );
+  } finally {
+    globalThis.localStorage.setItem = original;
+  }
+});
+
 test("teaching records: rejects records without a course", () => {
   assert.throws(() => upsertTeachingRecord({ summary: "无课程" }), /关联课程/);
 });
