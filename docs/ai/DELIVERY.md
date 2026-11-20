@@ -2,7 +2,7 @@
 
 > 日期：2026-11-19  
 > 公开站点：https://htfyu.github.io/shouyu-teacher/  
-> 最新公开提交：`08767f0`  
+> 最新代码发布：`3bbf51a`（指定区域与全站清理）  
 > Pages：`built`
 
 ## 1. 交付范围
