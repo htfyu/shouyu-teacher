@@ -105,7 +105,24 @@ async function main() {
     await page.evaluate(() => localStorage.clear());
     await page.reload({ waitUntil: "networkidle" });
     await page.waitForTimeout(350);
-    check("首页启动", await page.locator(".hero-title").count() === 1);
+    check("首页启动", await page.locator(".work-home-title").count() === 1);
+    check("首页标题明确", (await page.locator(".work-home-title").innerText()) === "工作台");
+    check("首页单一主 CTA", await page.locator(".work-home-actions .btn-solid").count() === 1);
+    check("首页只有一个 main", await page.locator("main").count() === 1);
+    check("单项工具默认折叠", await page.locator(".work-tools").getAttribute("open") === null);
+    check("课程状态只出现一次", await page.locator(".work-course-group-head").count() === 1);
+    check("右栏只显示非零项", await page.locator(".work-tasks button").count() === 1);
+    const homeText = await page.locator(".work-home").innerText();
+    check("首页无问候/说明标语", !/晚上好|工作区已经准备好|对话生成，不是完整备课|只想先起草|还没有进行中的备课|最近编辑/.test(homeText));
+    check("首页无重复空状态", await page.locator(".work-empty-row").count() === 0);
+    check("首页无提醒段落", await page.locator(".work-reminder").count() === 0);
+    await page.locator(".work-tools summary").focus();
+    await page.keyboard.press("Enter");
+    await page.waitForTimeout(120);
+    check("单项工具可键盘展开", await page.locator(".work-tools").getAttribute("open") !== null);
+    await page.keyboard.press("Enter");
+    await page.waitForTimeout(120);
+    check("单项工具可键盘收起", await page.locator(".work-tools").getAttribute("open") === null);
     check("品牌名称", (await page.locator(".brand-name").innerText()) === "授渔");
     check("品牌标识加载", await page.locator(".brand-mark img").evaluate((img) => img.complete && img.naturalWidth > 0));
     check("favicon 已切换", await page.evaluate(() => document.querySelector('link[rel="icon"]')?.getAttribute("href") === "./assets/brand/favicon-64.png"));
@@ -257,6 +274,8 @@ async function main() {
     check("备份恢复应用成效", await page.locator(".impact-record").count() >= 1);
 
     await page.goto(base, { waitUntil: "networkidle" });
+    await page.waitForTimeout(200);
+    await page.locator(".work-tools summary").click();
     await page.waitForTimeout(200);
     await page.locator('.scene-card[data-scene="lesson"]').click();
     await page.getByRole("button", { name: "载入示例" }).click();

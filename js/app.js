@@ -1159,7 +1159,7 @@ function renderSidebar(activeConv) {
             <span class="recent-title">${conv.pinned ? "◉ " : ""}${escapeHtml(conv.title || "未命名对话")}</span>
             <span class="recent-meta"><span>${escapeHtml(sceneShort(conv.scene))}</span><span>${escapeHtml(formatRelative(conv.updatedAt))}</span></span>
           </button>
-        `).join("") : `<div class="recent-empty">还没有记录。<br>从一次真实的备课任务开始。</div>`}
+        `).join("") : `<div class="recent-empty">暂无记录</div>`}
       </div>
     </div>
     <div class="side-foot">
@@ -1778,54 +1778,61 @@ function renderCourseWorkspacePage(courseId) {
 }
 
 function renderHomePage() {
-  const stats = knowledgeStats();
   const studioStats = getStudioBundleStats();
   const impactStats = aggregateImpact(getImpactRecords());
   const recent = getStudioBundles().slice(0, 3);
-  const featured = CURRICULUM_PACKS[0];
-  const builtPacks = CURRICULUM_PACKS.length;
   const pendingPacks = CURRICULUM_PACKS.filter((pack) => pack.status === "pending").length;
-  const approvedPacks = CURRICULUM_PACKS.filter((pack) => pack.status === "approved").length;
-  const sceneCards = SCENES.map((scene) => `
-    <button class="scene-card" type="button" data-action="scene" data-scene="${scene.id}">
-      <span class="scene-card-top">
-        <span>${scene.no} / ${scene.short.toUpperCase()}</span>
-        <span class="scene-card-arrow">${icon("arrowUpRight", 14)}</span>
-      </span>
-      <span class="scene-card-title">${escapeHtml(scene.label)}</span>
-      <span class="scene-card-desc">${escapeHtml(scene.desc)}</span>
-      <span class="scene-card-foot"><span class="scene-dot"></span>${escapeHtml(scene.output)}</span>
-    </button>
-  `).join("");
-  const now = new Date();
-  const dateText = new Intl.DateTimeFormat("zh-CN", { month: "long", day: "numeric", weekday: "long" }).format(now);
-  const greeting = now.getHours() < 11 ? "上午好" : now.getHours() < 14 ? "中午好" : now.getHours() < 18 ? "下午好" : "晚上好";
   const last = currentWorkspaceProject() || recent[0];
   const draft = state.studioDraft;
   const draftCourse = draft ? PROGRAM_DATA.courses.find((course) => course.id === draft.courseId) : null;
   const pendingQuality = recent.reduce((sum, bundle) => sum + (bundle.quality?.problems?.filter((problem) => problem.severity === "high").length || 0), 0);
   const recentFiles = (state.files || []).slice(0, 4);
+  const recentList = recent.filter((bundle) => bundle.id !== last?.id);
+  const hasWork = Boolean(last || draft || recent.length);
+
+  // One compact tool chooser; the long explanation lives in 使用说明, not on the workspace.
+  const sceneCards = SCENES.map((scene) => `
+    <button class="scene-card" type="button" data-action="scene" data-scene="${scene.id}">
+      <span class="scene-card-top"><span>${scene.no}</span><span class="scene-card-arrow">${icon("arrowUpRight", 14)}</span></span>
+      <span class="scene-card-title">${escapeHtml(scene.label)}</span>
+      <span class="scene-card-foot"><span class="scene-dot"></span>${escapeHtml(scene.output)}</span>
+    </button>
+  `).join("");
+
+  // Group courses by their real review status; do not repeat the same label on every row.
+  const courseGroups = [];
+  for (const pack of CURRICULUM_PACKS) {
+    const label = pack.statusLabel || "待审核";
+    let group = courseGroups.find((item) => item.label === label);
+    if (!group) {
+      group = { label, packs: [] };
+      courseGroups.push(group);
+    }
+    group.packs.push(pack);
+  }
+
+  const todoItems = [
+    { label: "待审核成果", value: studioStats.pending, path: "/quality" },
+    { label: "必须修改的问题", value: pendingQuality, path: "/quality" },
+    { label: "待审核知识包", value: pendingPacks, path: "/programs" },
+    ...(impactStats.hasData ? [{ label: "应用成效", value: impactStats.recordCount, path: "/impact" }] : [])
+  ].filter((item) => Number(item.value) > 0);
 
   return `
-    <div class="page work-home">
+    <div class="page work-home" data-home-state="${hasWork ? "active" : "empty"}">
       <header class="work-home-head">
-        <div>
-          <p class="work-date">${escapeHtml(dateText)}</p>
-          <h1 class="hero-title" id="hero-title">${greeting}，老师。</h1>
-          <p class="work-home-sub">${studioStats.total ? `你有 ${studioStats.pending} 份成果待审核，${studioStats.thisWeek} 份本周更新。` : "工作区已经准备好，可以从一门课开始备课。"}</p>
-        </div>
+        <h1 class="work-home-title">工作台</h1>
         <div class="work-home-actions">
           <button class="btn btn-solid" type="button" data-action="home-start-studio">${icon("plus", 13)} 新建备课</button>
-          <button class="btn" type="button" data-action="nav" data-path="/courses">我的课程</button>
         </div>
       </header>
 
       <div class="work-home-layout">
-        <main class="work-home-main">
-          <section class="work-section">
+        <div class="work-home-main">
+          ${last || draft ? `
+          <section class="work-section" data-role="home-continue" aria-labelledby="home-continue-title">
             <div class="work-section-head">
-              <h2>继续上次的备课</h2>
-              <span>${last ? `最近更新 ${escapeHtml(last.updatedAt ? last.updatedAt.slice(0, 10) : "本机")}` : "还没有历史成果"}</span>
+              <h2 id="home-continue-title">继续上次的备课</h2>
             </div>
             ${last ? `
               <div class="work-continue">
@@ -1839,7 +1846,7 @@ function renderHomePage() {
                   <button class="btn" type="button" data-action="portfolio-history" data-id="${escapeAttr(last.id)}">版本</button>
                 </div>
               </div>
-            ` : draft ? `
+            ` : `
               <div class="work-continue">
                 <div class="work-continue-main">
                   <span class="work-label">未完成草稿 · 第 ${draft.step || 1} 步</span>
@@ -1851,71 +1858,69 @@ function renderHomePage() {
                   <button class="btn" type="button" data-action="home-restart-studio">重新开始</button>
                 </div>
               </div>
-            ` : `
-              <div class="work-empty-row">
-                <div><strong>还没有进行中的备课</strong><p>选择课程和典型工作任务，生成第一套可审核的资源包。</p></div>
-                <button class="btn btn-solid" type="button" data-action="home-start-studio">开始备课</button>
-              </div>
             `}
           </section>
+          ` : ""}
 
-          <section class="work-section">
+          ${recentList.length ? `
+          <section class="work-section" data-role="home-recent" aria-labelledby="home-recent-title">
             <div class="work-section-head">
-              <h2>最近编辑</h2>
+              <h2 id="home-recent-title">最近成果</h2>
               <button class="btn-link" type="button" data-action="nav" data-path="/portfolio">全部成果 →</button>
             </div>
-            ${recent.length ? `<div class="work-list">${recent.map((bundle) => `
+            <div class="work-list">${recentList.map((bundle) => `
               <button class="work-row" type="button" data-action="portfolio-open" data-id="${escapeAttr(bundle.id)}">
                 <span class="work-row-main"><strong>${escapeHtml(bundle.title)}</strong><small>${escapeHtml(bundle.context?.course || "")} · ${escapeHtml(bundle.context?.task || "")} · v${bundle.version || 1}</small></span>
-                <span class="work-row-meta">${bundle.quality ? `质检 ${bundle.quality.overall}` : "未质检"}<small>${escapeHtml(bundle.updatedAt ? bundle.updatedAt.slice(0, 10) : "")}</small></span>
-              </button>`).join("")}</div>` : `<p class="work-muted">还没有教学成果。完成一次备课后会出现在这里。</p>`}
+                <span class="work-row-arrow" aria-hidden="true">${icon("arrowRight", 14)}</span>
+              </button>`).join("")}</div>
+          </section>
+          ` : ""}
+
+          <section class="work-section" data-role="home-courses" aria-labelledby="home-courses-title">
+            <div class="work-section-head">
+              <h2 id="home-courses-title">常用课程</h2>
+              <button class="btn-link" type="button" data-action="nav" data-path="/courses">全部课程 →</button>
+            </div>
+            <div class="work-course-groups">
+              ${courseGroups.map((group) => `
+                <div class="work-course-group">
+                  <div class="work-course-group-head"><h3>${escapeHtml(group.label)}</h3><span>${group.packs.length}</span></div>
+                  <div class="work-list">
+                    ${group.packs.map((pack) => `
+                      <button class="work-row" type="button" data-action="course-open" data-id="${escapeAttr(pack.courseId)}">
+                        <span class="work-row-main"><strong>${escapeHtml(pack.title)}</strong><small>${escapeHtml(PROGRAM_DATA.majors.find((major) => major.id === pack.majorId)?.name || pack.majorId || "")} · ${pack.chapters.length} 章 · ${(pack.chapters || []).reduce((sum, chapter) => sum + (chapter.knowledgePoints || []).length, 0)} 知识点</small></span>
+                        <span class="work-row-arrow" aria-hidden="true">${icon("arrowRight", 14)}</span>
+                      </button>`).join("")}
+                  </div>
+                </div>
+              `).join("")}
+            </div>
           </section>
 
-          <section class="work-section">
-            <div class="work-section-head">
-              <h2>我的常用课程</h2>
-              <span>${builtPacks} 门有完整知识包 · ${pendingPacks} 门待教研组审核</span>
-            </div>
-            <div class="work-list">
-              ${CURRICULUM_PACKS.map((pack) => `
-                <button class="work-row" type="button" data-action="course-open" data-id="${escapeAttr(pack.courseId)}">
-                  <span class="work-row-main"><strong>${escapeHtml(pack.title)}</strong><small>${escapeHtml(PROGRAM_DATA.majors.find((major) => major.id === pack.majorId)?.name || pack.majorId || "")} · ${pack.chapters.length} 章 · ${(pack.chapters || []).reduce((sum, chapter) => sum + (chapter.knowledgePoints || []).length, 0)} 知识点</small></span>
-                  <span class="work-row-meta">${escapeHtml(pack.statusLabel || "待审核")}<small>打开课程 →</small></span>
-                </button>`).join("")}
-            </div>
-          </section>
-
-          <section class="work-section work-quick">
-            <div class="work-section-head">
-              <h2>单项工具 <span class="work-label">对话生成，不是完整备课</span></h2>
-              <button class="btn-link" type="button" data-action="nav" data-path="/guide">使用说明 →</button>
-            </div>
-            <p class="work-muted">只想先起草一份教案、任务单或评价表时使用；需要 10 类资源、质检和导出，请用上方“新建备课”。</p>
+          <details class="work-tools" data-role="home-tools">
+            <summary>
+              <span>单项工具</span>
+              <span class="work-tools-count">${SCENES.length}</span>
+              <span class="work-tools-chevron" aria-hidden="true">${icon("chevronRight", 12)}</span>
+            </summary>
             <div class="quick-grid">${sceneCards}</div>
-          </section>
-        </main>
+          </details>
+        </div>
 
-        <aside class="work-home-side">
-          <section class="work-side-block">
-            <h2>今日待处理</h2>
-            <ul class="work-tasks">
-              <li><button type="button" data-action="nav" data-path="/quality"><span>待审核成果</span><b>${studioStats.pending}</b></button></li>
-              <li><button type="button" data-action="nav" data-path="/quality"><span>必须修改的问题</span><b>${pendingQuality}</b></button></li>
-              <li><button type="button" data-action="nav" data-path="/programs"><span>待审核课程知识包</span><b>${pendingPacks}</b></button></li>
-              <li><button type="button" data-action="nav" data-path="/impact"><span>真实应用成效</span><b>${impactStats.hasData ? `${impactStats.recordCount} 条` : "尚未采集"}</b></button></li>
-            </ul>
+        <aside class="work-home-side" data-role="home-side" aria-label="待处理与最近文件">
+          <section class="work-side-block" aria-labelledby="home-todo-title">
+            <h2 id="home-todo-title">今日待处理</h2>
+            ${todoItems.length ? `<ul class="work-tasks" data-role="home-todo">
+              ${todoItems.map((item) => `<li><button type="button" data-action="nav" data-path="${item.path}"><span>${item.label}</span><b>${item.value}</b></button></li>`).join("")}
+            </ul>` : `<p class="work-side-empty" role="status">暂无待处理</p>`}
           </section>
 
-          <section class="work-side-block">
-            <h2>最近文件</h2>
-            ${recentFiles.length ? `<div class="work-file-list">${recentFiles.map((file) => `<button type="button" data-action="nav" data-path="/files"><span>${escapeHtml(file.name)}</span><small>${escapeHtml(String(file.ext || "").toUpperCase())}</small></button>`).join("")}</div>` : `<p class="work-muted">还没有上传文件。<button class="btn-link" type="button" data-action="nav" data-path="/files">去资料中心 →</button></p>`}
+          ${recentFiles.length ? `
+          <section class="work-side-block" aria-labelledby="home-files-title">
+            <h2 id="home-files-title">最近文件</h2>
+            <div class="work-file-list">${recentFiles.map((file) => `<button type="button" data-action="nav" data-path="/files"><span>${escapeHtml(file.name)}</span><small>${escapeHtml(String(file.ext || "").toUpperCase())}</small></button>`).join("")}</div>
           </section>
-
-          <section class="work-side-block work-reminder">
-            <h2>提醒</h2>
-            <p>知识包均为校本示例，设备参数、安全条款和来源编号仍需教研组确认。</p>
-            <button class="btn btn-ghost" type="button" data-action="nav" data-path="/kb">查看依据</button>
-          </section>
+          ` : ""}
         </aside>
       </div>
     </div>
