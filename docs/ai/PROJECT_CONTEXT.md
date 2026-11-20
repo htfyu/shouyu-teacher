@@ -14,7 +14,7 @@
 
 - 纯静态前端，ES Modules，无构建步骤。
 - 入口：`index.html`，主逻辑：`js/app.js`（约 10,300 行）。
-- 样式：`styles.css → ui-refresh.css → work-theme.css → rounded-motion.css → design-language.css`。
+- 样式：`tokens.css → components.css`（六层已合并；组件层保留原级联顺序）。
 - 数据：`js/programs-data.js`、`js/curriculum-data.js`、`js/knowledge*.js` 等静态模块。
 - 存储：IndexedDB `jiangbei_v2`、`shouyu_programs_v1`、`shouyu_studio_v1`、`shouyu_impact_v1`；localStorage 兼容键。
 - 测试：Node test + Playwright（Edge）+ 文件解析测试。

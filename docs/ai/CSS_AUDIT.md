@@ -1,55 +1,66 @@
-# CSS 层审计
+# CSS 层审计与合并记录
 
-## 当前加载顺序
+## 当前结构
 
 ```text
-styles.css           93 KB  基础组件、历史布局、文档/聊天/编辑器
-ui-refresh.css      111 KB  早期重排与全站覆盖
-work-theme.css       68 KB  工作型主题与页面专用样式
-rounded-motion.css   11 KB  圆角、阴影、焦点与动效
-design-language.css  14 KB  页面框架、字号、间距、阅读区
-shouyu-world.css     31 KB  Workshop Folio 视觉世界与状态章
+assets/tokens.css        3.6 KB   110 个设计变量，单一 :root
+assets/components.css  294.8 KB   组件、页面、打印、响应式、动效
 ```
 
-总计约 328 KB（未压缩，本地静态加载）。
+加载顺序：
 
-## 为什么暂不删除
+```html
+<link rel="stylesheet" href="./assets/tokens.css">
+<link rel="stylesheet" href="./assets/components.css">
+```
 
-1. 六层之间不是简单覆盖：`styles.css` 仍定义编辑器、旧聊天、文件中心和打印样式。
-2. `ui-refresh.css` 仍有大量页面专用布局，无法仅凭“看起来重复”判断死代码。
-3. 没有构建期 CSS 树摇；直接删除需要用页面覆盖率和视觉回归双重验证。
-4. 当前项目没有视觉回归基线工具；贸然清理会把不可见页面的样式一起删掉。
+## 合并前
 
-## 已完成的低风险收敛
+```text
+styles.css           93.1 KB
+ui-refresh.css      110.7 KB
+work-theme.css       67.6 KB
+rounded-motion.css   11.4 KB
+design-language.css  14.4 KB
+shouyu-world.css     37.5 KB
+```
 
-- 删除 `styles.css` 中警告块的重复条纹渐变；
-- 删除 `work-theme.css` 中导航/课程/专业卡/质量行/工作台侧色条；
-- 删除选中行 inset 2px 色条；
-- 删除 `.studio-doc-tab.is-active` 的 inset 色条；
-- 用 `shouyu-world.css` 统一颜色、圆角、状态章和表面；
-- 将页面框架、字号下限集中在 `design-language.css` / `shouyu-world.css`；
-- 检测器 `--changed` 为 0 findings，主要渲染页 0 findings。
+总计约 334.7 KB，6 个请求；`:root` 声明 397 条、110 个变量，其中 46 个变量存在跨层冲突。
 
-## 后续安全清理方案
+## 合并方法
 
-1. 用 Playwright 覆盖率采集 16 个路由 + 移动端 + 编辑器/弹窗。
-2. 生成选择器使用清单，标记“未命中”而非“看起来重复”。
-3. 对未命中规则先在浏览器禁用，再做截图对比。
-4. 按层合并为：
-   - `tokens.css`
-   - `base.css`
-   - `components.css`
-   - `pages.css`
-   - `motion.css`
-5. 每次只删一层的一段，保留 Git 回滚点。
+1. 按原顺序读取六层：`styles → ui-refresh → work-theme → rounded-motion → design-language → shouyu-world`。
+2. 提取六层顶层的 `:root`，按原顺序合并为 `tokens.css`；同名变量后层覆盖前层。
+3. 剩余规则按原顺序进入 `components.css`，不改变选择器、媒体查询、`@supports`、打印规则和 `@keyframes` 的位置。
+4. 只删除“同一选择器、同一 at-rule 上下文、被后续声明完全覆盖”的声明；不合并仍有不同声明的重复选择器，避免改变级联结果。
+5. 删除删除后为空的 226 个规则块。
 
-## 不做什么
+## 合并结果
 
-- 不做一次性 CSS 重写；
-- 不删除 `styles.css` 中仍被编辑器/文件中心/打印使用的规则；
-- 不为减少行数引入 Tailwind 或运行时 CSS-in-JS；
-- 不在没有视觉回归的情况下大范围删除选择器。
+| 指标 | 前 | 后 |
+|---|---:|---:|
+| CSS 文件 | 6 | 2 |
+| CSS 请求 | 6 | 2 |
+| 未压缩字节 | 334,667 | 298,415 |
+| gzip 字节 | 55,733 | 41,801 |
+| 样式规则（含嵌套 qualified） | 3,096 | 2,870 |
+| 重复选择器出现次数 | 1,176 | 944 |
+| 精确重复规则块 | 12 | 0 |
+| `:root` 变量 | 110 | 110 |
+| 冲突变量 | 46 | 0 |
+| 计算样式指纹差异 | — | **32 个页面/视口组合 0 差异** |
 
-## 结论
+> 用户给出的基线为 47 个冲突变量 / 476 个重复选择器；本机合并前实测为 46 / 1,176 次重复出现。这里报告实测值，不为了对齐数字而删除仍有不同声明的选择器。
 
-当前保留六层是**过渡状态**，不是最终架构。已消除最明显的重复装饰和侧色条；物理清理需要覆盖率与截图基线，不在本批冒险执行。
+## 验证
+
+- 16 路由 × 1440/390 = 32 个页面/视口组合，逐元素计算样式指纹：0 差异。
+- 单元 100、E2E 75、文件 18、P0 专用测试通过。
+- 32 次路由加载：0 console error / 0 failed request / 0 横向溢出。
+- CSS 加载数：2。
+- 公开站目标区域与 404 状态保持正常。
+
+## 后续
+
+- P1-5 继续收敛字号（6 级）、圆角（4 级）、文字色（5 级）；本轮只做文件层与重复声明合并，不改变视觉值。
+- 不再恢复六层结构；旧文件保留在 Git 历史中。

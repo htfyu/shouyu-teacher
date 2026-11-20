@@ -227,12 +227,8 @@ wrangler deploy
 ├─ index.html
 ├─ assets/
 │  ├─ brand/                     # 授渔 logo、透明黑线标与 favicon
-│  ├─ styles.css                 # 原有基础样式与业务组件
-│  ├─ ui-refresh.css             # 原布局与组件层
-│  ├─ work-theme.css             # 工作型主题：中性色、统一品牌操作色、页面布局
-│  ├─ rounded-motion.css         # 圆角、柔和阴影、hover/focus、页面与弹窗动效、reduced-motion
-│  ├─ design-language.css        # 页面框架、字号层级、工作区阅读与质量面板密度
-│  ├─ shouyu-world.css           # Workshop Folio 视觉世界：书脊、纸面、状态章、质量/授课记录
+│  ├─ tokens.css                 # 单一设计变量层（字体、颜色、圆角、间距、状态色）
+│  ├─ components.css             # 组件、页面、打印、响应式与动效（原六层合并）
 │  └─ vendor/                    # 按需加载的本地解析/导出依赖（约 4MB）
 │     ├─ mammoth/                # DOCX
 │     ├─ pdfjs/                  # PDF + worker + cmaps

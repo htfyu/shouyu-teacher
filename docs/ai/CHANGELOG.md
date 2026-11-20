@@ -1,5 +1,24 @@
 # 变更记录
 
+## 2026-11-20 · P1-1 CSS 六层合并为两层
+
+### 新增
+
+- `assets/tokens.css`：110 个设计变量，单一 `:root`，冲突变量 46→0。
+- `assets/components.css`：原六层组件/页面/打印/响应式规则按原顺序合并。
+
+### 修改
+
+- `index.html`：6 个 CSS 请求改为 `tokens.css` + `components.css`。
+- 删除 `styles.css`、`ui-refresh.css`、`work-theme.css`、`rounded-motion.css`、`design-language.css`、`shouyu-world.css`。
+- CSS 未压缩体积 334,667→298,415；gzip 55,733→41,801；请求 6→2。
+- 删除 226 个被完全覆盖的空规则；重复选择器出现 1,176→944；精确重复规则 12→0。
+- 32 个页面/视口组合的计算样式指纹 0 差异。
+
+### 未开始
+
+- P1-2 app.js 拆分/动态 import；P1-3/4/5；P2 全部。
+
 ## 2026-11-20 · P0 路由兜底与移动端可用性
 
 ### 新增

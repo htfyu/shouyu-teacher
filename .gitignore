@@ -27,3 +27,5 @@ test-results/
 server/.dev.vars
 server/vercel/.env
 .wrangler/
+# Session memory
+.memsearch/
