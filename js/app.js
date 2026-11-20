@@ -925,11 +925,12 @@ const toastRoot = document.getElementById("toast-root");
 
 function parseRoute() {
   const raw = location.hash.replace(/^#/, "") || "/";
+  if (raw === "/" || raw === "") return { name: "home" };
   if (raw.startsWith("/chat/")) {
     const id = decodeURIComponent(raw.slice(6));
     const conv = findConversation(id);
     if (conv) return { name: "chat", id, conversation: conv };
-    return { name: "notfound" };
+    return { name: "notfound", path: raw };
   }
   if (raw === "/courses" || raw === "/courses/") return { name: "courses" };
   if (raw.startsWith("/course/") || raw.startsWith("/courses/")) {
@@ -949,16 +950,56 @@ function parseRoute() {
   if (raw === "/history" || raw.startsWith("/history")) return { name: "history" };
   if (raw === "/settings" || raw.startsWith("/settings")) return { name: "settings" };
   if (raw === "/guide" || raw.startsWith("/guide")) return { name: "guide" };
-  return { name: "home" };
+  return { name: "notfound", path: raw };
 }
 
 function routeIdentity(route) {
-  return `${route?.name || "home"}:${route?.id || ""}`;
+  return `${route?.name || "home"}:${route?.id || route?.path || ""}`;
+}
+
+const MOBILE_NAV_QUERY = "(max-width: 960px)";
+
+function isMobileNav() {
+  return typeof window !== "undefined" && window.matchMedia?.(MOBILE_NAV_QUERY).matches;
+}
+
+function sidebarFocusables() {
+  if (!sidebarEl) return [];
+  return [...sidebarEl.querySelectorAll("a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex='0']")]
+    .filter((el) => el.offsetParent !== null && !el.closest("[hidden]"));
+}
+
+function focusMobileMenu() {
+  requestAnimationFrame(() => {
+    document.querySelector(".mobile-menu")?.focus({ preventScroll: true });
+  });
+}
+
+function focusFirstSidebarItem() {
+  requestAnimationFrame(() => {
+    const first = sidebarEl?.querySelector(".side-nav .nav-item") || sidebarEl?.querySelector("a[href], button");
+    first?.focus({ preventScroll: true });
+  });
+}
+
+function openSidebar() {
+  if (!isMobileNav() || state.sidebarOpen) return;
+  state.sidebarOpen = true;
+  renderApp({ preserveScroll: true });
+  focusFirstSidebarItem();
+}
+
+function closeSidebar({ render = true } = {}) {
+  const wasOpen = state.sidebarOpen;
+  state.sidebarOpen = false;
+  if (render && wasOpen) renderApp({ preserveScroll: true });
+  if (wasOpen && isMobileNav()) focusMobileMenu();
 }
 
 function navigate(path, options = {}) {
   const hash = path === "/" ? "#/" : `#${path}`;
   closeModal();
+  const wasSidebarOpen = state.sidebarOpen;
   state.sidebarOpen = false;
   state.railOpen = false;
   if (location.hash !== hash) {
@@ -966,19 +1007,15 @@ function navigate(path, options = {}) {
   }
   state.pendingScroll = options.scroll || "auto";
   handleRoute();
+  if (wasSidebarOpen && isMobileNav()) focusMobileMenu();
 }
 
 function handleRoute() {
   const route = parseRoute();
+  const sidebarWasOpen = state.sidebarOpen;
   const changed = routeIdentity(route) !== routeIdentity(state.route);
-  if (route.name === "notfound") {
-    history.replaceState(null, "", "#/");
-    state.route = { name: "home" };
-    state.activeId = null;
-  } else {
-    state.route = route;
-    state.activeId = route.name === "chat" ? route.id : null;
-  }
+  state.route = route;
+  state.activeId = route.name === "chat" ? route.id : null;
   if (changed) {
     // Do not leak an unsent draft or attachment into another page/conversation.
     state.draft = "";
@@ -995,6 +1032,7 @@ function handleRoute() {
     state.pendingScroll = conv?.latestArtifact ? "result" : "bottom";
   }
   renderApp();
+  if (sidebarWasOpen && !state.sidebarOpen && isMobileNav()) focusMobileMenu();
 }
 
 window.addEventListener("popstate", handleRoute);
@@ -1073,11 +1111,11 @@ function renderSidebar(activeConv) {
   const moreOpen = state.navMoreOpen || moreActive;
   const navButton = (item) => {
     const active = item.key === "courses" ? coursesActive : route.name === item.key;
-    return `<button class="nav-item${active ? " is-active" : ""}" type="button" data-action="nav" data-nav="${item.key}" data-path="${item.path}" title="${escapeAttr(item.label)}" aria-label="${escapeAttr(item.label)}" ${active ? 'aria-current="page"' : ""}>
+    return `<a class="nav-item${active ? " is-active" : ""}" href="#${escapeAttr(item.path)}" data-action="nav" data-nav="${item.key}" data-path="${escapeAttr(item.path)}" title="${escapeAttr(item.label)}" aria-label="${escapeAttr(item.label)}" ${active ? 'aria-current="page"' : ""}>
       <span class="nav-icon">${icon(item.icon, 16)}</span>
       <span class="nav-label">${item.label}</span>
       ${item.count != null ? `<span class="nav-count">${String(item.count).padStart(2, "0")}</span>` : ""}
-    </button>`;
+    </a>`;
   };
   sidebarEl.innerHTML = `
     <a class="brand" href="#/" data-action="nav" data-path="/" aria-label="授渔首页">
@@ -1108,10 +1146,10 @@ function renderSidebar(activeConv) {
             <span class="side-nav-group-label">${group.label}</span>
             ${group.items.map(navButton).join("")}
           `).join("")}
-          <button class="nav-item nav-item-action" type="button" data-action="new-chat" title="新建教学对话">
+          <a class="nav-item nav-item-action" href="#/" data-action="new-chat" title="新建教学对话" aria-label="新建教学对话">
             <span class="nav-icon">${icon("file", 16)}</span>
             <span class="nav-label">AI 教学对话</span>
-          </button>
+          </a>
         </nav>` : ""}
       </div>
       <div class="side-label side-label-recent">RECENT / 最近</div>
@@ -1233,7 +1271,7 @@ function renderTopbar(activeConv) {
     title = "";
   }
   topbarEl.innerHTML = `
-    <button class="mobile-menu" type="button" data-action="toggle-sidebar" aria-label="打开导航">${icon("menu", 16)}</button>
+    <button class="mobile-menu" type="button" data-action="toggle-sidebar" aria-controls="sidebar" aria-expanded="${state.sidebarOpen ? "true" : "false"}" aria-label="${state.sidebarOpen ? "关闭导航" : "打开导航"}">${icon("menu", 16)}</button>
     <a class="mobile-brand" href="#/" data-action="nav" data-path="/" aria-label="授渔首页"><img src="./assets/brand/logo-mark.png" alt=""></a>
     ${title || kicker ? `<div class="topbar-left">
       <div class="topbar-heading">
@@ -1243,6 +1281,30 @@ function renderTopbar(activeConv) {
     </div>` : ""}
     <div class="topbar-center"><span class="topbar-quote">${escapeHtml(center)}</span></div>
     <div class="topbar-right">${actions}</div>
+  `;
+}
+
+function renderNotFoundPage() {
+  const path = state.route?.path || location.hash.replace(/^#/, "") || "/";
+  return `
+    <div class="page notfound-page">
+      <div class="page-head">
+        <div>
+          <div class="page-kicker">404 / ROUTE NOT FOUND</div>
+          <h1 class="page-title">这个地址没有对应页面。</h1>
+          <p class="page-intro">地址没有被静默改回首页。请检查链接，或从下面的入口回到可用页面。</p>
+        </div>
+      </div>
+      <section class="notfound-card" aria-labelledby="notfound-path">
+        <p class="notfound-label">请求的地址</p>
+        <code id="notfound-path">#${escapeHtml(path)}</code>
+        <p>如果这是从旧链接、收藏夹或外部文档进入的，对应页面可能已经改名或移动。</p>
+        <div class="notfound-actions">
+          <button class="btn btn-solid" type="button" data-action="nav" data-path="/">返回工作台</button>
+          <button class="btn" type="button" data-action="nav" data-path="/courses">打开我的课程</button>
+        </div>
+      </section>
+    </div>
   `;
 }
 
@@ -1286,8 +1348,11 @@ function renderView(activeConv, options, previousChatScroll, previousViewScroll)
     document.querySelectorAll("[data-role='composer-input']").forEach(autoResize);
     return;
   }
-  viewEl.innerHTML = route.name === "courses"
-    ? renderCoursesPage()
+  if (route.name === "notfound") {
+    viewEl.innerHTML = renderNotFoundPage();
+  } else {
+    viewEl.innerHTML = route.name === "courses"
+      ? renderCoursesPage()
     : route.name === "course"
       ? renderCourseWorkspacePage(route.id)
       : route.name === "studio"
@@ -1317,6 +1382,7 @@ function renderView(activeConv, options, previousChatScroll, previousViewScroll)
             : route.name === "guide"
               ? renderGuidePage()
               : renderHomePage();
+  }
   viewEl.dataset.routeKey = routeKey;
   if (routeChanged) viewEl.classList.add("is-route-enter");
   viewEl.scrollTop = options.preserveScroll ? previousViewScroll || 0 : 0;
@@ -6167,11 +6233,11 @@ function renderGuidePage() {
         <div>
           <div class="page-kicker">MANUAL / 作品说明</div>
           <h1 class="page-title">先说边界，再谈智能。</h1>
-          <p class="page-intro">授渔只服务一件事：把工学一体化备课从“写一份看起来完整的方案”，变成“拿到一份可以修改、可以上课、可以审核的教学成果”。V2 提供本地与 AI 增强双引擎：本地模式永远可用；AI 模式需要明确授权，可流式生成，并在失败时自动回退。</p>
+          <p class="page-intro">授渔只服务一件事：把工学一体化备课从“写一份看起来完整的方案”，变成“拿到一份可以修改、可以上课、可以审核的教学成果”。V3.0 提供本地与 AI 增强双引擎：本地模式永远可用；AI 模式需要明确授权，可流式生成，并在失败时自动回退。</p>
         </div>
         <div class="page-head-side">
           <strong>当前版本</strong>
-          V2.0 · ${escapeHtml(KB_VERSION)}<br>
+          V3.0 · ${escapeHtml(KB_VERSION)}<br>
           本地引擎 + 可选 AI 安全代理<br>
           在线：<a href="https://htfyu.github.io/shouyu-teacher/" target="_blank" rel="noopener">htfyu.github.io/shouyu-teacher</a>
         </div>
@@ -6209,7 +6275,7 @@ function renderGuidePage() {
 
           <section>
             <h2 class="guide-h2" data-no="03">工作流如何运行</h2>
-            <p class="guide-p">每次生成不是“一次性写一段话”，而是按固定工序执行。V2 是双引擎：<strong>本地模式</strong>使用可审查的规则、知识检索与结构化模板，数据不出浏览器；<strong>AI 增强模式</strong>经用户授权后，把必要上下文与检索片段发送给模型，再由模型改写关键模块并合并回本地完整结构。AI 失败时保留本地成果；安全类查询仍固定由本地知识库回答。</p>
+            <p class="guide-p">每次生成不是“一次性写一段话”，而是按固定工序执行。V3.0 是双引擎：<strong>本地模式</strong>使用可审查的规则、知识检索与结构化模板，数据不出浏览器；<strong>AI 增强模式</strong>经用户授权后，把必要上下文与检索片段发送给模型，再由模型改写关键模块并合并回本地完整结构。AI 失败时保留本地成果；安全类查询仍固定由本地知识库回答。</p>
             <div class="arch-flow">
               <div class="arch-box">教师任务<small>专业 / 任务 / 学情</small></div>
               <div class="arch-arrow">→</div>
@@ -9432,8 +9498,8 @@ function handleAction(action, el, event) {
       break;
     }
     case "toggle-sidebar": {
-      state.sidebarOpen = !state.sidebarOpen;
-      renderApp({ preserveScroll: true });
+      if (state.sidebarOpen) closeSidebar();
+      else openSidebar();
       break;
     }
     case "toggle-sidebar-collapse": {
@@ -9444,8 +9510,7 @@ function handleAction(action, el, event) {
       break;
     }
     case "close-sidebar": {
-      state.sidebarOpen = false;
-      renderApp({ preserveScroll: true });
+      closeSidebar();
       break;
     }
     case "toggle-rail": {
@@ -10314,10 +10379,29 @@ document.addEventListener("keydown", (event) => {
       return;
     }
     if (state.sidebarOpen) {
-      state.sidebarOpen = false;
-      renderApp({ preserveScroll: true });
+      closeSidebar();
       return;
     }
+  }
+
+  if (event.key === "Tab" && state.sidebarOpen && !state.modal && isMobileNav()) {
+    const focusable = sidebarFocusables();
+    if (!focusable.length) return;
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    if (!sidebarEl.contains(document.activeElement)) {
+      event.preventDefault();
+      first.focus();
+      return;
+    }
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
+    }
+    return;
   }
 
   if (event.key === "Tab" && state.modal) {

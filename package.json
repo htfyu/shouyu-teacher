@@ -9,6 +9,7 @@
     "test:unit": "node --test tests/privacy.test.mjs tests/knowledge-packs.test.mjs tests/engine.test.mjs tests/ai-artifacts.test.mjs tests/server.test.mjs tests/programs.test.mjs tests/curriculum-quality.test.mjs tests/impact.test.mjs tests/teaching-store.test.mjs",
     "test:files": "npm --prefix tests run test:files",
     "test:e2e": "node tests/e2e.smoke.mjs",
+    "test:p0": "node tests/p0-accessibility.mjs",
     "test:backup": "node tests/backup.e2e.mjs",
     "test:design-qa": "node tests/studio-detect.e2e.mjs",
     "test:long-doc": "node tests/long-doc.e2e.mjs"

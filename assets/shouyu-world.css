@@ -1308,6 +1308,99 @@ textarea:focus {
   color: var(--w-muted);
 }
 
+.notfound-page .page-head {
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--w-line-strong);
+}
+
+.notfound-card {
+  max-width: 680px;
+  margin-top: 22px;
+  padding: 26px 28px;
+  border: 1px solid var(--w-line-strong);
+  border-radius: 12px;
+  background: var(--w-paper);
+}
+
+.notfound-label {
+  margin: 0 0 8px;
+  color: var(--w-muted);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.notfound-card code {
+  display: block;
+  overflow-wrap: anywhere;
+  color: var(--w-ink);
+  font-family: var(--font-mono);
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+.notfound-card > p:not(.notfound-label) {
+  margin: 14px 0 0;
+  color: var(--w-muted);
+  font-size: 12px;
+  line-height: 1.7;
+}
+
+.notfound-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px;
+  margin-top: 20px;
+}
+
+@media (max-width: 960px) {
+  .mobile-menu,
+  .mobile-brand {
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  .sidebar .new-chat,
+  .sidebar .nav-item,
+  .sidebar .nav-more-toggle,
+  .sidebar .recent-item,
+  .sidebar .side-foot-link,
+  .sidebar .sidebar-collapse {
+    min-height: 44px;
+  }
+
+  .sidebar .side-foot-link {
+    display: flex;
+    align-items: center;
+  }
+
+  .topbar .btn,
+  .topbar .ai-mode-chip {
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  .page .btn,
+  .page button:not(.btn-link),
+  .page [role="button"],
+  .page select,
+  .page summary,
+  .page input[type="submit"],
+  .page input[type="button"] {
+    min-height: 44px;
+  }
+
+  .page .btn-link {
+    display: inline-flex;
+    min-height: 44px;
+    align-items: center;
+  }
+
+  .skip-link {
+    min-height: 44px;
+  }
+}
+
 .quality-issue-row > span,
 .studio-project-issue > span {
   width: max-content;
