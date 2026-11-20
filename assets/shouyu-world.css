@@ -123,18 +123,26 @@ body {
 }
 
 .brand-mark {
-  width: 38px;
-  height: 27px;
-  flex-basis: 38px;
-  padding: 3px 4px;
-  border-radius: 5px;
-  background: #f5f0e2;
-  box-sizing: content-box;
+  width: 34px;
+  height: 34px;
+  flex: 0 0 34px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  overflow: visible;
+  box-sizing: border-box;
+}
+
+.brand-mark::after {
+  display: none;
 }
 
 .brand-mark img {
-  width: 38px;
-  height: 27px;
+  display: block;
+  width: 34px;
+  height: 34px;
   object-fit: contain;
 }
 
@@ -144,10 +152,6 @@ body {
   font-size: 19px;
   font-weight: 650;
   letter-spacing: 0.02em;
-}
-
-.brand-sub {
-  display: none;
 }
 
 .side-label {
@@ -162,13 +166,39 @@ body {
 }
 
 .new-chat {
+  display: flex;
+  width: 100%;
+  height: 38px;
   min-height: 38px;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 4px;
+  padding: 0 11px;
   border: 1px solid #d7c6aa;
   border-radius: 8px;
   background: #f5efe0;
   color: #24392e;
+  font-size: 13px;
   font-weight: 650;
   box-shadow: 0 1px 0 rgba(0, 0, 0, 0.08);
+  transition:
+    background-color 150ms var(--ui-ease),
+    border-color 150ms var(--ui-ease),
+    transform 120ms var(--ui-ease);
+}
+
+.new-chat > svg {
+  flex: 0 0 auto;
+}
+
+.new-chat-label {
+  min-width: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+  line-height: 1.25;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .new-chat:hover {
@@ -177,10 +207,29 @@ body {
   color: #172a21;
 }
 
+.new-chat:active {
+  transform: translateY(1px);
+}
+
+.new-chat:focus-visible {
+  outline: 2px solid #e9d9bd;
+  outline-offset: 2px;
+}
+
 .new-chat kbd {
-  border-color: #c9b898;
+  flex: 0 0 auto;
+  min-width: 18px;
+  margin-left: 2px;
+  padding: 2px 5px;
+  border: 1px solid #c9b898;
+  border-radius: 4px;
   background: #e7ddc8;
   color: #4d5b50;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 500;
+  line-height: 1.2;
+  text-align: center;
 }
 
 .nav-group {
@@ -765,6 +814,70 @@ textarea:focus {
   font-size: 12px;
 }
 
+/* Home right rail: one row rhythm, label left, value right. */
+.work-home-side {
+  gap: 24px;
+}
+
+.work-side-block {
+  padding-top: 10px;
+  border-top-color: var(--w-line);
+}
+
+.work-side-block h2 {
+  margin: 8px 0 7px;
+  color: var(--w-ink);
+  font-family: var(--font-serif);
+  font-size: 13px;
+  font-weight: 650;
+  letter-spacing: 0;
+}
+
+.work-tasks {
+  display: grid;
+  gap: 0;
+}
+
+.work-tasks button {
+  display: flex;
+  min-height: 42px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--w-line-soft);
+  color: var(--w-muted);
+  font-size: 12px;
+  line-height: 1.45;
+  text-align: left;
+}
+
+.work-tasks button:hover {
+  background: var(--w-warm);
+  color: var(--w-ink);
+}
+
+.work-tasks button span {
+  min-width: 0;
+}
+
+.work-tasks button b {
+  flex: 0 0 auto;
+  min-width: 2.5em;
+  color: var(--w-ink);
+  font-family: var(--font-mono);
+  font-size: 15px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.2;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.work-tasks li:last-child button {
+  border-bottom: 0;
+}
+
 .work-empty,
 .work-empty-row {
   border-color: var(--w-line);
@@ -799,9 +912,7 @@ textarea:focus {
 .quality-report-card,
 .quality-issue-row,
 .kb-row,
-.impact-record,
-.work-tasks button,
-.work-file-list button {
+.impact-record {
   border-color: var(--w-line);
   background: var(--w-paper);
 }
@@ -1019,6 +1130,182 @@ textarea:focus {
 .quality-issue-row.is-active::before,
 .kb-row.is-active::before {
   display: none;
+}
+
+.kb-row-no {
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.kb-mobile-cat > span {
+  font-size: 11px;
+}
+
+/* Secondary pages: keep functional text above the 11px floor. */
+.graph-toolbar label,
+.graph-toolbar > span,
+.graph-pack-meta,
+.graph-detail > p,
+.upload-privacy,
+.format-grid span,
+.aside-list li > span,
+.aside-card > p,
+.template-section-title small,
+.template-tag,
+.template-id,
+.history-note,
+.stat-label,
+.engine-card-top,
+.engine-card-foot,
+.engine-card-top i,
+.required-mark,
+.settings-note,
+.field-hint,
+.role-card h3,
+.arch-box,
+.arch-box small,
+.impact-empty > p,
+.demo-run-status,
+.demo-step p,
+.demo-actions .btn {
+  letter-spacing: 0;
+}
+
+.graph-toolbar label,
+.graph-toolbar > span,
+.graph-pack-meta,
+.format-grid span,
+.aside-list li > span,
+.template-section-title small,
+.template-tag,
+.template-id,
+.stat-label,
+.engine-card-top,
+.engine-card-foot,
+.engine-card-top i,
+.required-mark,
+.arch-box,
+.demo-run-status,
+.demo-actions .btn {
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.graph-detail > p,
+.aside-card > p,
+.history-note,
+.settings-note,
+.field-hint,
+.impact-empty > p,
+.demo-step p {
+  font-size: 12px;
+  line-height: 1.7;
+}
+
+.role-card h3 {
+  font-size: 11.5px;
+  line-height: 1.5;
+}
+
+.arch-box small {
+  font-size: 10.5px;
+  line-height: 1.45;
+}
+
+.history-batch-bar {
+  padding: 8px 0;
+  border: 0;
+  border-top: 1px solid var(--w-line);
+  border-bottom: 1px solid var(--w-line);
+  border-radius: 0;
+  background: transparent;
+  font-size: 11px;
+}
+
+.history-batch-bar.is-active,
+.history-batch-bar:focus-within {
+  border-color: var(--w-line-strong);
+  background: transparent;
+}
+
+.graph-toolbar > span,
+.upload-privacy,
+#storage-detail,
+.demo-run-status,
+.demo-architecture p,
+.demo-boundary {
+  font-size: 12px;
+  line-height: 1.7;
+}
+
+.page-stats .stat-label {
+  font-size: 11px;
+  letter-spacing: 0;
+}
+
+.page-stats .stat-value > span,
+.stat-value-note {
+  margin-left: 5px;
+  color: var(--w-muted);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.kb-note,
+.feedback-template,
+.feedback-template strong,
+.principle p {
+  font-size: 12px;
+  line-height: 1.75;
+}
+
+.principle-num {
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+/* Flatten nested cards that are really sections or drop zones. */
+.file-library {
+  padding: 16px 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.upload-zone {
+  margin-top: 16px;
+  padding: 24px 0;
+  border: 0;
+  border-top: 1.5px dashed var(--w-line-strong);
+  border-bottom: 1.5px dashed var(--w-line-strong);
+  border-radius: 0;
+  background: transparent;
+}
+
+.upload-zone:hover,
+.upload-zone.is-drag {
+  border-color: var(--w-ink);
+  background: var(--w-warm);
+}
+
+.settings-panel .form-banner,
+.settings-panel .data-summary,
+.settings-panel .consent-status {
+  padding: 10px 0;
+  border: 0;
+  border-top: 1px solid var(--w-line);
+  border-bottom: 1px solid var(--w-line);
+  border-radius: 0;
+  background: transparent;
+}
+
+.settings-panel .data-summary {
+  font-size: 12px;
+}
+
+.page-stats .stat-label {
+  color: var(--w-muted);
 }
 
 .quality-issue-row > span,

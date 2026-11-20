@@ -121,13 +121,7 @@ h1, h2, h3, h4 {
   letter-spacing: 0.04em;
 }
 
-.brand-sub {
-  margin-top: 2px;
-  color: var(--muted-2);
-  font-family: var(--font-mono);
-  font-size: 8px;
-  letter-spacing: 0.08em;
-}
+
 
 .side-scroll {
   display: flex;
@@ -1321,9 +1315,8 @@ input[type="radio"] {
   margin-top: 18px;
   padding: 13px 15px;
   border: 1px solid var(--line);
-  border-left: 3px solid var(--accent);
   border-radius: var(--radius-sm);
-  background: #fff;
+  background: var(--w-warm, #fbf7ed);
   color: var(--muted);
   font-size: 11.5px;
   line-height: 1.7;
@@ -1923,9 +1916,9 @@ input[type="radio"] {
 }
 
 .upload-privacy {
-  margin-top: 12px !important;
-  color: var(--muted-2) !important;
-  font-size: 10.5px !important;
+  margin-top: 12px;
+  color: var(--muted-2);
+  font-size: 11.5px;
 }
 
 .upload-footnote {
@@ -5029,7 +5022,7 @@ button.workbench-card:hover {
   font-size: 13px;
 }
 
-.demo-step h3 {
+.demo-step h2 {
   margin: 0 0 4px;
   color: var(--ink);
   font-size: 12px;
@@ -5374,7 +5367,7 @@ button.workbench-card:hover {
   box-shadow: var(--shadow);
 }
 
-.demo-architecture h3 {
+.demo-architecture h2 {
   margin: 4px 0 6px;
   color: var(--ink);
   font-size: 12px;

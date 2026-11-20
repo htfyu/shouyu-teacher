@@ -1,5 +1,39 @@
 # 变更记录
 
+## 2026-11-20 · 指定区域、全站可读性与冗余清理
+
+### 指定区域
+
+- `js/app.js`：侧栏 Logo 改用 `logo-mark-inverse.png`；删除已废弃的 `brand-sub` 文案节点。
+- `assets/shouyu-world.css`：Logo 改为 34×34、无内边距/无底板/无边框；开始备课按钮统一 38px 高、11px 内边距、弹性文字区与固定快捷键位；今日待处理四行统一 42px、左标签/右数值、分隔线收口。
+- `assets/brand/README.md`：补充深色侧栏使用反白透明资源与 Alpha 说明。
+
+### 全站 Bug 修复
+
+- 修复统计行被通用卡片规则染成白色圆角胶囊的问题。
+- 修复 `.upload-privacy` 的 `!important` 覆盖，恢复 11.5px。
+- 修复知识库 9px 编号、移动端分类标签、图谱/资料/模板/历史/设置/说明/成效/演示页的功能文字低于 11px 问题。
+- 修复 `.kb-note` 的 3px 左侧色条（改为全边框暖纸提示）。
+- 修复历史批量操作栏、文件库、上传区、设置提示条、存储摘要的嵌套卡片。
+- 修复“历史记录”统计后缀的 9px 内联样式，改成语义类 `.stat-value-note`。
+- 修复指南/演示页标题层级：`h1 → h2`、`h2 → h3`，消除 skipped-heading。
+
+### 清理
+
+- 删除五个 CSS 层里的 `.brand-sub` 死规则。
+- 删除 `.upload-privacy` 的 `!important` 和重复字号覆盖。
+- 移除 `role-card h4` / `demo-step h3` / `demo-architecture h3` 旧选择器。
+- 移除历史统计的内联 9px 样式。
+- 保留 `logo-mark.png`（启动页/移动端/README）与 `logo-mark-inverse.png`（深色侧栏）。
+
+### 验证
+
+- 单元 100、E2E 75、文件 18。
+- 16 路由 × 1440/390 共 32 次 rendered detector：0 primary findings。
+- 32 次路由加载：0 console error、0 failed request、0 横向溢出。
+- 完整备份：授课记录 + 备课项目恢复通过。
+- 长文档：9,017 字，无横向溢出。
+
 ## 2026-11-19 · 设计世界与产品结构第一批
 
 ### 新增

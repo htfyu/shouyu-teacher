@@ -1081,10 +1081,9 @@ function renderSidebar(activeConv) {
   };
   sidebarEl.innerHTML = `
     <a class="brand" href="#/" data-action="nav" data-path="/" aria-label="授渔首页">
-      <span class="brand-mark"><img src="./assets/brand/logo-mark.png" alt=""></span>
+      <span class="brand-mark"><img src="./assets/brand/logo-mark-inverse.png" alt=""></span>
       <span class="brand-copy">
         <span class="brand-name">授渔</span>
-        <span class="brand-sub">SHOUYU · TVET STUDIO</span>
       </span>
     </a>
     <div class="side-scroll">
@@ -5465,13 +5464,13 @@ function renderDemoPage() {
           ["05", "教师审核", "记录审核结论；待审核知识包不会被标成官方标准。"],
           ["06", "保存与导出", "在编辑器中修改，导出 DOCX/XLSX/Markdown/PDF，并保留版本。"],
           ["07", "讲解证据", "页面展示来源、审核状态、质检依据和演示数据边界。"]
-        ].map(([no, title, desc]) => `<div class="demo-step"><b>${no}</b><div><h3>${title}</h3><p>${desc}</p></div></div>`).join("")}
+        ].map(([no, title, desc]) => `<div class="demo-step"><b>${no}</b><div><h2>${title}</h2><p>${desc}</p></div></div>`).join("")}
       </div>
       <div class="demo-actions"><button class="btn btn-solid" type="button" data-action="demo-start" ${state.demoBusy ? "disabled" : ""}>${icon("play", 13)} ${state.demoBusy ? "演示运行中…" : "一键运行完整案例"}</button><button class="btn btn-ghost" type="button" data-action="demo-step-select">从课程选择开始</button><button class="btn btn-ghost" type="button" data-action="demo-step-quality">查看质量检测</button><button class="btn btn-ghost" type="button" data-action="demo-step-portfolio">查看成果与版本</button><button class="btn btn-ghost" type="button" data-action="nav" data-path="/graph">知识图谱</button></div>
       <div class="demo-architecture">
-        <div><div class="page-kicker">ARCHITECTURE / 架构</div><h3>数据 → 装配 → 质检 → 审核 → 导出</h3><p>专业数据库提供课程身份；课程知识包提供章节、知识点、任务和来源；资源引擎装配 10 类共享上下文文档；规则质检给出证据与建议；教师审核后进入成果库与标准文档。</p></div>
-        <div><div class="page-kicker">INNOVATION / 创新</div><h3>不是“让工具代写一篇教案”</h3><p>专业知识关联、10 类资源共享任务上下文、可解释质检、跨文档一致性和来源边界分层，构成本作品与普通代写工具的区别。</p></div>
-        <div><div class="page-kicker">VALUE / 应用价值</div><h3>把重复编写变成可审核的教研流程</h3><p>教师从“找资料、拼模板、反复改格式”转为“选任务、补条件、核证据、做判断”；学校获得可追溯、可复用、可质检的教学资源。</p></div>
+        <div><div class="page-kicker">ARCHITECTURE / 架构</div><h2>数据 → 装配 → 质检 → 审核 → 导出</h2><p>专业数据库提供课程身份；课程知识包提供章节、知识点、任务和来源；资源引擎装配 10 类共享上下文文档；规则质检给出证据与建议；教师审核后进入成果库与标准文档。</p></div>
+        <div><div class="page-kicker">INNOVATION / 创新</div><h2>不是“让工具代写一篇教案”</h2><p>专业知识关联、10 类资源共享任务上下文、可解释质检、跨文档一致性和来源边界分层，构成本作品与普通代写工具的区别。</p></div>
+        <div><div class="page-kicker">VALUE / 应用价值</div><h2>把重复编写变成可审核的教研流程</h2><p>教师从“找资料、拼模板、反复改格式”转为“选任务、补条件、核证据、做判断”；学校获得可追溯、可复用、可质检的教学资源。</p></div>
       </div>
       <div class="demo-boundary">演示边界：本案例的知识包是“校本示例 · 待教研组审核”，不是学院正式课程标准；设备型号、I/O 地址、软件版本和安全权限以现场为准。演示不会声称已完成真实课堂试用。</div>
     </div>
@@ -6066,7 +6065,7 @@ function renderHistoryPage() {
         <div class="stat"><div class="stat-value">${String(all.length).padStart(2, "0")}</div><div class="stat-label">CONVERSATIONS / 对话</div></div>
         <div class="stat"><div class="stat-value">${String(artifactCount).padStart(2, "0")}</div><div class="stat-label">DELIVERABLES / 生成文档</div></div>
         <div class="stat"><div class="stat-value">${String(sourceCount).padStart(2, "0")}</div><div class="stat-label">CITATIONS / 引用依据</div></div>
-        <div class="stat"><div class="stat-value">${useful}<span style="font-family:var(--mono);font-size:9px;color:var(--muted);margin-left:5px">/ ${bad}</span></div><div class="stat-label">HELPFUL / 有用 · 需改进</div></div>
+        <div class="stat"><div class="stat-value">${useful}<span class="stat-value-note">/ ${bad}</span></div><div class="stat-label">HELPFUL / 有用 · 需改进</div></div>
       </div>
       <div class="history-toolbar">
         <div class="history-tools">
@@ -6185,10 +6184,10 @@ function renderGuidePage() {
             <p class="guide-p"><strong>做：</strong>根据专业、课程、工作任务、课型、学时和学情，生成 / 改写教案、学习任务单、六步工作页与评价表；检索 12 个专业方向的课程与教学材料；检索电工 / PLC 操作级安全规程；把脱敏听课记录整理成证据型评课意见；解析 DOCX / PDF / XLSX / PPTX 等资料并在本机建立知识库。</p>
             <p class="guide-p"><strong>不做：</strong>不诊断学生心理，不预测成绩或给学生贴标签，不处理人事、财务、法律与医疗判断，不接收涉密或未脱敏数据。遇到超范围问题，助手会说明“不在我的知识范围内”，并给出咨询方向。</p>
             <div class="role-grid">
-              <div class="role-card"><h4>先问清，再生成</h4><p>专业、任务、课型、学时、学情未齐时，先追问或弹出参数表单，避免一问就瞎答。</p></div>
-              <div class="role-card"><h4>知识库没有就承认</h4><p>安全查询只返回知识库可支持的内容；未收录的场所会明确说“没有”，不编造规程。</p></div>
-              <div class="role-card"><h4>可编辑、可导出</h4><p>成果支持分栏编辑、模块拖动排序、撤销恢复与自动保存；可导出 DOCX、XLSX、TXT、Markdown，PDF 通过浏览器打印另存。</p></div>
-              <div class="role-card"><h4>人工审核是工序</h4><p>每份结果都带“待人工审核”标记和合规自检；AI 只改写关键模块，失败自动回退本地，不把草稿伪装成正式文件。</p></div>
+              <div class="role-card"><h3>先问清，再生成</h3><p>专业、任务、课型、学时、学情未齐时，先追问或弹出参数表单，避免一问就瞎答。</p></div>
+              <div class="role-card"><h3>知识库没有就承认</h3><p>安全查询只返回知识库可支持的内容；未收录的场所会明确说“没有”，不编造规程。</p></div>
+              <div class="role-card"><h3>可编辑、可导出</h3><p>成果支持分栏编辑、模块拖动排序、撤销恢复与自动保存；可导出 DOCX、XLSX、TXT、Markdown，PDF 通过浏览器打印另存。</p></div>
+              <div class="role-card"><h3>人工审核是工序</h3><p>每份结果都带“待人工审核”标记和合规自检；AI 只改写关键模块，失败自动回退本地，不把草稿伪装成正式文件。</p></div>
             </div>
           </section>
 
@@ -6227,10 +6226,10 @@ function renderGuidePage() {
               <div class="arch-box">人工审核<small>教师最终确认</small></div>
             </div>
             <div class="role-grid">
-              <div class="role-card"><h4>规范检索员</h4><p>按任务关键词、场景权重与领域概念扩展检索知识库，只挑与任务相关的章节。</p></div>
-              <div class="role-card"><h4>教学设计员</h4><p>先把目标、重难点、流程、评价与安全组装成完整可审核结构，避免 AI 截断导致半成品。</p></div>
-              <div class="role-card"><h4>AI 改写员</h4><p>在授权范围内改写关键模块；输出被截断、解析失败或无网络时自动回退，不丢任务条件。</p></div>
-              <div class="role-card"><h4>合规审核员</h4><p>检查个人信息、评分依据、安全边界与人工审核提示，不放过“看起来很像”的内容。</p></div>
+              <div class="role-card"><h3>规范检索员</h3><p>按任务关键词、场景权重与领域概念扩展检索知识库，只挑与任务相关的章节。</p></div>
+              <div class="role-card"><h3>教学设计员</h3><p>先把目标、重难点、流程、评价与安全组装成完整可审核结构，避免 AI 截断导致半成品。</p></div>
+              <div class="role-card"><h3>AI 改写员</h3><p>在授权范围内改写关键模块；输出被截断、解析失败或无网络时自动回退，不丢任务条件。</p></div>
+              <div class="role-card"><h3>合规审核员</h3><p>检查个人信息、评分依据、安全边界与人工审核提示，不放过“看起来很像”的内容。</p></div>
             </div>
             <p class="guide-p" style="margin-top:10px">模型的自由生成只能发生在被约束的段落内，不能覆盖安全条款和引用关系。AI 体验通道是公开第三方服务，仅用于演示；生产部署请切换到 <code>server/</code> 中的安全代理，密钥只放服务端环境变量。</p>
           </section>

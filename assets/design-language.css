@@ -187,12 +187,6 @@ body {
   letter-spacing: -0.01em;
 }
 
-.brand-sub {
-  color: var(--ds-muted-2);
-  font-size: 9.5px;
-  letter-spacing: 0.04em;
-}
-
 .side-label {
   color: var(--ds-muted-2);
   font-size: 9.5px;

@@ -184,7 +184,7 @@ h2, h3 { color: var(--ink); }
 .mobile-brand img { width: 26px; height: 26px; object-fit: contain; }
 .boot-mark { background: transparent; color: var(--ink); }
 .brand-name { color: var(--ink); font-family: var(--font-sans); font-size: 19px; }
-.brand-sub { color: var(--muted); font-size: 8px; }
+
 .side-label { color: var(--muted-2); font-size: 8px; letter-spacing: 0.1em; }
 .nav-group { margin-top: 9px; }
 .nav-item {
