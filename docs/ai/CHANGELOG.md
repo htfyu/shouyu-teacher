@@ -1,5 +1,24 @@
 # 变更记录
 
+## 2026-11-20 · P0 路由兜底与移动端可用性
+
+### 新增
+
+- `tests/p0-accessibility.mjs`：404、版本、导航语义、抽屉焦点、44px、hash 回退回归。
+- `docs/ai/P0_REPORT.md`、`docs/ai/P0_DIFF.patch`：P0 指标与逐行 diff。
+
+### 修改
+
+- 未知 hash 保留地址并渲染 404，不再静默 replace 回首页。
+- `index.html` / 使用说明统一 V3.0。
+- 侧栏 15 个 `nav-item` 改为带 `href` 的 `<a>`；保留单一 `aria-current="page"`。
+- 移动抽屉打开聚焦首项、Tab 焦点陷阱、Escape/遮罩/导航关闭后归还焦点。
+- 960px 以下交互目标 44px；390px 可见小于 44px 的目标从 24 降至 0。
+
+### 未开始
+
+- P1/P2 全部条目；LCP 与 60KB 首屏 JS 目标尚未通过 P0 达成。
+
 ## 2026-11-20 · 指定区域、全站可读性与冗余清理
 
 ### 指定区域

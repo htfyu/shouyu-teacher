@@ -337,6 +337,9 @@ $env:PLAYWRIGHT_CHANNEL='msedge'
 npm --prefix tests run test:files
 node tests/e2e.smoke.mjs
 
+# P0 路由/导航/焦点/触控回归（需要本机静态服务器）
+node tests/p0-accessibility.mjs
+
 # 完整备份端到端（需要 Playwright 与本机静态服务器）
 node tests/backup.e2e.mjs
 
