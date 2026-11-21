@@ -1,0 +1,1322 @@
+diff --git a/.gitignore b/.gitignore
+index 849468d..8403d9c 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -29,3 +29,6 @@ server/vercel/.env
+ .wrangler/
+ # Session memory
+ .memsearch/
++
++# Local agent workspace
++.workbuddy/
+diff --git a/DESIGN.md b/DESIGN.md
+index 6fea3d4..7740cec 100644
+--- a/DESIGN.md
++++ b/DESIGN.md
+@@ -1,39 +1,40 @@
+-# 授渔视觉世界：Workshop Folio / 工作手册
++# 授渔视觉世界：Daylight Workspace / 日光工作台
+ 
+-> 取代旧的“暖色工作型后台”视觉。旧界面只作为功能证据，不再作为配色、版式或组件依据。
++> 2026-11-21 更新：学习轻量数据工作台的层级与材质，保留授渔深松木侧栏作为品牌锚点。旧暖纸界面作为历史，不再作为当前配色依据。
+ >
+ > 设计模式：Operate。页面首先是教师能完成工作的工具；视觉世界只提供字体、颜色、密度和一个签名动作。
+ 
+ ## 1. 一句话
+ 
+-授渔像一本被真实使用过的**工学一体化工作手册**：深松木色书脊，米色纸面，细线表格，克制的朱砂印章；每一页都在记录“哪个课程、哪个任务、哪一版、谁还需要核对”。
++授渔是一张**被整理的日光工作台**：深松木书脊固定导航，冷白画布上放白色数据卡，青绿表示可以开始或已经可靠，蓝色只用于数据和次级强调；数字优先，说明退后。
+ 
+-它不是复古文具，也不是工业仪表盘。它是一个安静、可靠、能长时间阅读和批注的专业工作空间。
++它不是企业后台模板，也不是聊天工具。它是教师每天打开就能看到“哪些要做、做到哪、依据是什么”的教学工作面。
+ 
+ ## 2. 视觉世界
+ 
+ ### 材料
+ 
+-- **书脊**：深松木绿 `#203B31`，承载导航，像一本厚手册的脊背。
+-- **纸面**：暖米白 `#F2EFE6`，不是纯白；长时间阅读不刺眼。
+-- **内页**：暖白 `#FFFDF8`，文档和真实内容放在内页上。
+-- **细线**：`#DCD6C8`，像印刷册的 0.5pt 规则线，不用重边框。
+-- **朱砂**：`#B64F32`，只用于需要教师注意的状态、修订和危险动作，不做大面积装饰。
+-- **黄铜**：`#B0873F`，用于次级强调、完成标记和少量数据。
+-- **鼠尾草绿**：`#6C8A76`，用于已确认、已保存和通过状态。
++- **书脊**：深松木绿 `#1B3A32`，承载导航，是品牌锚点；不用整页深色。
++- **画布**：冷雾白 `#EEF3F9`，比纯白更轻，适合长时间工作。
++- **数据卡**：纯白 `#FFFFFF`，18px 圆角，1px 冷灰边，柔和阴影。
++- **细线**：`#E3E9F2`，用于表格与分隔，不用重边框。
++- **主行动**：青绿 `#178A76`，用于“可以开始/执行”的唯一主动作。
++- **数据蓝**：`#3B78E7`，用于图表、链接和次级数据强调，不与主动作争抢。
++- **状态**：琥珀 `#A56A1A` 待审核，青绿 `#178A76` 通过，砖红 `#B4453A` 必须修改。
++- **文字**：主文字 `#1C2738`，辅助 `#667085`，弱提示不浅于 `#5F6B7D`。
+ 
+ ### 字体
+ 
+ - 界面/正文：`"Microsoft YaHei UI", "Microsoft YaHei", "PingFang SC", "Source Han Sans SC", sans-serif`
+-- 文档/页面标题：`"Source Han Serif SC", "Noto Serif SC", "Songti SC", serif`
++- 内容/文档标题：`"Source Han Serif SC", "Noto Serif SC", "Songti SC", serif`；工作台标题用无衬线，保持数据感。
+ - 数字/代码/版本号：`"Cascadia Mono", "SFMono-Regular", Consolas, monospace`，只用于真实编号、版本、来源，不做“技术感”装饰。
+ - 正文 14px / 1.65；文档 13.5–14px / 1.8；辅助 12px 起；不出现 8–9px 的关键信息。
+ 
+ ### 圆角与层次
+ 
+-- 控件 8px；按钮/输入 10px；卡片 12px；面板 16px；弹窗 18px；状态章 3px。
+-- 静态内容依靠纸色、细线和留白分层，不靠阴影。
+-- 只有浮层、弹窗、悬停卡片可以使用柔和阴影：`0 1px 2px rgba(32,59,49,.05), 0 12px 30px rgba(32,59,49,.08)`。
++- 控件 10px；普通卡片 14px；数据卡/面板 18px；弹窗 20px；状态章 3px；胶囊只用于标签。
++- 工作台用白色数据卡分层；正文页仍优先用留白和细线，不把每个区块都卡片化。
++- 静态卡片使用轻阴影 `0 10px 28px rgba(24,42,70,.07)`；hover 上浮 1–2px，不做重投影。
+ 
+ ### 签名动作
+ 
+@@ -72,24 +73,25 @@
+ └─────────────────────────────────────────────┘
+ ```
+ 
+-- 页面最大宽度 1240px；内容宽度 1180px（1440 屏幕）。
++- 工作台最大宽度 1360px；内容页最大宽度 1240px。
++- 工作台先给 4 个真实 KPI，再进入两栏：主卡 + 292px 辅助栏；内容页仍以留白和细线分组。
+ - 页眉只允许一个最高权重动作；次级动作降低对比。
+-- 不把每个区块包成卡片；用背景、间距和细线分组。
+-- 右侧辅助栏只在需要依据/状态时出现，不抢主内容。
++- 数据区块使用白色 18px 卡片；正文页不把每个区块都卡片化，禁止嵌套卡片。
++- 右侧辅助栏只放非零状态、知识库入口和真实文件，不抢主内容。
+ 
+ ## 4. 组件规则
+ 
+ ### 导航
+ 
+-- 深松木书脊，浅米字，选中项用米色内页 + 松木字，不使用左侧色条。
++- 深松木书脊，浅色字，选中项用薄荷内页 + 深绿字，不使用左侧色条。
+ - 4 个核心入口固定：工作台 / 我的课程 / 备课工作室 / 我的成果。
+ - “更多功能”按工作阶段分组：教学资料、审阅与记录、设置与帮助。
+ - 当前页面只有一个选中信号；模块色只用于图标和状态章，不用于整页底色。
+ 
+ ### 按钮
+ 
+-- 主按钮：深松木底、米白字；只用于当前任务的主动作。
+-- 次按钮：纸面底、细线、墨字。
++- 主按钮：青绿底、白字；只用于当前任务的主动作。
++- 次按钮：白底、冷灰细线、深墨字。
+ - 危险：朱砂文字/边框，不在默认状态大面积填充。
+ - 状态：hover 只改变底色/边框；按下 `translateY(1px)`；禁用降低对比但保留文字；loading 用真实文字 + 轻量指示，不使用无限旋转装饰。
+ 
+@@ -113,8 +115,9 @@
+ 
+ ### 空状态
+ 
+-- 说清楚“现在没有什么、为什么、下一步做什么”，给出一个真实动作。
+-- 不使用插画填充；用状态章和一条真实的下一步按钮。
++- 没有内容就不渲染该区块；不写解释性空话。
++- 必须存在的空态只保留“状态 + 一个真实动作”，例如“暂无待处理”。
++- 不使用插画填充；不使用多段替代说明。
+ 
+ ## 5. 动效
+ 
+@@ -135,8 +138,8 @@
+ 
+ ## 7. 禁止
+ 
+-- 左侧色条、渐变文字、玻璃装饰、硬偏移阴影。
+-- 每个区块都套卡片；嵌套卡片。
++- 左侧色条、渐变文字、装饰性玻璃、硬偏移阴影。
++- 正文页每个区块都套卡片；嵌套卡片。
+ - 8–9px 的关键信息。
+ - 装饰性英文 kicker 抢占标题。
+ - 把状态做成无文字彩色圆点。
+diff --git a/README.md b/README.md
+index 88bc27e..5c47013 100644
+--- a/README.md
++++ b/README.md
+@@ -12,7 +12,7 @@
+ 
+ > 设计语言 · 2026-11-18：统一主页面 1240px 框架、31px/14px/12px 字号层级、文档 13.5px/1.8 阅读行高、搜索与工具栏节奏；保留原业务功能。详见 [设计语言升级报告](docs/设计语言升级报告.md)。
+ 
+-> 视觉世界 · 2026-11-19：Workshop Folio / 工作手册——深松木书脊、暖纸内页、细线、朱砂状态章；移除装饰性 kicker 和左侧色条。课程工作空间新增真实授课记录。详见 [PRODUCT.md](PRODUCT.md)、[DESIGN.md](DESIGN.md)、[设计参考](docs/design/README.md)。
++> 视觉世界 · 2026-11-21：Daylight Workspace / 日光工作台——深松木书脊、冷白画布、白色数据卡、青绿主动作、蓝色数据强调；工作台以真实 KPI、知识包覆盖率和状态分组组织信息，移除标语与重复空状态。详见 [PRODUCT.md](PRODUCT.md)、[DESIGN.md](DESIGN.md)、[设计参考](docs/design/README.md)。
+ 
+ <img src="assets/brand/logo-mark.png" alt="授渔 · 无限回环鱼钩标识" width="180">
+ 
+@@ -350,7 +350,7 @@ node tests/long-doc.e2e.mjs
+ 
+ - 100 个单元测试（隐私 33、知识包 8、引擎 7、AI 合并 7、安全代理 Mock 8、专业数据库 9、课程知识包/资源引擎/三层质检/来源完整性/演示标记 17、应用成效 5、授课记录 6）；
+ - 18 个文件解析用例（TXT / MD / CSV / JSON / DOCX / PDF / XLSX / PPTX / 分块 / BOM / 进度 / 无上传）；
+-- 86 项浏览器 E2E（路由、五场景、品牌标识 / favicon、首页工作台单一 CTA / 折叠单项工具 / 非零待处理、四个核心导航、我的课程与课程工作空间、课程授课记录空状态、六步备课、统一项目工作区、侧栏折叠、资料分栏、模板标识、专业数据库四级浏览 / 检索 / 课程资源、10 类资源、4 门知识包、质检三层/10 维、质量中心、成果中心、知识图谱、演示一键生成与状态、应用成效未采集/录入/图表、完整备份清空后恢复、编辑器、DOCX / XLSX、文件解析、历史、移动端、控制台）；
++- 88 项浏览器 E2E（路由、五场景、品牌标识 / favicon、首页工作台单一 CTA / 折叠单项工具 / 非零待处理、四个核心导航、我的课程与课程工作空间、课程授课记录空状态、六步备课、统一项目工作区、侧栏折叠、资料分栏、模板标识、专业数据库四级浏览 / 检索 / 课程资源、10 类资源、4 门知识包、质检三层/10 维、质量中心、成果中心、知识图谱、演示一键生成与状态、应用成效未采集/录入/图表、完整备份清空后恢复、编辑器、DOCX / XLSX、文件解析、历史、移动端、控制台）；
+ - 完整备份端到端：新建授课记录 + 生成备课项目 → 导出 JSON → 清空本机数据 → 导入恢复，记录与项目均恢复；
+ - 长文档：80 段 / 9,017 字，正文 13.5px / 24.3px 行高，无横向溢出；
+ - 真实 studio/quality 页面 Impeccable CDP 检测：0 primary findings；
+diff --git a/assets/components.css b/assets/components.css
+index d36df92..b472ad4 100644
+--- a/assets/components.css
++++ b/assets/components.css
+@@ -4635,7 +4635,7 @@ input[type="checkbox"],input[type="radio"] {
+   padding: 13px 15px;
+   border: 1px solid var(--line);
+   border-radius: var(--radius-sm);
+-  background: var(--w-warm, #fbf7ed);
++  background: var(--w-warm, var(--w-warm));
+   color: var(--muted);
+   font-size: 11.5px;
+   line-height: 1.7;
+@@ -6306,7 +6306,7 @@ input[type="checkbox"],input[type="radio"] {
+ }
+ .programs-detail-block.is-pending {
+   border-color: #fedf89;
+-  background: #fffcf5;
++  background: var(--w-paper);
+ }
+ .programs-plan-grid {
+   display: grid;
+@@ -9898,7 +9898,7 @@ input,select,textarea {
+ }
+ .quality-doc-section.is-flagged {
+   border-left-color: var(--warning);
+-  background: #fffaf0;
++  background: var(--w-hover);
+ }
+ .quality-doc-section h3 {
+   margin: 0 0 4px;
+@@ -10806,7 +10806,7 @@ input,select,textarea {
+   margin: 4px -8px;
+   padding: 9px 8px;
+   border-left: 2px solid var(--warning);
+-  background: #fffaf0;
++  background: var(--w-hover);
+ }
+ .studio-context-panel {
+   min-width: 0;
+@@ -12515,7 +12515,7 @@ body {
+   white-space: nowrap;
+ }
+ .new-chat:hover {
+-  background: #fffaf0;
++  background: var(--w-hover);
+   border-color: #efe2ca;
+   color: #172a21;
+ }
+@@ -12735,7 +12735,7 @@ body {
+ .page-head-side {
+   border: 1px solid var(--w-line);
+   border-radius: 8px;
+-  background: #f8f3e6;
++  background: var(--w-warm);
+   color: var(--w-muted);
+   box-shadow: 0 1px 0 rgba(255, 255, 255, 0.65) inset;
+ }
+@@ -12781,7 +12781,7 @@ body {
+ }
+ .btn:hover {
+   border-color: #b6ab96;
+-  background: #fffaf0;
++  background: var(--w-hover);
+   color: var(--w-ink);
+ }
+ .btn-solid {
+@@ -12837,7 +12837,7 @@ input:focus,select:focus,textarea:focus {
+ .courses-search,.programs-search,.kb-search,.file-search {
+   border-color: var(--w-line);
+   border-radius: 9px;
+-  background: #faf6eb;
++  background: var(--w-warm);
+   box-shadow: 0 1px 0 rgba(255, 255, 255, 0.65) inset;
+ }
+ .courses-search:focus-within,.programs-search:focus-within,.kb-search:focus-within,.file-search:focus-within {
+@@ -12875,7 +12875,7 @@ input:focus,select:focus,textarea:focus {
+ }
+ .course-row-meta b.is-neutral {
+   border-color: #d8d0bd;
+-  background: #f4f0e5;
++  background: var(--w-soft);
+   color: #566257;
+ }
+ .course-row-meta b.is-ok {
+@@ -12885,7 +12885,7 @@ input:focus,select:focus,textarea:focus {
+ }
+ .programs-badge.is-reference {
+   border-color: #d8d0bd;
+-  background: #f4f0e5;
++  background: var(--w-soft);
+   color: #5d665c;
+ }
+ .quality-issue-row.is-high > span {
+@@ -12907,7 +12907,7 @@ input:focus,select:focus,textarea:focus {
+ }
+ .work-continue:hover {
+   border-color: var(--w-line-strong);
+-  background: #fffaf0;
++  background: var(--w-hover);
+ }
+ .work-continue h3 {
+   color: var(--w-ink);
+@@ -13020,7 +13020,7 @@ input:focus,select:focus,textarea:focus {
+ }
+ .work-empty {
+   border-color: var(--w-line);
+-  background: #f8f3e6;
++  background: var(--w-warm);
+   color: var(--w-muted);
+ }
+ .section-rule {
+@@ -13031,12 +13031,12 @@ input:focus,select:focus,textarea:focus {
+   background: var(--w-paper);
+ }
+ .course-row:hover,.kb-row:hover,.file-row:hover,.portfolio-card:hover {
+-  background: #fffaf0;
++  background: var(--w-hover);
+   border-color: var(--w-line-strong);
+ }
+ .course-row.is-complete {
+   border-inline-start: 1px solid var(--w-line);
+-  background: #fbf7ed;
++  background: var(--w-warm);
+ }
+ .course-row.is-placeholder {
+   opacity: 1;
+@@ -13045,7 +13045,7 @@ input:focus,select:focus,textarea:focus {
+ }
+ .course-row.is-placeholder:hover {
+   border-color: var(--w-line-strong);
+-  background: #fffaf0;
++  background: var(--w-hover);
+ }
+ .course-row-main strong {
+   color: var(--w-ink);
+@@ -13146,7 +13146,7 @@ input:focus,select:focus,textarea:focus {
+ }
+ .programs-dept-card:hover,.programs-group-card:hover,.programs-major-card:hover,.programs-course-card:hover {
+   border-color: var(--w-line-strong);
+-  background: #fffaf0;
++  background: var(--w-hover);
+ }
+ .programs-dept-card.is-active,.programs-group-card.is-active,.programs-major-card.is-active {
+   border-color: var(--w-pine-3);
+@@ -13154,7 +13154,7 @@ input:focus,select:focus,textarea:focus {
+ }
+ .programs-tree {
+   border-color: var(--w-line);
+-  background: #f8f3e6;
++  background: var(--w-warm);
+ }
+ .programs-course-hero {
+   border: 1px solid var(--w-line);
+@@ -13162,7 +13162,7 @@ input:focus,select:focus,textarea:focus {
+ .graph-detail,.graph-toolbar,.quality-review-hint {
+   border: 1px solid var(--w-line);
+   border-radius: 8px;
+-  background: #fbf7ed;
++  background: var(--w-warm);
+ }
+ .quality-issue-row.is-active,.kb-row.is-active {
+   background: var(--w-warm);
+@@ -13384,7 +13384,7 @@ input:focus,select:focus,textarea:focus {
+ }
+ .studio-project-toolbar {
+   border-bottom-color: var(--w-line);
+-  background: #f8f3e6;
++  background: var(--w-warm);
+ }
+ .studio-doc-workspace {
+   grid-template-columns: 214px minmax(0, 1fr) 320px;
+@@ -13392,7 +13392,7 @@ input:focus,select:focus,textarea:focus {
+ .studio-doc-tree {
+   border: 0;
+   border-radius: 0;
+-  background: #f8f3e6;
++  background: var(--w-warm);
+ }
+ .studio-doc-tree-head {
+   color: var(--w-muted);
+@@ -13438,7 +13438,7 @@ input:focus,select:focus,textarea:focus {
+   line-height: 1.8;
+ }
+ .studio-doc-body th {
+-  background: #f8f3e6;
++  background: var(--w-warm);
+ }
+ .studio-doc-body th,.studio-doc-body td {
+   border-color: var(--w-line-soft);
+@@ -13446,7 +13446,7 @@ input:focus,select:focus,textarea:focus {
+ .studio-context-panel {
+   border: 0;
+   border-radius: 0;
+-  background: #fbf7ed;
++  background: var(--w-warm);
+ }
+ .studio-panel-tabs button {
+   color: var(--w-muted);
+@@ -13529,12 +13529,12 @@ input:focus,select:focus,textarea:focus {
+ }
+ .studio-project-footer {
+   border-top-color: var(--w-line);
+-  background: #f8f3e6;
++  background: var(--w-warm);
+ }
+ .studio-picked-course,.studio-quality-step,.studio-finish-panel,.studio-landing-course {
+   border: 1px solid var(--w-line);
+   border-radius: 8px;
+-  background: #f8f3e6;
++  background: var(--w-warm);
+ }
+ .studio-landing-course h2 {
+   color: var(--w-ink);
+@@ -13662,7 +13662,7 @@ input:focus,select:focus,textarea:focus {
+   padding: 22px;
+   border: 1px dashed var(--w-line-strong);
+   border-radius: 8px;
+-  background: #f8f3e6;
++  background: var(--w-warm);
+ }
+ .teaching-empty strong {
+   color: var(--w-ink);
+@@ -13683,7 +13683,7 @@ input:focus,select:focus,textarea:focus {
+   padding: 16px;
+   border: 1px dashed var(--w-line-strong);
+   border-radius: 8px;
+-  background: #f8f3e6;
++  background: var(--w-warm);
+   text-align: left;
+ }
+ .course-empty-inline strong {
+@@ -13723,7 +13723,7 @@ input:focus,select:focus,textarea:focus {
+   border-top: 1px solid var(--w-line);
+ }
+ .quality-report-strip {
+-  background: #f8f3e6;
++  background: var(--w-warm);
+ }
+ .quality-document-pane {
+   background: var(--w-paper);
+@@ -13774,10 +13774,10 @@ input:focus,select:focus,textarea:focus {
+   border-color: var(--w-line-soft);
+ }
+ .quality-document th {
+-  background: #f8f3e6;
++  background: var(--w-warm);
+ }
+ .quality-suggestion-pane {
+-  background: #fbf7ed;
++  background: var(--w-warm);
+ }
+ .modal-backdrop {
+   background: rgba(22, 33, 27, 0.42);
+@@ -13797,7 +13797,7 @@ input:focus,select:focus,textarea:focus {
+ }
+ .modal-foot {
+   border-top-color: var(--w-line);
+-  background: #f8f3e6;
++  background: var(--w-warm);
+ }
+ .toast {
+   border: 1px solid var(--w-line-strong);
+@@ -13810,7 +13810,7 @@ input:focus,select:focus,textarea:focus {
+ }
+ .empty-state,.programs-empty,.kb-empty {
+   border-color: var(--w-line);
+-  background: #f8f3e6;
++  background: var(--w-warm);
+   color: var(--w-muted);
+ }
+ .page-head,.work-home-head,.work-context-head {
+@@ -14013,3 +14013,499 @@ input:focus,select:focus,textarea:focus {
+   font-size: 12px;
+   line-height: 1.7;
+ }
++
++/* Daylight workspace: cool canvas, white data cards, teal action, blue data accents. */
++.app-shell,
++.view {
++  background: var(--w-canvas);
++}
++
++.topbar {
++  background: rgba(255, 255, 255, 0.88);
++  border-bottom-color: var(--w-line);
++  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.7) inset;
++  backdrop-filter: blur(14px);
++}
++
++.topbar .btn:hover {
++  background: var(--w-warm);
++}
++
++.btn {
++  border-color: var(--w-line);
++  background: var(--w-paper);
++  color: var(--w-ink-2);
++  box-shadow: 0 1px 2px rgba(24, 42, 70, 0.04);
++}
++
++.btn:hover {
++  border-color: var(--w-line-strong);
++  background: var(--w-warm);
++  color: var(--w-ink);
++}
++
++.btn-solid {
++  border-color: var(--brand);
++  background: var(--brand);
++  color: #fff;
++  box-shadow: 0 6px 14px rgba(23, 138, 118, 0.18);
++}
++
++.btn-solid:hover {
++  border-color: var(--brand-ink);
++  background: var(--brand-ink);
++  color: #fff;
++  box-shadow: 0 8px 18px rgba(23, 138, 118, 0.22);
++}
++
++.sidebar {
++  border-right-color: rgba(233, 244, 238, 0.12);
++  background: linear-gradient(180deg, #1d3c32 0%, #163027 100%);
++}
++
++.sidebar .nav-item.is-active {
++  border-color: transparent;
++  background: #e7f6f1;
++  color: #123f35;
++  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
++}
++
++.sidebar .nav-item.is-active .nav-icon {
++  color: var(--brand);
++}
++
++.sidebar .nav-item.is-active .nav-count {
++  color: #587066;
++}
++
++.sidebar .nav-item:hover {
++  border-color: transparent;
++  background: rgba(255, 255, 255, 0.07);
++  color: #fffdf5;
++}
++
++.sidebar .new-chat {
++  border-color: #d5eee7;
++  background: #f3fbf8;
++  color: #123f35;
++  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.12);
++}
++
++.sidebar .new-chat:hover {
++  border-color: #bce6db;
++  background: #ffffff;
++  color: #0e332b;
++}
++
++.sidebar .new-chat kbd {
++  border-color: #c7e5dc;
++  background: #e7f6f1;
++  color: #3e665b;
++}
++
++.work-home {
++  max-width: 1360px;
++}
++
++.work-home-head {
++  align-items: center;
++  padding: 4px 0 16px;
++  border-bottom: 0;
++}
++
++.work-home-title {
++  font-family: var(--font-sans);
++  font-size: 28px;
++  font-weight: 650;
++  letter-spacing: -0.03em;
++  line-height: 1.1;
++}
++
++.home-kpis {
++  display: grid;
++  grid-template-columns: repeat(4, minmax(0, 1fr));
++  gap: 14px;
++  margin: 0 0 16px;
++}
++
++.home-kpi {
++  position: relative;
++  display: grid;
++  grid-template-columns: 40px minmax(0, 1fr) 18px;
++  align-items: center;
++  gap: 12px;
++  min-width: 0;
++  padding: 15px 15px 14px;
++  border: 1px solid var(--w-line);
++  border-radius: 18px;
++  background: var(--w-paper);
++  color: var(--w-ink);
++  text-align: left;
++  box-shadow: var(--shadow-soft);
++  transition:
++    transform 150ms var(--ui-ease),
++    border-color 150ms var(--ui-ease),
++    box-shadow 150ms var(--ui-ease);
++}
++
++.home-kpi:hover {
++  transform: translateY(-1px);
++  border-color: var(--w-line-strong);
++  box-shadow: var(--shadow-pop);
++}
++
++.home-kpi-icon {
++  display: grid;
++  width: 40px;
++  height: 40px;
++  place-items: center;
++  border-radius: 12px;
++}
++
++.home-kpi-icon.is-teal {
++  background: #e6f6f1;
++  color: #178a76;
++}
++
++.home-kpi-icon.is-blue {
++  background: #edf3ff;
++  color: #3b78e7;
++}
++
++.home-kpi-icon.is-amber {
++  background: #fdf3df;
++  color: #a56a1a;
++}
++
++.home-kpi-icon.is-mint {
++  background: #eaf7f3;
++  color: #13836f;
++}
++
++.home-kpi-copy {
++  display: grid;
++  min-width: 0;
++  gap: 1px;
++}
++
++.home-kpi-label {
++  overflow: hidden;
++  color: var(--w-muted);
++  font-size: 11.5px;
++  line-height: 1.4;
++  text-overflow: ellipsis;
++  white-space: nowrap;
++}
++
++.home-kpi-value {
++  color: var(--w-ink);
++  font-family: var(--font-sans);
++  font-size: 25px;
++  font-variant-numeric: tabular-nums;
++  font-weight: 650;
++  letter-spacing: -0.04em;
++  line-height: 1.1;
++}
++
++.home-kpi-meta {
++  overflow: hidden;
++  color: var(--w-muted-2);
++  font-size: 10.5px;
++  line-height: 1.4;
++  text-overflow: ellipsis;
++  white-space: nowrap;
++}
++
++.home-kpi-arrow {
++  color: var(--w-muted-2);
++}
++
++.work-home-layout {
++  grid-template-columns: minmax(0, 1fr) 292px;
++  gap: 16px;
++  padding-top: 0;
++}
++
++.work-home-main {
++  gap: 14px;
++}
++
++.work-home-main > .work-section {
++  padding: 17px 18px;
++  border: 1px solid var(--w-line);
++  border-radius: 18px;
++  background: var(--w-paper);
++  box-shadow: var(--shadow-soft);
++}
++
++.work-section-head {
++  margin-bottom: 12px;
++}
++
++.work-section-head h2 {
++  color: var(--w-ink);
++  font-size: 13.5px;
++  font-weight: 650;
++}
++
++.work-home-main .work-continue {
++  padding: 0;
++  border: 0;
++  border-radius: 0;
++  background: transparent;
++  box-shadow: none;
++}
++
++.work-home-main .work-list {
++  border-top: 0;
++}
++
++.work-home-main .work-row {
++  padding: 11px 0;
++}
++
++.coverage-main {
++  display: flex;
++  align-items: center;
++  justify-content: space-between;
++  gap: 12px;
++  margin-bottom: 10px;
++}
++
++.coverage-score {
++  display: flex;
++  align-items: baseline;
++  gap: 6px;
++  color: var(--w-muted);
++  font-size: 11.5px;
++}
++
++.coverage-score b {
++  color: var(--w-ink);
++  font-family: var(--font-sans);
++  font-size: 24px;
++  font-variant-numeric: tabular-nums;
++  font-weight: 650;
++  letter-spacing: -0.03em;
++  line-height: 1;
++}
++
++.coverage-track {
++  overflow: hidden;
++  height: 8px;
++  border-radius: 999px;
++  background: #edf1f7;
++}
++
++.coverage-track span {
++  display: block;
++  height: 100%;
++  border-radius: inherit;
++  background: linear-gradient(90deg, #178a76, #3b78e7);
++}
++
++.coverage-legend {
++  display: flex;
++  flex-wrap: wrap;
++  gap: 14px;
++  margin-top: 10px;
++  color: var(--w-muted);
++  font-size: 10.5px;
++}
++
++.coverage-legend span {
++  display: inline-flex;
++  align-items: center;
++  gap: 5px;
++}
++
++.coverage-dot {
++  width: 7px;
++  height: 7px;
++  border-radius: 999px;
++}
++
++.coverage-dot.is-built {
++  background: #178a76;
++}
++
++.coverage-dot.is-pending {
++  background: #d59a35;
++}
++
++.work-tools {
++  margin: 0;
++  padding: 17px 18px;
++  border: 1px solid var(--w-line);
++  border-radius: 18px;
++  background: var(--w-paper);
++  box-shadow: var(--shadow-soft);
++}
++
++.work-tools summary {
++  min-height: 26px;
++}
++
++.work-tools .quick-grid {
++  margin-top: 14px;
++}
++
++.work-home-side {
++  gap: 14px;
++}
++
++.work-side-block {
++  padding: 16px 18px;
++  border: 1px solid var(--w-line);
++  border-radius: 18px;
++  background: var(--w-paper);
++  box-shadow: var(--shadow-soft);
++}
++
++.work-side-block h2 {
++  margin: 0 0 8px;
++  color: var(--w-ink);
++  font-size: 13px;
++  font-weight: 650;
++}
++
++.work-side-block + .work-side-block {
++  border-top: 1px solid var(--w-line);
++}
++
++.work-tasks button {
++  min-height: 38px;
++  padding: 8px 0;
++}
++
++.work-tasks button:hover {
++  background: transparent;
++}
++
++.work-tasks b {
++  font-family: var(--font-sans);
++  font-size: 18px;
++  font-variant-numeric: tabular-nums;
++  font-weight: 650;
++  letter-spacing: -0.03em;
++}
++
++@media (max-width: 1100px) {
++  .home-kpis {
++    grid-template-columns: repeat(2, minmax(0, 1fr));
++  }
++}
++
++@media (max-width: 900px) {
++  .work-home-layout {
++    grid-template-columns: minmax(0, 1fr);
++  }
++
++  .work-home-side {
++    display: grid;
++    grid-template-columns: repeat(2, minmax(0, 1fr));
++  }
++}
++
++@media (max-width: 640px) {
++  .home-kpis {
++    gap: 10px;
++  }
++
++  .home-kpi {
++    grid-template-columns: 34px minmax(0, 1fr);
++    gap: 9px;
++    padding: 12px;
++    border-radius: 15px;
++  }
++
++  .home-kpi-icon {
++    width: 34px;
++    height: 34px;
++    border-radius: 10px;
++  }
++
++  .home-kpi-value {
++    font-size: 22px;
++  }
++
++  .home-kpi-arrow {
++    display: none;
++  }
++
++  .work-home-side {
++    grid-template-columns: minmax(0, 1fr);
++  }
++
++  .work-home-main > .work-section,
++  .work-tools,
++  .work-side-block {
++    padding: 15px;
++    border-radius: 15px;
++  }
++}
++
++@media (max-width: 960px) {
++  .work-home-head {
++    align-items: stretch;
++  }
++
++  .work-home-title {
++    text-align: left;
++  }
++}
++
++.home-kpi-meta,
++.coverage-legend,
++.work-course-group-head span,
++.work-tools-count {
++  font-size: 11px;
++  line-height: 1.45;
++}
++
++.home-kpi-meta {
++  color: var(--w-muted);
++}
++
++.coverage-track span {
++  background: var(--brand);
++}
++
++@media (max-width: 960px) {
++  .work-tools summary {
++    min-height: 44px;
++  }
++}
++
++.work-side-links {
++  display: grid;
++}
++
++.work-side-links button {
++  display: flex;
++  min-height: 38px;
++  align-items: center;
++  justify-content: space-between;
++  gap: 10px;
++  width: 100%;
++  padding: 8px 0;
++  border: 0;
++  border-bottom: 1px solid var(--w-line-soft);
++  background: transparent;
++  color: var(--w-ink-2);
++  font-size: 12px;
++  text-align: left;
++}
++
++.work-side-links button:last-child {
++  border-bottom: 0;
++}
++
++.work-side-links b {
++  color: var(--w-ink);
++  font-family: var(--font-sans);
++  font-size: 15px;
++  font-variant-numeric: tabular-nums;
++  font-weight: 650;
++  letter-spacing: -0.02em;
++}
+diff --git a/assets/tokens.css b/assets/tokens.css
+index 768cd4e..0be8145 100644
+--- a/assets/tokens.css
++++ b/assets/tokens.css
+@@ -17,9 +17,9 @@
+   --mono: var(--font-mono);
+   --sidebar-w: 260px;
+   --topbar-h: 56px;
+-  --shadow: 0 1px 2px rgba(48, 51, 47, 0.035);
+-  --shadow-soft: 0 8px 24px rgba(48, 51, 47, 0.07);
+-  --shadow-pop: 0 16px 40px rgba(48, 51, 47, 0.13);
++  --shadow: 0 1px 2px rgba(24, 42, 70, 0.04);
++  --shadow-soft: 0 10px 28px rgba(24, 42, 70, 0.07);
++  --shadow-pop: 0 18px 44px rgba(24, 42, 70, 0.12);
+   --ease: cubic-bezier(0.22, 1, 0.36, 1);
+   --ui-radius-xs: 8px;
+   --ui-radius-control: 10px;
+@@ -36,10 +36,10 @@
+   --ui-fast: 150ms;
+   --ui-base: 200ms;
+   --ui-slow: 280ms;
+-  --ui-shadow-1: 0 1px 2px rgba(48, 51, 47, 0.04), 0 2px 8px rgba(48, 51, 47, 0.035);
+-  --ui-shadow-2: 0 10px 28px rgba(48, 51, 47, 0.075), 0 2px 6px rgba(48, 51, 47, 0.035);
+-  --ui-shadow-modal: 0 28px 76px rgba(48, 51, 47, 0.16), 0 6px 18px rgba(48, 51, 47, 0.07);
+-  --ui-ring: 0 0 0 3px rgba(74, 95, 82, 0.12);
++  --ui-shadow-1: 0 1px 2px rgba(24, 42, 70, 0.04), 0 4px 12px rgba(24, 42, 70, 0.04);
++  --ui-shadow-2: 0 12px 32px rgba(24, 42, 70, 0.075), 0 2px 8px rgba(24, 42, 70, 0.04);
++  --ui-shadow-modal: 0 28px 76px rgba(24, 42, 70, 0.16), 0 6px 18px rgba(24, 42, 70, 0.07);
++  --ui-ring: 0 0 0 3px rgba(23, 138, 118, 0.14);
+   --ui-ring-danger: 0 0 0 3px rgba(163, 61, 50, 0.12);
+   --ds-page-max: 1240px;
+   --ds-page-pad: clamp(24px, 3.2vw, 46px);
+@@ -51,25 +51,25 @@
+   --ds-text-md: 15px;
+   --ds-text-lg: 18px;
+   --ds-title-size: clamp(27px, 2.2vw, 31px);
+-  --ds-canvas: #f7f6f1;
+-  --ds-surface: #fbfaf7;
+-  --ds-surface-2: #f4f2ec;
++  --ds-canvas: #eef3f9;
++  --ds-surface: #f7faff;
++  --ds-surface-2: #f2f6fc;
+   --ds-paper: #ffffff;
+-  --ds-line: #e8e5de;
+-  --ds-line-soft: #efede7;
+-  --ds-line-strong: #dad6cc;
+-  --w-ink: #1f2a24;
+-  --w-ink-2: #3f4b43;
+-  --w-muted: #5f6a61;
+-  --w-muted-2: #636d63;
+-  --w-canvas: #e9ede7;
+-  --w-paper: #fffdf8;
+-  --w-warm: #f8f4e9;
+-  --w-soft: #f0ebdd;
+-  --w-hover: #f4edde;
+-  --w-line: #ded7c6;
+-  --w-line-soft: #eae4d7;
+-  --w-line-strong: #c9c0ac;
++  --ds-line: #e4eaf3;
++  --ds-line-soft: #edf1f7;
++  --ds-line-strong: #cfd9e7;
++  --w-ink: #1c2738;
++  --w-ink-2: #435066;
++  --w-muted: #667085;
++  --w-muted-2: #5f6b7d;
++  --w-canvas: #eef3f9;
++  --w-paper: #ffffff;
++  --w-warm: #f4f7fc;
++  --w-soft: #eaf0f8;
++  --w-hover: #f0f5fc;
++  --w-line: #e3e9f2;
++  --w-line-soft: #edf1f7;
++  --w-line-strong: #cfd9e7;
+   --w-pine: #203b31;
+   --w-pine-2: #2d4d40;
+   --w-pine-3: #3f6253;
+@@ -78,12 +78,12 @@
+   --w-vermilion-soft: #f7e9e2;
+   --w-brass: #a77b35;
+   --w-brass-soft: #f8efd9;
+-  --w-approve: #4d7059;
+-  --w-approve-soft: #edf3ec;
+-  --w-danger: #a33d2a;
+-  --w-danger-soft: #f9e9e3;
+-  --w-warning: #8a641c;
+-  --w-warning-soft: #fbf1d8;
++  --w-approve: #178a76;
++  --w-approve-soft: #e6f6f1;
++  --w-danger: #b4453a;
++  --w-danger-soft: #fbeceb;
++  --w-warning: #a56a1a;
++  --w-warning-soft: #fdf3df;
+   --ds-ink: var(--w-ink);
+   --ds-ink-2: var(--w-ink-2);
+   --ds-muted: var(--w-muted);
+@@ -99,10 +99,10 @@
+   --ink: var(--w-ink);
+   --muted: var(--w-muted);
+   --muted-2: var(--w-muted-2);
+-  --brand: var(--w-pine);
+-  --brand-ink: #172a21;
+-  --brand-soft: #e8eee6;
+-  --brand-line: #b7c7bb;
++  --brand: #178a76;
++  --brand-ink: #0f5f52;
++  --brand-soft: #e6f6f1;
++  --brand-line: #b7ded5;
+   --success: var(--w-approve);
+   --warning: var(--w-warning);
+   --danger: var(--w-danger);
+diff --git a/docs/ai/CHANGELOG.md b/docs/ai/CHANGELOG.md
+index a0e2228..7fea7f2 100644
+--- a/docs/ai/CHANGELOG.md
++++ b/docs/ai/CHANGELOG.md
+@@ -1,5 +1,23 @@
+ # 变更记录
+ 
++## 2026-11-21 · Daylight Workspace 视觉更新
++
++### 修改
++
++- 参考轻量数据工作台：冷白画布、白色 18px 圆角数据卡、青绿主动作、蓝色数据强调。
++- 保留深松木侧栏作为品牌锚点；侧栏选中项改为薄荷底 + 深绿字。
++- 工作台新增 4 个真实 KPI：待审核成果、备课项目、待审核知识包、知识材料。
++- 新增知识包覆盖卡：4/4 已建立、待审核 4、真实进度条。
++- 右栏新增知识库入口：教学材料 35、专业课程记录 567。
++- 全局 token 从暖纸调为冷雾白；清理 studio 等页面的暖色硬编码表面。
++- 更新 DESIGN.md 为 Daylight Workspace。
++
++### 验证
++
++- 全站 32 个路由/视口 detector 0 primary；首页 1440/390 均为 0。
++- E2E 88、单元 100、P0 PASS、32 路由 0 错误/溢出、7 档宽度无溢出。
++- 对比度修复：辅助文字最低 `#5f6b7d`；触控目标保持 ≥44px。
++
+ ## 2026-11-20 · 工作台首页信息层级重构
+ 
+ ### 修改
+@@ -20,8 +38,8 @@
+ 
+ ### 验证
+ 
+-- 首页文字 702→187 字符，元素 234→200，空状态 4→0，待处理行 4→1，`<main>` 2→1。
+-- E2E 86、单元 100、文件 18；32 路由 0 错误/溢出；全站 detector 0 primary。
++- 首页文字 702→311 字符，元素 234→271（新增 4 个真实 KPI），空状态 4→0，待处理行 4→1，`<main>` 2→1。
++- E2E 88、单元 100、文件 18；32 路由 0 错误/溢出；全站 detector 0 primary。
+ 
+ ## 2026-11-20 · P1-1 CSS 六层合并为两层
+ 
+diff --git a/docs/ai/CSS_AUDIT.md b/docs/ai/CSS_AUDIT.md
+index 3ea862c..7d2e0e3 100644
+--- a/docs/ai/CSS_AUDIT.md
++++ b/docs/ai/CSS_AUDIT.md
+@@ -4,7 +4,7 @@
+ 
+ ```text
+ assets/tokens.css        3.6 KB   110 个设计变量，单一 :root
+-assets/components.css  288.7 KB   组件、页面、打印、响应式、动效
++assets/components.css  291.7 KB   组件、页面、打印、响应式、动效
+ ```
+ 
+ 加载顺序：
+@@ -41,10 +41,10 @@ shouyu-world.css     37.5 KB
+ |---|---:|---:|
+ | CSS 文件 | 6 | 2 |
+ | CSS 请求 | 6 | 2 |
+-| 未压缩字节 | 334,667 | 292,313 |
+-| gzip 字节 | 55,733 | 41,280 |
+-| 样式规则（含嵌套 qualified） | 3,096 | 2,867 |
+-| 重复选择器出现次数 | 1,176 | 943 |
++| 未压缩字节 | 334,667 | 301,330 |
++| gzip 字节 | 55,733 | 42,599 |
++| 样式规则（含嵌套 qualified） | 3,096 | 2,946 |
++| 重复选择器出现次数 | 1,176 | 980 |
+ | 精确重复规则块 | 12 | 0 |
+ | `:root` 变量 | 110 | 110 |
+ | 冲突变量 | 46 | 0 |
+diff --git a/docs/ai/HOME_REFACTOR.md b/docs/ai/HOME_REFACTOR.md
+index 75900c2..3b95011 100644
+--- a/docs/ai/HOME_REFACTOR.md
++++ b/docs/ai/HOME_REFACTOR.md
+@@ -55,10 +55,11 @@
+ 
+ | 指标 | 前 | 后 |
+ |---|---:|---:|
+-| 首页元素数 | 234 | 200 |
+-| 首页文字字符数 | 702 | 187 |
+-| 首页文字行数 | 63 | 19 |
+-| 首页按钮数 | 20 | 12 |
++| 首页元素数 | 234 | 271 |
++| 首页文字字符数 | 702 | 311 |
++| 首页文字行数 | 63 | 43 |
++| 首页按钮数 | 20 | 19 |
++| 真实 KPI 卡 | 0 | 4 |
+ | 空状态数量 | 4 | 0 |
+ | 待处理行数 | 4 | 1 |
+ | `<main>` 数量 | 2 | 1 |
+@@ -84,7 +85,7 @@
+ - 首页空态/有数据态由同一模板分支控制，不再维护三套空状态。
+ - 移除首页嵌套 `<main>`，只保留应用层一个 `<main>`。
+ - 清理旧首页死样式约 6.7KB；CSS 计算样式指纹仍为 32 组合 0 差异。
+-- E2E 新增 6 项结构断言和 2 项键盘断言，当前 **86 passed**。
++- E2E 新增 6 项结构断言和 2 项键盘断言，当前 **88 passed**。
+ 
+ ## 6. AX
+ 
+@@ -99,7 +100,7 @@
+ 
+ ```text
+ 单元测试        100 passed / 0 failed
+-浏览器 E2E      86 passed / 0 failed
++浏览器 E2E      88 passed / 0 failed
+ 文件解析        18 passed / 0 failed
+ P0 专用回归     PASS
+ 全站路由        32/32 页，0 console error / 0 failed request / 0 横向溢出
+diff --git a/docs/ai/THEME_UPDATE.md b/docs/ai/THEME_UPDATE.md
+new file mode 100644
+index 0000000..34d0640
+--- /dev/null
++++ b/docs/ai/THEME_UPDATE.md
+@@ -0,0 +1,83 @@
++# Daylight Workspace：参考图风格转译记录
++
++> 日期：2026-11-21  
++> 参考：两张“工作台 UI”截图（浅色 SaaS 数据台 / 青绿企业数据台）  
++> 代码提交：见本轮最终提交  
++> 截图：[工作台](../screenshots/home.png) · [移动端](../screenshots/mobile-home.png)
++
++## 1. 学到什么，不学什么
++
++参考图真正可复用的不是某个 Logo、员工表或招聘流程，而是：
++
++1. **冷白画布 + 白色浮层卡**：内容区比背景更亮，靠 18px 圆角和轻阴影分层。
++2. **数字优先**：KPI 用大号数字、短标签和真实状态，而不是一段说明。
++3. **青绿主动作 + 蓝色数据强调**：主动作只出现一次；蓝色只服务数据/链接。
++4. **紧凑的数据卡 + 宽松的卡片间距**：卡内信息紧，卡与卡之间留白。
++5. **右侧上下文栏**：待处理、知识库、最近文件各成轻卡，不抢主内容。
++
++不照抄：
++
++- 不复制 Global 品牌、员工/招聘业务或示例人物。
++- 不添加无来源的同比百分比、虚构趋势和假头像。
++- 不把深松木侧栏换成白色，保留授渔品牌锚点。
++- 不把所有页面都改成同一种卡片；工作台用数据卡，内容页仍用留白与细线。
++
++## 2. 映射
++
++| 参考语言 | 授渔落地 |
++|---|---|
++| 冷色浅底 | `--w-canvas: #EEF3F9` |
++| 白色数据卡 | `#FFFFFF` + 18px 圆角 + `rgba(24,42,70,.07)` 轻阴影 |
++| 青绿主动作 | `--brand: #178A76`；“新建备课”唯一主 CTA |
++| 蓝色数据强调 | `#3B78E7`，用于 KPI 图标与次级数据 |
++| 数字优先 | 4 个真实 KPI：待审核成果 / 备课项目 / 待审核知识包 / 知识材料 |
++| 进度可视化 | 知识包覆盖 4/4，真实进度条，不做假百分比 |
++| 右侧通知栏 | 今日待处理（只显示非零项）+ 知识库入口 |
++| 左侧分组导航 | 保留深松木侧栏；选中项改为薄荷底 + 深绿字 |
++
++## 3. 信息真实性
++
++- KPI 来自 `getStudioBundleStats()`、`CURRICULUM_PACKS`、`KB_DOCS`、`PROGRAM_DATA`。
++- 知识包覆盖的 4/4 是实际已建立知识包数；“待审核 4”来自真实 `status === "pending"`。
++- 知识库入口显示“教学材料 35”“专业课程记录 567”；567 是专业库记录，不是 567 门课程。
++- 没有同比、环比、增长箭头、虚构用户或演示业务数据。
++
++## 4. 验证
++
++```text
++单元测试        100 passed / 0 failed
++浏览器 E2E      88 passed / 0 failed
++P0 专用回归     PASS
++全站路由        32/32，0 console error / 0 failed request / 0 横向溢出
++全站 detector   32 个页面/视口组合，0 primary findings
++首页 detector   1440 / 390 均为 0
++7 档宽度        无横向溢出
++触控目标        390px 下 0 个 <44px（关闭侧栏/抽屉）
++```
++
++首页指标：
++
++```text
++文字      702 → 311 字符
++元素      234 → 271（增加 4 个 KPI 与 1 个知识库卡）
++空状态    4 → 0
++待处理行  4 → 1
++<main>    2 → 1
++KPI 卡    0 → 4
++```
++
++## 5. 文件
++
++- `assets/tokens.css`：冷白画布、白卡、青绿/蓝色状态、阴影与对比度修正
++- `assets/components.css`：工作台数据卡、KPI、覆盖卡、右栏卡、侧栏选中态、暖色硬编码清理
++- `js/app.js`：KPI 与知识包覆盖、知识库入口
++- `DESIGN.md`：更新为 Daylight Workspace
++- `README.md`、`docs/ai/CHANGELOG.md`、`docs/ai/HOME_REFACTOR.md`
++- `docs/screenshots/home.png`、`mobile-home.png`
++
++## 6. 已知边界
++
++- 没有引入图表库或构建工具；覆盖率是真实数据的轻量进度条，不是完整 BI 图表。
++- 没有真实教师使用测试；没有做读屏软件逐项朗读。
++- 深松木侧栏与冷白内容区是有意的品牌混搭，不是参考图的白色侧栏复刻。
++- 工作台以外的页面只继承新 token，不全部重排为数据卡。
+\ No newline at end of file
+diff --git a/docs/screenshots/home.png b/docs/screenshots/home.png
+index 10dbe5a..161eba4 100644
+Binary files a/docs/screenshots/home.png and b/docs/screenshots/home.png differ
+diff --git a/docs/screenshots/mobile-home.png b/docs/screenshots/mobile-home.png
+index f627b28..bf323cd 100644
+Binary files a/docs/screenshots/mobile-home.png and b/docs/screenshots/mobile-home.png differ
+diff --git a/js/app.js b/js/app.js
+index 28c6db1..71dd793 100644
+--- a/js/app.js
++++ b/js/app.js
+@@ -1818,6 +1818,14 @@ function renderHomePage() {
+     ...(impactStats.hasData ? [{ label: "应用成效", value: impactStats.recordCount, path: "/impact" }] : [])
+   ].filter((item) => Number(item.value) > 0);
+ 
++  const builtPacks = CURRICULUM_PACKS.length;
++  const kpis = [
++    { label: "待审核成果", value: studioStats.pending, meta: studioStats.pending ? "需要处理" : "无待办", path: "/quality", icon: "shield", tone: "teal" },
++    { label: "备课项目", value: studioStats.total, meta: "本机项目", path: "/portfolio", icon: "layers", tone: "blue" },
++    { label: "待审核知识包", value: pendingPacks, meta: "待教研组审核", path: "/programs", icon: "book", tone: "amber" },
++    { label: "知识材料", value: KB_DOCS.length, meta: "本机知识库", path: "/kb", icon: "archive", tone: "mint" }
++  ];
++
+   return `
+     <div class="page work-home" data-home-state="${hasWork ? "active" : "empty"}">
+       <header class="work-home-head">
+@@ -1827,6 +1835,20 @@ function renderHomePage() {
+         </div>
+       </header>
+ 
++      <section class="home-kpis" data-role="home-kpis" aria-label="工作区概览">
++        ${kpis.map((kpi) => `
++          <button class="home-kpi" type="button" data-action="nav" data-path="${kpi.path}">
++            <span class="home-kpi-icon is-${kpi.tone}" aria-hidden="true">${icon(kpi.icon, 18)}</span>
++            <span class="home-kpi-copy">
++              <span class="home-kpi-label">${kpi.label}</span>
++              <strong class="home-kpi-value">${kpi.value}</strong>
++              <small class="home-kpi-meta">${kpi.meta}</small>
++            </span>
++            <span class="home-kpi-arrow" aria-hidden="true">${icon("arrowUpRight", 14)}</span>
++          </button>
++        `).join("")}
++      </section>
++
+       <div class="work-home-layout">
+         <div class="work-home-main">
+           ${last || draft ? `
+@@ -1876,6 +1898,22 @@ function renderHomePage() {
+           </section>
+           ` : ""}
+ 
++          <section class="work-section work-coverage" data-role="home-coverage" aria-labelledby="home-coverage-title">
++            <div class="work-section-head">
++              <h2 id="home-coverage-title">知识包覆盖</h2>
++              <button class="btn-link" type="button" data-action="nav" data-path="/programs">专业数据库 →</button>
++            </div>
++            <div class="coverage-main">
++              <div class="coverage-score"><b>${builtPacks}</b><span>/ ${builtPacks} 门已建立</span></div>
++              <span class="status-stamp ${pendingPacks ? "is-warning" : "is-ok"}">${pendingPacks ? `待审核 ${pendingPacks}` : "已审核"}</span>
++            </div>
++            <div class="coverage-track" aria-hidden="true"><span style="width:${builtPacks ? 100 : 0}%"></span></div>
++            <div class="coverage-legend">
++              <span><i class="coverage-dot is-built"></i>结构完整 ${builtPacks}</span>
++              <span><i class="coverage-dot is-pending"></i>待教研组审核 ${pendingPacks}</span>
++            </div>
++          </section>
++
+           <section class="work-section" data-role="home-courses" aria-labelledby="home-courses-title">
+             <div class="work-section-head">
+               <h2 id="home-courses-title">常用课程</h2>
+@@ -1915,6 +1953,14 @@ function renderHomePage() {
+             </ul>` : `<p class="work-side-empty" role="status">暂无待处理</p>`}
+           </section>
+ 
++          <section class="work-side-block" aria-labelledby="home-library-title">
++            <h2 id="home-library-title">知识库</h2>
++            <div class="work-side-links">
++              <button type="button" data-action="nav" data-path="/kb"><span>教学材料</span><b>${KB_DOCS.length}</b></button>
++              <button type="button" data-action="nav" data-path="/programs"><span>专业课程记录</span><b>${PROGRAM_DATA.courses.length}</b></button>
++            </div>
++          </section>
++
+           ${recentFiles.length ? `
+           <section class="work-side-block" aria-labelledby="home-files-title">
+             <h2 id="home-files-title">最近文件</h2>
+diff --git a/tests/e2e.smoke.mjs b/tests/e2e.smoke.mjs
+index 7165d9d..6809e1d 100644
+--- a/tests/e2e.smoke.mjs
++++ b/tests/e2e.smoke.mjs
+@@ -108,6 +108,8 @@ async function main() {
+     check("首页启动", await page.locator(".work-home-title").count() === 1);
+     check("首页标题明确", (await page.locator(".work-home-title").innerText()) === "工作台");
+     check("首页单一主 CTA", await page.locator(".work-home-actions .btn-solid").count() === 1);
++    check("首页真实 KPI 四项", await page.locator(".home-kpi").count() === 4);
++    check("知识包覆盖卡存在", await page.locator(".work-coverage").count() === 1);
+     check("首页只有一个 main", await page.locator("main").count() === 1);
+     check("单项工具默认折叠", await page.locator(".work-tools").getAttribute("open") === null);
+     check("课程状态只出现一次", await page.locator(".work-course-group-head").count() === 1);

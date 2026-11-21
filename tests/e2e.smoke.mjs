@@ -108,6 +108,8 @@ async function main() {
     check("首页启动", await page.locator(".work-home-title").count() === 1);
     check("首页标题明确", (await page.locator(".work-home-title").innerText()) === "工作台");
     check("首页单一主 CTA", await page.locator(".work-home-actions .btn-solid").count() === 1);
+    check("首页真实 KPI 四项", await page.locator(".home-kpi").count() === 4);
+    check("知识包覆盖卡存在", await page.locator(".work-coverage").count() === 1);
     check("首页只有一个 main", await page.locator("main").count() === 1);
     check("单项工具默认折叠", await page.locator(".work-tools").getAttribute("open") === null);
     check("课程状态只出现一次", await page.locator(".work-course-group-head").count() === 1);

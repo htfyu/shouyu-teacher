@@ -29,3 +29,6 @@ server/vercel/.env
 .wrangler/
 # Session memory
 .memsearch/
+
+# Local agent workspace
+.workbuddy/

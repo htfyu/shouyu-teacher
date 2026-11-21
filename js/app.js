@@ -1818,6 +1818,14 @@ function renderHomePage() {
     ...(impactStats.hasData ? [{ label: "应用成效", value: impactStats.recordCount, path: "/impact" }] : [])
   ].filter((item) => Number(item.value) > 0);
 
+  const builtPacks = CURRICULUM_PACKS.length;
+  const kpis = [
+    { label: "待审核成果", value: studioStats.pending, meta: studioStats.pending ? "需要处理" : "无待办", path: "/quality", icon: "shield", tone: "teal" },
+    { label: "备课项目", value: studioStats.total, meta: "本机项目", path: "/portfolio", icon: "layers", tone: "blue" },
+    { label: "待审核知识包", value: pendingPacks, meta: "待教研组审核", path: "/programs", icon: "book", tone: "amber" },
+    { label: "知识材料", value: KB_DOCS.length, meta: "本机知识库", path: "/kb", icon: "archive", tone: "mint" }
+  ];
+
   return `
     <div class="page work-home" data-home-state="${hasWork ? "active" : "empty"}">
       <header class="work-home-head">
@@ -1826,6 +1834,20 @@ function renderHomePage() {
           <button class="btn btn-solid" type="button" data-action="home-start-studio">${icon("plus", 13)} 新建备课</button>
         </div>
       </header>
+
+      <section class="home-kpis" data-role="home-kpis" aria-label="工作区概览">
+        ${kpis.map((kpi) => `
+          <button class="home-kpi" type="button" data-action="nav" data-path="${kpi.path}">
+            <span class="home-kpi-icon is-${kpi.tone}" aria-hidden="true">${icon(kpi.icon, 18)}</span>
+            <span class="home-kpi-copy">
+              <span class="home-kpi-label">${kpi.label}</span>
+              <strong class="home-kpi-value">${kpi.value}</strong>
+              <small class="home-kpi-meta">${kpi.meta}</small>
+            </span>
+            <span class="home-kpi-arrow" aria-hidden="true">${icon("arrowUpRight", 14)}</span>
+          </button>
+        `).join("")}
+      </section>
 
       <div class="work-home-layout">
         <div class="work-home-main">
@@ -1876,6 +1898,22 @@ function renderHomePage() {
           </section>
           ` : ""}
 
+          <section class="work-section work-coverage" data-role="home-coverage" aria-labelledby="home-coverage-title">
+            <div class="work-section-head">
+              <h2 id="home-coverage-title">知识包覆盖</h2>
+              <button class="btn-link" type="button" data-action="nav" data-path="/programs">专业数据库 →</button>
+            </div>
+            <div class="coverage-main">
+              <div class="coverage-score"><b>${builtPacks}</b><span>/ ${builtPacks} 门已建立</span></div>
+              <span class="status-stamp ${pendingPacks ? "is-warning" : "is-ok"}">${pendingPacks ? `待审核 ${pendingPacks}` : "已审核"}</span>
+            </div>
+            <div class="coverage-track" aria-hidden="true"><span style="width:${builtPacks ? 100 : 0}%"></span></div>
+            <div class="coverage-legend">
+              <span><i class="coverage-dot is-built"></i>结构完整 ${builtPacks}</span>
+              <span><i class="coverage-dot is-pending"></i>待教研组审核 ${pendingPacks}</span>
+            </div>
+          </section>
+
           <section class="work-section" data-role="home-courses" aria-labelledby="home-courses-title">
             <div class="work-section-head">
               <h2 id="home-courses-title">常用课程</h2>
@@ -1913,6 +1951,14 @@ function renderHomePage() {
             ${todoItems.length ? `<ul class="work-tasks" data-role="home-todo">
               ${todoItems.map((item) => `<li><button type="button" data-action="nav" data-path="${item.path}"><span>${item.label}</span><b>${item.value}</b></button></li>`).join("")}
             </ul>` : `<p class="work-side-empty" role="status">暂无待处理</p>`}
+          </section>
+
+          <section class="work-side-block" aria-labelledby="home-library-title">
+            <h2 id="home-library-title">知识库</h2>
+            <div class="work-side-links">
+              <button type="button" data-action="nav" data-path="/kb"><span>教学材料</span><b>${KB_DOCS.length}</b></button>
+              <button type="button" data-action="nav" data-path="/programs"><span>专业课程记录</span><b>${PROGRAM_DATA.courses.length}</b></button>
+            </div>
           </section>
 
           ${recentFiles.length ? `
