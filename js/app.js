@@ -54,6 +54,8 @@ import {
   AI_CONSENT_VERSION,
   DEMO_PROVIDER,
   PROXY_PROVIDER,
+  DIRECT_PRESETS,
+  getDirectPreset,
   checkAIConnection,
   consentRecord,
   hasValidConsent,
@@ -841,7 +843,7 @@ function aiReadyForSending() {
 
 function saveAILocal() {
   try {
-    const copy = { ...state.ai, proxyToken: "" };
+    const copy = { ...state.ai, proxyToken: "", apiKey: "" };
     localStorage.setItem(AI_LOCAL_KEY, JSON.stringify(copy));
   } catch (error) {
     console.warn("无法保存 AI 设置", error);
@@ -852,7 +854,9 @@ async function saveAISettings(settings, { persistToken = true } = {}) {
   state.ai = normalizeAISettings(settings);
   saveAILocal();
   try {
-    // Access tokens remain session-scoped; they are never written to IndexedDB.
+    // Proxy access tokens remain session-scoped. A direct-mode API key is kept
+    // in IndexedDB so the teacher does not have to re-enter it on every reload;
+    // it is stripped from localStorage and JSON backups.
     await localDB.saveSetting("ai", { ...state.ai, proxyToken: "" });
   } catch (error) {
     console.warn("AI 设置写入 IndexedDB 失败", error);
@@ -863,13 +867,16 @@ async function saveAISettings(settings, { persistToken = true } = {}) {
 function openAIConsentModal(callback = null, provider = state.ai.provider) {
   state.consentCallback = typeof callback === "function" ? callback : null;
   const isDemo = provider === "demo";
+  const isDirect = provider === "direct";
   openModal({
     kind: "confirm",
     kicker: "AI DATA NOTICE / 数据传输说明",
     title: "使用 AI 增强前，请确认数据边界",
     sub: isDemo
       ? "体验通道会把你输入的任务条件与知识库片段发送给第三方公开推理服务。"
-      : "安全代理会把任务条件与知识库片段发送到你配置的服务器，再由服务器调用模型服务。",
+      : isDirect
+        ? "直连模式会把你输入的任务条件与知识库片段发送给你配置的模型服务商。"
+        : "安全代理会把任务条件与知识库片段发送到你配置的服务器，再由服务器调用模型服务。",
     narrow: false,
     body: `
       <div class="notice-stack">
@@ -885,7 +892,7 @@ function openAIConsentModal(callback = null, provider = state.ai.provider) {
           <h3>不会自动发送什么</h3>
           <ul>
             <li>不会主动发送学生姓名、学号、联系方式、家庭住址；</li>
-            <li>不会发送 API Key。${isDemo ? "体验通道本身不含密钥，使用公开匿名模型。" : "模型密钥只存在服务端环境变量。"}</li>
+            <li>${isDemo ? "体验通道本身不含 API Key，使用公开匿名模型。" : isDirect ? "API Key 只作为请求头发送给所选模型服务商，不写入对话、备份或页面源码；它保存在本机 IndexedDB。" : "模型 API Key 只存在服务端环境变量，浏览器不会收到。"}</li>
             <li>不会把未选择的附件或整个资料库整体上传。</li>
           </ul>
         </div>
@@ -894,11 +901,11 @@ function openAIConsentModal(callback = null, provider = state.ai.provider) {
           <ol>
             <li>确认输入不含未脱敏的敏感信息；系统会在发送前再次检查；</li>
             <li>知悉 AI 输出仅为草稿，正式使用前必须人工审核；</li>
-            <li>${isDemo ? "体验通道可能受第三方服务可用性与隐私政策影响，敏感教学资料请改用本地模式或自建安全代理。" : "确认该代理服务符合学校数据管理规定。"}</li>
+            <li>${isDemo ? "体验通道可能受第三方服务可用性与隐私政策影响，敏感教学资料请改用本地模式或自建安全代理。" : isDirect ? "确认所选模型服务商的数据政策符合学校要求；公共电脑用完请清除 Key。" : "确认该代理服务符合学校数据管理规定。"}</li>
           </ol>
         </div>
         <div class="privacy-warning">
-          ${isDemo ? "体验通道是公开服务，不适合涉密、未公开或可识别个人身份的数据。生产使用请部署 server/ 中的安全代理。" : "安全代理地址由你配置；请确认其 HTTPS、访问控制与日志策略符合学校要求。"}
+          ${isDemo ? "体验通道是公开服务，不适合涉密、未公开或可识别个人身份的数据。生产使用请部署 server/ 中的安全代理。" : isDirect ? "直连模式的 Key 保存在本机浏览器，仅适合个人设备或受控电脑；生产环境请使用安全代理。" : "安全代理地址由你配置；请确认其 HTTPS、访问控制与日志策略符合学校要求。"}
         </div>
       </div>
     `,
@@ -1282,7 +1289,7 @@ function renderTopbar(activeConv) {
   } else if (route.name === "settings") {
     kicker = "SETTINGS / AI 与数据";
     title = "引擎、密钥与数据边界";
-    center = "模型密钥只在服务端 · 本地永远可回退";
+    center = "直连 Key 只在本机 · 生产建议代理";
     actions = `${aiChip}<button class="btn" type="button" data-action="nav" data-path="/" aria-label="返回工作台">${icon("arrowLeft", 13)}<span class="topbar-action-label">返回工作台</span></button>`;
   } else if (route.name === "guide") {
     kicker = "MANUAL / 使用说明";
@@ -6386,7 +6393,7 @@ function renderGuidePage() {
                 <tr><td>任务闭环，可落地成果</td><td>教案 + 任务单 + 工作页 + 评价表；可编辑；DOCX / XLSX / TXT / Markdown / PDF</td><td>载入示例，生成后编辑并导出 DOCX / Excel</td></tr>
                 <tr><td>会追问、会澄清</td><td>参数表单必填校验；对话缺参时追问；支持改学时 / 课型 / 模板；历史可改名、分类、批量删除</td><td>直接说“帮我写教案”，观察追问；生成后说“把学时改成 6”</td></tr>
                 <tr><td>安全合规与人工审核</td><td>双引擎；AI 发送前隐私网关；敏感信息自动脱敏；合规自检；结果页审核标记</td><td>在资料中心上传含手机号的资料，观察隐私确认；在设置中查看授权与撤回</td></tr>
-                <tr><td>真实 AI 与安全架构</td><td>AI 体验通道（无密钥、需授权）+ 自建安全代理（Key 在服务端）；断网自动回退</td><td>设置中测试连接；关网后生成，观察回退本地结果</td></tr>
+                <tr><td>真实 AI 与安全架构</td><td>AI 体验通道（无密钥）+ 自定义大模型直连（Key 存本机）+ 自建安全代理（Key 在服务端）；断网或失败自动回退</td><td>设置中切换三种通道并测试连接；关网后生成，观察回退本地结果</td></tr>
               </tbody>
             </table>
           </section>
@@ -6415,7 +6422,7 @@ function renderGuidePage() {
               <div class="role-card"><h3>AI 改写员</h3><p>在授权范围内改写关键模块；输出被截断、解析失败或无网络时自动回退，不丢任务条件。</p></div>
               <div class="role-card"><h3>合规审核员</h3><p>检查个人信息、评分依据、安全边界与人工审核提示，不放过“看起来很像”的内容。</p></div>
             </div>
-            <p class="guide-p" style="margin-top:10px">模型的自由生成只能发生在被约束的段落内，不能覆盖安全条款和引用关系。AI 体验通道是公开第三方服务，仅用于演示；生产部署请切换到 <code>server/</code> 中的安全代理，密钥只放服务端环境变量。</p>
+            <p class="guide-p" style="margin-top:10px">模型的自由生成只能发生在被约束的段落内，不能覆盖安全条款和引用关系。体验通道是公开第三方服务，仅用于演示；自定义大模型直连可填 DeepSeek、通义、智谱等 Key，Key 只保存在本机 IndexedDB；生产部署建议使用 <code>server/</code> 中的安全代理，密钥只放服务端环境变量。</p>
           </section>
 
           <section>
@@ -6438,14 +6445,14 @@ function renderGuidePage() {
               <div class="principle"><div class="principle-num">03 / GUARD</div><h3>发送前隐私网关</h3><p>AI 请求前检测身份证、手机、邮箱、学号、姓名上下文与地址；可掩码显示、人工确认或自动脱敏后再发送，也可直接取消。</p></div>
               <div class="principle"><div class="principle-num">04 / REVIEW</div><h3>人工审核是最后工序</h3><p>AI 结果定位为辅助草稿；安全、评价、企业标准必须由具备职责的教师确认。</p></div>
             </div>
-            <p class="guide-p" style="margin-top:10px">限制说明：IndexedDB 是本机存储，换设备、换浏览器不会同步；清理浏览器数据会删除历史。AI 模式会把必要上下文发送给你选择的模型服务（体验通道为公开第三方；生产请用自建安全代理）。请不要在公共电脑上保留含校内信息的记录。</p>
+            <p class="guide-p" style="margin-top:10px">限制说明：IndexedDB 是本机存储，换设备、换浏览器不会同步；清理浏览器数据会删除历史。AI 模式会把必要上下文发送给你选择的模型服务（体验通道为公开第三方，直连模式为所选模型服务商，安全代理为自建服务）。直连 Key 保存在本机 IndexedDB，不写入备份；公共电脑用完请清除。请不要在公共电脑上保留含校内信息的记录。</p>
           </section>
 
           <section>
             <h2 class="guide-h2" data-no="06">如何替换知识库与扩展</h2>
             <p class="guide-p"><strong>知识库：</strong>内置材料位于 <code>js/knowledge.js</code> 与 <code>js/knowledge-packs.js</code>（12 个专业包）；教师可在知识库页面新增、导入 JSON、编辑、删除自定义材料，保存在 IndexedDB。内置材料只读，可“复制为自定义”后修改。</p>
             <p class="guide-p"><strong>资料中心：</strong>支持 TXT / MD / CSV / JSON / DOCX / PDF / XLSX / PPTX，本地解析、隐私检查、分块预览、加入知识库；扫描 PDF 可选 OCR（会联网加载 Tesseract 资源）。</p>
-            <p class="guide-p"><strong>接入学院系统 / 大模型：</strong>前端通过 <code>js/ai.js</code> 调用模型；生产环境部署 <code>server/cloudflare-worker.js</code> 或 <code>server/vercel/</code>，把 <code>AI_API_KEY</code> 放在服务端环境变量，前端只填代理地址。不要在前端写模型 Key。</p>
+            <p class="guide-p"><strong>接入学院系统 / 大模型：</strong>前端通过 <code>js/ai.js</code> 调用模型。设置页支持三种方式：体验通道（公开无密钥）、自定义大模型（浏览器直连 OpenAI 兼容接口，Key 存本机 IndexedDB）、安全代理（部署 <code>server/cloudflare-worker.js</code> 或 <code>server/vercel/</code>，把 <code>AI_API_KEY</code> 放服务端环境变量）。生产环境优先安全代理；不要把模型 Key 写进源码或提交到仓库。</p>
             <div class="code-block">知识库：js/knowledge.js + js/knowledge-packs.js<br>检索与生成：js/engine.js<br>AI 适配：js/ai.js / ai-prompts.js / ai-artifacts.js<br>资料解析：js/files.js + assets/vendor<br>存储：js/db.js<br>隐私：js/privacy.js<br>编辑器 / 导出：js/app.js + js/export.js<br>安全代理：server/</div>
           </section>
 
@@ -6473,7 +6480,7 @@ function renderGuidePage() {
             <h2 class="guide-h2" data-no="08">已知限制</h2>
             <ul class="guide-list">
               <li>知识库是演示用校本示例 + 12 个专业包，不是学院正式文件；安全、评价、课程内容必须替换与复核。</li>
-              <li>AI 体验通道使用公开第三方推理服务，有速率与长度限制，可能截断或不可用；生产请部署安全代理并配置真实模型密钥。</li>
+              <li>AI 体验通道使用公开第三方推理服务，有速率与长度限制；自定义大模型直连需要自备 API Key，并可能受服务商 CORS 限制；生产请部署安全代理。</li>
               <li>AI 只改写关键模块并合并回本地完整结构，不是“整篇一次性生成”；安全类查询仍固定由本地知识库回答。</li>
               <li>PDF 通过浏览器打印面板另存，不同浏览器分页略异；复杂表格建议导出 DOCX / XLSX 后微调。</li>
               <li>系统无法识别所有形式的个人信息；规则检测与人工检查必须同时使用。扫描 PDF 的中文 OCR 准确率取决于扫描质量，必须人工校对。</li>
@@ -6520,13 +6527,14 @@ function formatBytes(bytes) {
 function renderSettingsPage() {
   const consent = hasValidConsent(state.ai);
   const docsCount = KB_DOCS.length;
+  const directPreset = getDirectPreset(state.ai.provider === "direct" ? state.ai.directPreset : "deepseek");
   return `
     <div class="page">
       <div class="page-head">
         <div>
           <div class="page-kicker">SETTINGS / AI 与数据</div>
           <h1 class="page-title">把引擎的选择权交给教师。</h1>
-          <p class="page-intro">本地引擎保证可用与隐私；AI 增强模式提供真实大模型能力。AI 服务密钥只应存在安全代理的服务端环境变量；浏览器不保存模型 API Key。每次 AI 发送前仍会执行隐私检查。</p>
+          <p class="page-intro">本地引擎保证可用与隐私；AI 增强模式可接体验通道、自定义大模型或学校安全代理。直连模式的模型 Key 只保存在本机 IndexedDB，不写入备份；生产环境建议使用安全代理。每次 AI 发送前仍会执行隐私检查。</p>
         </div>
         <div class="page-head-side">
           <strong>当前状态</strong>
@@ -6590,14 +6598,44 @@ function renderSettingsPage() {
                   <label for="ai-provider">AI 通道 <span class="required-mark">必选</span></label>
                   <select id="ai-provider" name="provider">
                     <option value="demo" ${state.ai.provider === "demo" ? "selected" : ""}>AI 体验通道（公开无密钥，仅演示）</option>
+                    <option value="direct" ${state.ai.provider === "direct" ? "selected" : ""}>自定义大模型（OpenAI 兼容直连）</option>
                     <option value="proxy" ${state.ai.provider === "proxy" ? "selected" : ""}>学校 / 自建安全代理（生产推荐）</option>
                   </select>
-                  <span class="field-hint">体验通道不包含 API Key，但会把必要内容发送至第三方公开服务。生产使用必须切换到安全代理。</span>
+                  <span class="field-hint">想明显提升对话质量，优先选“自定义大模型”，填入 DeepSeek / 通义 / 智谱等服务的 Key。体验通道只是无密钥演示，能力和长度都有限。</span>
+                </div>
+
+                <div class="provider-fields field-full" data-provider-panel="direct" ${state.ai.provider === "direct" ? "" : "hidden"}>
+                  <div class="form-banner">
+                    <div><strong>浏览器直连 OpenAI 兼容接口。</strong> Key 只保存在本机 IndexedDB，不写入源码、备份或对话内容；公共电脑不要保存。浏览器直连要求服务商允许跨域，若被拦截请改用安全代理。</div>
+                  </div>
+                  <div class="form-grid" style="margin-top:10px">
+                    <div class="field field-full">
+                      <label for="ai-direct-preset">服务商预设</label>
+                      <select id="ai-direct-preset" name="directPreset">
+                        ${DIRECT_PRESETS.map((preset) => `<option value="${escapeAttr(preset.id)}" ${directPreset.id === preset.id ? "selected" : ""}>${escapeHtml(preset.name)}</option>`).join("")}
+                      </select>
+                      <span class="field-hint" id="ai-direct-preset-note">${escapeHtml(directPreset.note)}</span>
+                    </div>
+                    <div class="field field-full">
+                      <label for="ai-direct-endpoint">模型接口地址（完整 /chat/completions）</label>
+                      <input id="ai-direct-endpoint" name="directEndpoint" type="url" value="${escapeAttr(state.ai.provider === "direct" ? state.ai.endpoint : directPreset.endpoint)}" placeholder="https://api.deepseek.com/chat/completions">
+                      <span class="field-hint">必须是完整的 chat completions 地址；本机 Ollama 可用 http://127.0.0.1:11434/v1/chat/completions。</span>
+                    </div>
+                    <div class="field">
+                      <label for="ai-direct-model">模型名称</label>
+                      <input id="ai-direct-model" name="directModel" type="text" value="${escapeAttr(state.ai.provider === "direct" ? state.ai.model : directPreset.model)}" placeholder="deepseek-chat">
+                    </div>
+                    <div class="field">
+                      <label for="ai-api-key">模型 API Key</label>
+                      <input id="ai-api-key" name="apiKey" type="password" value="${escapeAttr(state.ai.apiKey || "")}" autocomplete="off" spellcheck="false" placeholder="sk-…">
+                      <span class="field-hint">只保存在本机 IndexedDB；不会写入 JSON 备份。<button class="btn-link" type="button" data-action="clear-ai-key">清除已保存的 Key</button></span>
+                    </div>
+                  </div>
                 </div>
 
                 <div class="provider-fields field-full" data-provider-panel="demo" ${state.ai.provider === "demo" ? "" : "hidden"}>
                   <div class="form-banner">
-                    <div><strong>体验通道：${escapeHtml(DEMO_PROVIDER.model)}</strong><br>${escapeHtml(DEMO_PROVIDER.description)}</div>
+                    <div><strong>体验通道：${escapeHtml(DEMO_PROVIDER.model)}</strong><br>${escapeHtml(DEMO_PROVIDER.description)}<br><b>能力与输出长度有限，只适合演示；要提升对话质量，请选择“自定义大模型”。</b></div>
                   </div>
                 </div>
 
@@ -6690,13 +6728,12 @@ function renderSettingsPage() {
         <aside class="settings-aside">
           <div class="guide-aside-box">
             <span class="guide-tag">SECURITY</span>
-            <h3>密钥不进入前端</h3>
-            <p>GitHub Pages 是纯静态托管，无法安全保管模型密钥。因此：</p>
+            <h3>模型 Key 放在哪里</h3>
+            <p>本作品提供三种 AI 通道，安全边界不同：</p>
             <ul>
-              <li>体验通道无密钥，但需同意第三方传输；</li>
-              <li>生产使用 <code>server/</code> 的 Cloudflare Worker / Vercel Function；</li>
-              <li>Key 写在服务端环境变量 <code>AI_API_KEY</code>；</li>
-              <li>浏览器设置中没有模型 Key 字段。</li>
+              <li><strong>体验通道：</strong>无 Key，公开第三方，仅演示；</li>
+              <li><strong>直连大模型：</strong>Key 只存本机 IndexedDB，不进入源码、备份或对话；公共电脑用完请清除；</li>
+              <li><strong>安全代理：</strong>生产推荐，Key 只写在服务端环境变量 <code>AI_API_KEY</code>。</li>
             </ul>
           </div>
           <div class="guide-aside-box" style="margin-top:10px">
@@ -6720,13 +6757,23 @@ function readAISettingsForm() {
   const form = document.getElementById("ai-settings-form");
   if (!form) return normalizeAISettings(state.ai);
   const provider = form.querySelector("#ai-provider")?.value || "demo";
-  const endpoint = provider === "demo" ? DEMO_PROVIDER.endpoint : form.querySelector("#ai-endpoint")?.value.trim() || "";
-  const model = provider === "demo" ? DEMO_PROVIDER.model : form.querySelector("#ai-model")?.value.trim() || "";
+  const endpoint = provider === "demo"
+    ? DEMO_PROVIDER.endpoint
+    : provider === "direct"
+      ? form.querySelector("#ai-direct-endpoint")?.value.trim() || ""
+      : form.querySelector("#ai-endpoint")?.value.trim() || "";
+  const model = provider === "demo"
+    ? DEMO_PROVIDER.model
+    : provider === "direct"
+      ? form.querySelector("#ai-direct-model")?.value.trim() || ""
+      : form.querySelector("#ai-model")?.value.trim() || "";
   return normalizeAISettings({
     ...state.ai,
     provider,
     endpoint,
     model,
+    directPreset: form.querySelector("#ai-direct-preset")?.value || state.ai.directPreset || "deepseek",
+    apiKey: provider === "direct" ? (form.querySelector("#ai-api-key")?.value || "") : state.ai.apiKey,
     proxyToken: form.querySelector("#ai-proxy-token")?.value || "",
     healthEndpoint: form.querySelector("#ai-health-endpoint")?.value.trim() || "",
     temperature: form.querySelector("#ai-temperature")?.value,
@@ -6755,7 +6802,7 @@ async function refreshStorageUsage() {
 async function exportBackup({ conversationsOnly = false } = {}) {
   try {
     const settings = {
-      ai: { ...state.ai, proxyToken: "" },
+      ai: { ...state.ai, proxyToken: "", apiKey: "" },
       fileMaxMB: state.fileMaxMB,
       ui: { version: 2 }
     };
@@ -6858,7 +6905,7 @@ async function testAISettings() {
     resultEl.textContent = "正在测试连接…";
   }
   const settings = readAISettingsForm();
-  if (settings.provider === "demo" && !hasValidConsent(settings)) {
+  if (settings.provider !== "proxy" && !hasValidConsent(settings)) {
     if (resultEl) {
       resultEl.className = "ai-test-result is-error";
       resultEl.textContent = "请先同意数据传输说明";
@@ -8422,9 +8469,21 @@ async function startGeneration(conv, sceneId, params) {
   showToast(`已生成 ${result.artifact.docs?.length || 1} 份文档 · 引用 ${sourceCount} 处依据`);
 }
 
+function isLocalAIEndpoint(endpoint) {
+  try {
+    const url = new URL(endpoint);
+    return ["localhost", "127.0.0.1", "[::1]"].includes(url.hostname.toLowerCase());
+  } catch (error) {
+    return false;
+  }
+}
+
 function aiProviderMeta(settings) {
+  const label = settings.provider === "proxy"
+    ? "安全代理"
+    : settings.provider === "direct" ? "直连大模型" : "AI 体验通道";
   return {
-    provider: settings.provider === "proxy" ? "安全代理" : "AI 体验通道",
+    provider: label,
     providerId: settings.provider,
     model: settings.model || (settings.provider === "demo" ? DEMO_PROVIDER.model : "自定义模型"),
     endpoint: settings.endpoint
@@ -9231,6 +9290,14 @@ function handleAction(action, el, event) {
     case "show-ai-consent": {
       const provider = document.getElementById("ai-provider")?.value || state.ai.provider;
       openAIConsentModal(null, provider);
+      break;
+    }
+    case "clear-ai-key": {
+      state.ai.apiKey = "";
+      saveAISettings(state.ai).then(() => {
+        showToast("已清除本机保存的模型 Key");
+        renderApp({ preserveScroll: true });
+      });
       break;
     }
     case "privacy-mask-continue": {
@@ -10123,12 +10190,33 @@ document.addEventListener("submit", (event) => {
   if (form.id === "ai-settings-form") {
     event.preventDefault();
     const settings = readAISettingsForm();
+    if (settings.provider === "direct") {
+      if (!settings.endpoint) {
+        showToast("请填写模型接口地址");
+        document.getElementById("ai-direct-endpoint")?.focus();
+        return;
+      }
+      if (!/^https:\/\//i.test(settings.endpoint) && !isLocalAIEndpoint(settings.endpoint)) {
+        showToast("模型接口必须使用 HTTPS（本机 Ollama 可用 127.0.0.1）");
+        return;
+      }
+      if (!settings.model) {
+        showToast("请填写模型名称");
+        document.getElementById("ai-direct-model")?.focus();
+        return;
+      }
+      if (!settings.apiKey && !isLocalAIEndpoint(settings.endpoint)) {
+        showToast("请填写模型 API Key");
+        document.getElementById("ai-api-key")?.focus();
+        return;
+      }
+    }
     if (settings.provider === "proxy" && !settings.endpoint) {
       showToast("请填写安全代理接口地址");
       document.getElementById("ai-endpoint")?.focus();
       return;
     }
-    if (settings.provider === "proxy" && !/^https:\/\//i.test(settings.endpoint) && !/^http:\/\/127\.0\.0\.1/i.test(settings.endpoint)) {
+    if (settings.provider === "proxy" && !/^https:\/\//i.test(settings.endpoint) && !isLocalAIEndpoint(settings.endpoint)) {
       showToast("安全代理必须使用 HTTPS（本机开发可用 127.0.0.1）");
       return;
     }
@@ -10389,6 +10477,15 @@ document.addEventListener("change", (event) => {
     document.querySelectorAll("[data-provider-panel]").forEach((panel) => {
       panel.hidden = panel.dataset.providerPanel !== target.value;
     });
+  }
+  if (target.id === "ai-direct-preset") {
+    const preset = getDirectPreset(target.value);
+    const endpointInput = document.getElementById("ai-direct-endpoint");
+    const modelInput = document.getElementById("ai-direct-model");
+    const note = document.getElementById("ai-direct-preset-note");
+    if (endpointInput) endpointInput.value = preset.endpoint;
+    if (modelInput) modelInput.value = preset.model;
+    if (note) note.textContent = preset.note;
   }
   if (target.matches("[data-role='history-select']")) {
     const id = target.dataset.id;

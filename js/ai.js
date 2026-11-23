@@ -30,11 +30,88 @@ export const PROXY_PROVIDER = {
   editable: true
 };
 
+/**
+ * 浏览器直连的 OpenAI 兼容服务商预设。
+ * 注意：直连会把 API Key 留在本机浏览器；生产环境优先使用安全代理。
+ */
+export const DIRECT_PRESETS = [
+  {
+    id: "deepseek",
+    name: "DeepSeek",
+    endpoint: "https://api.deepseek.com/chat/completions",
+    model: "deepseek-chat",
+    needsKey: true,
+    note: "推荐；deepseek-chat 适合教学问答与长文改写。"
+  },
+  {
+    id: "qwen",
+    name: "阿里云百炼 / 通义",
+    endpoint: "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions",
+    model: "qwen-plus",
+    needsKey: true,
+    note: "百炼兼容模式；模型名可按控制台改为 qwen-max 等。"
+  },
+  {
+    id: "zhipu",
+    name: "智谱 GLM",
+    endpoint: "https://open.bigmodel.cn/api/paas/v4/chat/completions",
+    model: "glm-4-flash",
+    needsKey: true,
+    note: "glm-4-flash 免费额度较大，适合先试用。"
+  },
+  {
+    id: "openai",
+    name: "OpenAI",
+    endpoint: "https://api.openai.com/v1/chat/completions",
+    model: "gpt-4o-mini",
+    needsKey: true,
+    note: "浏览器直连可能受 CORS 限制；失败请改用安全代理。"
+  },
+  {
+    id: "moonshot",
+    name: "Moonshot / Kimi",
+    endpoint: "https://api.moonshot.cn/v1/chat/completions",
+    model: "moonshot-v1-8k",
+    needsKey: true,
+    note: "适合中文长文本；模型名以控制台为准。"
+  },
+  {
+    id: "siliconflow",
+    name: "SiliconFlow",
+    endpoint: "https://api.siliconflow.cn/v1/chat/completions",
+    model: "Qwen/Qwen2.5-7B-Instruct",
+    needsKey: true,
+    note: "模型广场中的 OpenAI 兼容模型均可尝试。"
+  },
+  {
+    id: "ollama",
+    name: "本地 Ollama",
+    endpoint: "http://127.0.0.1:11434/v1/chat/completions",
+    model: "qwen2.5:7b",
+    needsKey: false,
+    note: "需先 ollama pull，并设置 OLLAMA_ORIGINS=* 允许浏览器访问。"
+  },
+  {
+    id: "custom",
+    name: "自定义 OpenAI 兼容接口",
+    endpoint: "",
+    model: "",
+    needsKey: true,
+    note: "填写完整的 /chat/completions 地址；服务需允许浏览器跨域。"
+  }
+];
+
+export function getDirectPreset(id) {
+  return DIRECT_PRESETS.find((item) => item.id === id) || DIRECT_PRESETS[0];
+}
+
 export const DEFAULT_AI_SETTINGS = {
   mode: "local", // local | ai
   provider: "demo",
   endpoint: DEMO_PROVIDER.endpoint,
   model: DEMO_PROVIDER.model,
+  directPreset: "deepseek",
+  apiKey: "", // 直连模式：只保存在本机 IndexedDB，不写入备份、不进入源码
   proxyToken: "", // 可选的服务访问口令，不是模型 API Key；仅 sessionStorage
   healthEndpoint: "",
   temperature: 0.35,
@@ -49,7 +126,7 @@ export const DEFAULT_AI_SETTINGS = {
 
 const UNSAFE_RESPONSE_MESSAGES = {
   400: "AI 服务未接受这次请求，请检查任务描述或代理配置。",
-  401: "AI 服务鉴权失败。请检查安全代理的服务访问口令，或联系管理员检查服务端环境变量。",
+  401: "AI 服务鉴权失败。请检查模型 API Key、安全代理访问口令或服务端环境变量。",
   403: "AI 服务拒绝了请求。请检查来源白名单或访问权限。",
   404: "AI 接口地址不存在。请检查设置中的端点路径。",
   408: "AI 服务响应超时，请重试；也可以切换回本地模式。",
@@ -69,13 +146,21 @@ export function normalizeAISettings(raw = {}) {
     consent: { ...DEFAULT_AI_SETTINGS.consent, ...((raw && raw.consent) || {}) }
   };
   if (!["local", "ai"].includes(merged.mode)) merged.mode = "local";
-  if (!["demo", "proxy"].includes(merged.provider)) merged.provider = "demo";
+  if (!["demo", "proxy", "direct"].includes(merged.provider)) merged.provider = "demo";
   if (merged.provider === "demo") {
     merged.endpoint = DEMO_PROVIDER.endpoint;
     merged.model = DEMO_PROVIDER.model;
   }
   merged.endpoint = String(merged.endpoint || "").trim();
   merged.model = String(merged.model || "").trim();
+  if (merged.provider === "direct") {
+    merged.directPreset = getDirectPreset(merged.directPreset).id;
+    const preset = getDirectPreset(merged.directPreset);
+    // 从体验通道切换过来时，合并后的默认端点仍是体验通道地址，需要替换为预设端点。
+    if (!merged.endpoint || merged.endpoint === DEMO_PROVIDER.endpoint) merged.endpoint = preset.endpoint;
+    if (!merged.model || merged.model === DEMO_PROVIDER.model) merged.model = preset.model;
+  }
+  merged.apiKey = String(merged.apiKey || "").trim();
   merged.proxyToken = String(merged.proxyToken || "");
   merged.healthEndpoint = String(merged.healthEndpoint || "").trim();
   merged.temperature = Math.min(1.2, Math.max(0, Number(merged.temperature) || 0.35));
@@ -86,6 +171,7 @@ export function normalizeAISettings(raw = {}) {
 
 export function providerLabel(settings) {
   if (settings?.provider === "proxy") return settings.model ? `安全代理 · ${settings.model}` : "安全代理";
+  if (settings?.provider === "direct") return settings.model ? `直连模型 · ${settings.model}` : "直连模型";
   return "AI 体验通道";
 }
 
@@ -107,10 +193,21 @@ export function inferHealthEndpoint(settings) {
 
 function authHeaders(settings) {
   const headers = { "Content-Type": "application/json", Accept: "text/event-stream, application/json" };
-  if (settings?.provider === "proxy" && settings.proxyToken) {
+  if (settings?.provider === "direct" && settings.apiKey) {
+    headers.Authorization = `Bearer ${settings.apiKey}`;
+  } else if (settings?.provider === "proxy" && settings.proxyToken) {
     headers.Authorization = `Bearer ${settings.proxyToken}`;
   }
   return headers;
+}
+
+function isLocalEndpoint(endpoint) {
+  try {
+    const url = new URL(endpoint);
+    return ["localhost", "127.0.0.1", "[::1]"].includes(url.hostname.toLowerCase());
+  } catch (error) {
+    return false;
+  }
 }
 
 function extractDelta(value) {
@@ -126,7 +223,7 @@ function extractDelta(value) {
   };
   return {
     content: normalize(delta.content),
-    reasoning: normalize(delta.reasoning)
+    reasoning: normalize(delta.reasoning || delta.reasoning_content)
   };
 }
 
@@ -162,6 +259,14 @@ export async function streamAI({ messages, settings, signal, onDelta, onReasonin
   if (!Array.isArray(messages) || !messages.length) throw new Error("没有可发送给 AI 的消息");
   if (config.provider === "demo" && !hasValidConsent(config)) {
     throw new Error("尚未确认第三方 AI 数据传输说明");
+  }
+  if (config.provider === "direct") {
+    if (!config.apiKey && !isLocalEndpoint(config.endpoint)) {
+      throw new Error("请先在设置中填写模型 API Key");
+    }
+    if (!hasValidConsent(config)) {
+      throw new Error("尚未确认模型数据传输说明");
+    }
   }
 
   const controller = new AbortController();
@@ -373,6 +478,21 @@ export async function checkAIConnection(settings, { signal } = {}) {
       return { ok, message: ok ? `体验通道可用（${models[0]?.name || config.model}）` : "体验通道没有返回可用模型" };
     } catch (error) {
       return { ok: false, message: "体验通道当前不可达。可稍后重试，或使用本地模式。" };
+    }
+  }
+  if (config.provider === "direct") {
+    if (!config.endpoint) return { ok: false, message: "请先填写模型接口地址" };
+    if (!config.apiKey && !isLocalEndpoint(config.endpoint)) return { ok: false, message: "请先填写模型 API Key" };
+    if (!hasValidConsent(config)) return { ok: false, message: "请先确认数据传输说明" };
+    try {
+      const response = await streamAI({
+        messages: [{ role: "user", content: "只回复 OK 两个字母。" }],
+        settings: { ...config, maxTokens: 128 },
+        signal
+      });
+      return { ok: true, message: `${config.model || "模型"} 已返回响应` };
+    } catch (error) {
+      return { ok: false, message: error.message };
     }
   }
   if (!config.endpoint) return { ok: false, message: "请先填写安全代理地址" };
