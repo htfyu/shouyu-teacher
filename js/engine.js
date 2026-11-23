@@ -2115,15 +2115,28 @@ function generationMissingReply(text) {
     };
   }
   if (/教案|任务单|工作页|评价表/.test(text)) {
+    // 用户说“随便/先来一份”时，先给一份可修改的默认案例，而不是用四个问题拦住对话。
+    const scene = /任务单|工作页/.test(text) ? "materials" : /评价表/.test(text) ? "evaluate" : "lesson";
+    const preset = findTaskPreset(text) || TASK_PRESETS[0];
+    const params = {
+      major: preset.major,
+      course: preset.course,
+      task: preset.label,
+      lessonType: "一体化",
+      hours: "4",
+      learners: "示例学情：班级约 36 人，已完成安全用电与常用电工工具训练；能识读简单主电路图，但接线工艺和互锁原理不熟；实训台 8 台套，建议 4 人一组。请按真实班级修改。",
+      resources: preset.equipment.join("；"),
+      notes: "按默认示例生成；设备型号、技术参数、企业标准和安全条款须由教师核对。",
+      template: "standard"
+    };
+    if (scene === "materials") params.materialsOutput = "both";
+    if (scene === "evaluate") params.evalTemplate = "process";
     return {
-      type: "clarify",
-      text: "可以，但在生成前我需要确认 4 个关键条件，避免给您一份“看起来完整、实际上不能用”的模板：\n\n1. **专业 / 课程**是什么？\n2. **具体工作任务**是什么？\n3. **课型与学时**（理论 / 实训 / 一体化；几学时）？\n4. **学情**：学生已学过什么、常见困难、设备台套数？\n\n您可以直接在对话里补充，例如：“电气自动化，正反转控制线路，一体化，4 学时，学生已学安全用电但接线不熟”。也可以打开参数表单，一次填完。",
-      scene: /任务单|工作页/.test(text) ? "materials" : /评价表/.test(text) ? "evaluate" : "lesson",
-      sources: [],
-      suggestions: [
-        { label: "打开参数表单", scene: /任务单|工作页/.test(text) ? "materials" : /评价表/.test(text) ? "evaluate" : "lesson", action: "scene" },
-        { label: "看我需要哪些参数", action: "requirements" }
-      ]
+      type: "generate",
+      scene,
+      params,
+      text: `收到。先按默认案例生成一份可修改的草稿：**${preset.major} · ${preset.course} · ${preset.label} · 一体化 4 学时**。\n\n不用先填专业、课程、任务、学情四个字段；生成后直接说“课程改成……”“学时改成 6”“任务换成……”即可重生成。设备参数、企业标准和安全条款仍需您核对。`,
+      sources: []
     };
   }
   return null;

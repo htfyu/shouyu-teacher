@@ -2177,7 +2177,7 @@ function renderMessage(message, conv, index) {
 
 function renderAssistantHead(message) {
   const isAI = Boolean(message.ai?.used || message.kind === "ai-pending" || message.aiError);
-  const badge = isAI ? "AI-ASSISTED" : message.kind === "result" ? "KNOWLEDGE-GROUNDED" : "SCOPE-GUARDED";
+  const badge = isAI ? "AI-ASSISTED" : message.kind === "result" ? "KNOWLEDGE-GROUNDED" : message.tag === "默认草稿" ? "DEFAULT DRAFT" : "SCOPE-GUARDED";
   return `
     <div class="assistant-head">
       <span class="assistant-mark" aria-hidden="true">授</span>
@@ -8954,6 +8954,36 @@ async function submitChat(text) {
       return;
     }
     startGeneration(conv, conv.scene, nextParams);
+    return;
+  }
+
+  if (reply.type === "generate") {
+    const notice = {
+      id: uid("msg"),
+      role: "assistant",
+      kind: "chat",
+      text: reply.text,
+      sources: [],
+      suggestions: [],
+      tag: "默认草稿",
+      createdAt: new Date().toISOString()
+    };
+    appendMessage(conv, notice);
+    conv.updatedAt = new Date().toISOString();
+    saveDB();
+    state.chatBusy = false;
+    if (state.route.name === "chat" && state.route.id === conv.id) {
+      state.pendingScroll = "bottom";
+      renderApp();
+    }
+    await sleep(260);
+    const params = { ...reply.params, scene: reply.scene };
+    const useAI = aiModeActive()
+      && hasValidConsent(state.ai)
+      && reply.scene !== "safety"
+      && !(state.ai.provider === "proxy" && !state.ai.endpoint);
+    if (useAI) await startAIGeneration(conv, reply.scene, params);
+    else await startGeneration(conv, reply.scene, params);
     return;
   }
 
