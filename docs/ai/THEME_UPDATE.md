@@ -47,7 +47,7 @@
 
 ```text
 单元测试        100 passed / 0 failed
-浏览器 E2E      88 passed / 0 failed
+浏览器 E2E      94 passed / 0 failed
 P0 专用回归     PASS
 全站路由        32/32，0 console error / 0 failed request / 0 横向溢出
 全站 detector   32 个页面/视口组合，0 primary findings

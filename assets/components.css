@@ -14731,3 +14731,60 @@ input:focus,select:focus,textarea:focus {
     transform: none !important;
   }
 }
+
+/* History: a visible destructive action, not an icon-only affordance. */
+.history-actions {
+  gap: 6px;
+}
+
+.history-delete {
+  display: inline-flex;
+  min-height: 30px;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 0 9px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--paper);
+  color: var(--muted);
+  font: inherit;
+  font-size: 11px;
+  font-weight: 550;
+  line-height: 1;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background-color var(--motion-fast) var(--motion-ease),
+    border-color var(--motion-fast) var(--motion-ease),
+    color var(--motion-fast) var(--motion-ease),
+    transform var(--motion-fast) var(--motion-ease);
+}
+
+.history-delete:hover {
+  border-color: #e5c4be;
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
+.history-delete:active {
+  transform: scale(0.97);
+}
+
+@media (max-width: 640px) {
+  .history-delete {
+    min-height: 40px;
+    padding-inline: 12px;
+    font-size: 12px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .history-delete {
+    transition: none;
+  }
+
+  .history-delete:active {
+    transform: none;
+  }
+}

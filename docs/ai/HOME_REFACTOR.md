@@ -85,7 +85,7 @@
 - 首页空态/有数据态由同一模板分支控制，不再维护三套空状态。
 - 移除首页嵌套 `<main>`，只保留应用层一个 `<main>`。
 - 清理旧首页死样式约 6.7KB；CSS 计算样式指纹仍为 32 组合 0 差异。
-- E2E 新增 6 项结构断言和 2 项键盘断言，当前 **88 passed**。
+- E2E 新增 6 项结构断言和 2 项键盘断言，当前 **94 passed**。
 
 ## 6. AX
 
@@ -100,7 +100,7 @@
 
 ```text
 单元测试        100 passed / 0 failed
-浏览器 E2E      88 passed / 0 failed
+浏览器 E2E      94 passed / 0 failed
 文件解析        18 passed / 0 failed
 P0 专用回归     PASS
 全站路由        32/32 页，0 console error / 0 failed request / 0 横向溢出

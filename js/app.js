@@ -6271,7 +6271,7 @@ function renderHistoryList(list) {
         <div class="history-actions">
           <button class="icon-btn" type="button" data-action="rename-conv" data-id="${escapeAttr(conv.id)}" title="修改标题" aria-label="修改对话标题">${icon("sliders", 12)}</button>
           <button class="icon-btn${conv.pinned ? " is-pinned" : ""}" type="button" data-action="pin-conv" data-id="${escapeAttr(conv.id)}" title="${conv.pinned ? "取消收藏" : "收藏"}" aria-label="${conv.pinned ? "取消收藏" : "收藏"}">${icon("pin", 12)}</button>
-          <button class="icon-btn" type="button" data-action="delete-conv" data-id="${escapeAttr(conv.id)}" title="删除" aria-label="删除对话">${icon("trash", 12)}</button>
+          <button class="btn btn-ghost history-delete" type="button" data-action="delete-conv" data-id="${escapeAttr(conv.id)}" title="删除这条对话" aria-label="删除对话：${escapeAttr(conv.title || "未命名对话")}">${icon("trash", 12)}<span>删除</span></button>
         </div>
       </article>
     `;

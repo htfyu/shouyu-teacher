@@ -336,6 +336,22 @@ async function main() {
     await page.waitForTimeout(250);
     check("移动端侧栏可打开", await page.locator(".sidebar").evaluate((el) => getComputedStyle(el).transform !== "none" || getComputedStyle(el).visibility !== "hidden"));
 
+    await page.goto(`${base}#/history`, { waitUntil: "networkidle" });
+    await page.waitForTimeout(300);
+    const historyBeforeDelete = await page.locator(".history-card").count();
+    check("历史记录单条删除键可见", await page.locator(".history-delete").count() >= 1);
+    check("历史记录删除键有文字", (await page.locator(".history-delete").first().innerText()).includes("删除"));
+    check("历史记录删除键触控高度", (await page.locator(".history-delete").first().boundingBox()).height >= 44);
+    await page.locator(".history-delete").first().click();
+    await page.waitForTimeout(180);
+    check("删除确认点名对话", (await page.locator(".modal").innerText()).includes("删除这条对话"));
+    await page.locator('[data-action="confirm-delete"]').click();
+    await page.waitForTimeout(400);
+    check("历史记录单条删除生效", await page.locator(".history-card").count() === historyBeforeDelete - 1);
+    await page.reload({ waitUntil: "networkidle" });
+    await page.waitForTimeout(400);
+    check("历史记录删除持久化", await page.locator(".history-card").count() === historyBeforeDelete - 1);
+
     check("无控制台错误", errors.length === 0, errors.slice(0, 3).join(" / "));
     console.log(JSON.stringify({ ok: true, passed: results.length, results, errors }, null, 2));
   } finally {

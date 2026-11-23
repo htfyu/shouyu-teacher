@@ -1,0 +1,299 @@
+diff --git a/README.md b/README.md
+index 5c47013..fec9501 100644
+--- a/README.md
++++ b/README.md
+@@ -350,7 +350,7 @@ node tests/long-doc.e2e.mjs
+ 
+ - 100 个单元测试（隐私 33、知识包 8、引擎 7、AI 合并 7、安全代理 Mock 8、专业数据库 9、课程知识包/资源引擎/三层质检/来源完整性/演示标记 17、应用成效 5、授课记录 6）；
+ - 18 个文件解析用例（TXT / MD / CSV / JSON / DOCX / PDF / XLSX / PPTX / 分块 / BOM / 进度 / 无上传）；
+-- 88 项浏览器 E2E（路由、五场景、品牌标识 / favicon、首页工作台单一 CTA / 折叠单项工具 / 非零待处理、四个核心导航、我的课程与课程工作空间、课程授课记录空状态、六步备课、统一项目工作区、侧栏折叠、资料分栏、模板标识、专业数据库四级浏览 / 检索 / 课程资源、10 类资源、4 门知识包、质检三层/10 维、质量中心、成果中心、知识图谱、演示一键生成与状态、应用成效未采集/录入/图表、完整备份清空后恢复、编辑器、DOCX / XLSX、文件解析、历史、移动端、控制台）；
++- 94 项浏览器 E2E（路由、五场景、品牌标识 / favicon、首页工作台单一 CTA / 折叠单项工具 / 非零待处理、四个核心导航、我的课程与课程工作空间、课程授课记录空状态、六步备课、统一项目工作区、侧栏折叠、资料分栏、模板标识、专业数据库四级浏览 / 检索 / 课程资源、10 类资源、4 门知识包、质检三层/10 维、质量中心、成果中心、知识图谱、演示一键生成与状态、应用成效未采集/录入/图表、完整备份清空后恢复、编辑器、DOCX / XLSX、文件解析、历史单条删除与持久化、移动端、控制台）；
+ - 完整备份端到端：新建授课记录 + 生成备课项目 → 导出 JSON → 清空本机数据 → 导入恢复，记录与项目均恢复；
+ - 长文档：80 段 / 9,017 字，正文 13.5px / 24.3px 行高，无横向溢出；
+ - 真实 studio/quality 页面 Impeccable CDP 检测：0 primary findings；
+diff --git a/assets/components.css b/assets/components.css
+index d09a894..1ad7006 100644
+--- a/assets/components.css
++++ b/assets/components.css
+@@ -14731,3 +14731,60 @@ input:focus,select:focus,textarea:focus {
+     transform: none !important;
+   }
+ }
++
++/* History: a visible destructive action, not an icon-only affordance. */
++.history-actions {
++  gap: 6px;
++}
++
++.history-delete {
++  display: inline-flex;
++  min-height: 30px;
++  align-items: center;
++  justify-content: center;
++  gap: 4px;
++  padding: 0 9px;
++  border: 1px solid var(--line);
++  border-radius: 7px;
++  background: var(--paper);
++  color: var(--muted);
++  font: inherit;
++  font-size: 11px;
++  font-weight: 550;
++  line-height: 1;
++  white-space: nowrap;
++  cursor: pointer;
++  transition:
++    background-color var(--motion-fast) var(--motion-ease),
++    border-color var(--motion-fast) var(--motion-ease),
++    color var(--motion-fast) var(--motion-ease),
++    transform var(--motion-fast) var(--motion-ease);
++}
++
++.history-delete:hover {
++  border-color: #e5c4be;
++  background: var(--danger-soft);
++  color: var(--danger);
++}
++
++.history-delete:active {
++  transform: scale(0.97);
++}
++
++@media (max-width: 640px) {
++  .history-delete {
++    min-height: 40px;
++    padding-inline: 12px;
++    font-size: 12px;
++  }
++}
++
++@media (prefers-reduced-motion: reduce) {
++  .history-delete {
++    transition: none;
++  }
++
++  .history-delete:active {
++    transform: none;
++  }
++}
+diff --git a/docs/ai/CHANGELOG.md b/docs/ai/CHANGELOG.md
+index 17ec1e2..c5726bb 100644
+--- a/docs/ai/CHANGELOG.md
++++ b/docs/ai/CHANGELOG.md
+@@ -1,5 +1,20 @@
+ # 变更记录
+ 
++## 2026-11-23 · 历史对话单条删除入口
++
++### 修改
++
++- 历史对话卡片原来的垃圾桶图标改为带文字的“删除”按钮，桌面/移动均可见。
++- 保留原有确认弹窗：点名对话标题、说明删除范围、取消/确认双动作。
++- 移动端删除按钮 66×44px，桌面 58×30px；支持键盘与读屏名称。
++- 删除仍走本机 localStorage + IndexedDB 持久化，刷新后不复现。
++- 批量“删除所选”逻辑不变。
++
++### 验证
++
++- E2E 94：删除键可见、有文字、移动端 44px、确认弹窗、删除生效、刷新持久化。
++- P0 PASS；32 路由 0 错误/溢出；7 档宽度无横向溢出。
++
+ ## 2026-11-23 · 克制动效系统
+ 
+ ### 学习
+diff --git a/docs/ai/CSS_AUDIT.md b/docs/ai/CSS_AUDIT.md
+index aa3031f..4d8f720 100644
+--- a/docs/ai/CSS_AUDIT.md
++++ b/docs/ai/CSS_AUDIT.md
+@@ -4,7 +4,7 @@
+ 
+ ```text
+ assets/tokens.css        3.6 KB   110 个设计变量，单一 :root
+-assets/components.css  296.3 KB   组件、页面、打印、响应式、动效
++assets/components.css  297.4 KB   组件、页面、打印、响应式、动效
+ ```
+ 
+ 加载顺序：
+@@ -41,10 +41,10 @@ shouyu-world.css     37.5 KB
+ |---|---:|---:|
+ | CSS 文件 | 6 | 2 |
+ | CSS 请求 | 6 | 2 |
+-| 未压缩字节 | 334,667 | 306,443 |
+-| gzip 字节 | 55,733 | 43,306 |
+-| 样式规则（含嵌套 qualified） | 3,096 | 2,988 |
+-| 重复选择器出现次数 | 1,176 | 993 |
++| 未压缩字节 | 334,667 | 307,582 |
++| gzip 字节 | 55,733 | 43,509 |
++| 样式规则（含嵌套 qualified） | 3,096 | 2,995 |
++| 重复选择器出现次数 | 1,176 | 997 |
+ | 精确重复规则块 | 12 | 0 |
+ | `:root` 变量 | 110 | 110 |
+ | 冲突变量 | 46 | 0 |
+diff --git a/docs/ai/HISTORY_DELETE.md b/docs/ai/HISTORY_DELETE.md
+new file mode 100644
+index 0000000..1bf347f
+--- /dev/null
++++ b/docs/ai/HISTORY_DELETE.md
+@@ -0,0 +1,56 @@
++# 历史对话单条删除入口
++
++> 日期：2026-11-23  
++> 截图：[桌面](../screenshots/history-delete.png) · [移动端](../screenshots/history-delete-mobile.png)
++
++## 问题
++
++历史页原来有垃圾桶图标，也有确认弹窗和持久化删除；但图标只有 30px、没有文字，实际很难被发现，用户会认为“没有办法删除”。
++
++## 修改
++
++历史卡片右侧的图标按钮改为明确的 **“删除”** 按钮：
++
++```text
++[调整标题] [收藏] [🗑 删除]
++```
++
++- 桌面：58×30px，带边框、垃圾桶图标和文字。
++- 移动端：66×44px，符合触控目标。
++- 悬停：砖红文字、淡红底、红色边框。
++- `aria-label` 为“删除对话：{标题}”，读屏能点名具体对话。
++- 保留原有确认弹窗：显示对话标题、删除范围、取消/确认。
++- 保留原删除链路：`delete-conv` → 确认 → localStorage + IndexedDB → 刷新不恢复。
++- 批量“删除所选”不变。
++
++## 验证
++
++```text
++E2E 94 passed / 0 failed
++  · 删除键存在
++  · 文案包含“删除”
++  · 390px 下高度 ≥44px
++  · 确认弹窗包含“删除这条对话”
++  · 删除后卡片数 -1
++  · 刷新后仍为删除状态
++
++P0 专用回归        PASS
++32 路由            0 console error / 0 failed request / 0 溢出
++7 档宽度           无横向溢出
++单元测试           100 passed
++文件解析           18 passed
++```
++
++## 文件
++
++- `js/app.js`：删除按钮标记与读屏名称
++- `assets/components.css`：可见删除按钮、移动端 44px、悬停/按压
++- `tests/e2e.smoke.mjs`：6 项删除入口断言
++- `docs/screenshots/history-delete.png`
++- `docs/screenshots/history-delete-mobile.png`
++
++## 边界
++
++- 删除仍是本机删除，不同步、不影响专业数据库或课程知识包。
++- 没有做“回收站/撤销”；删除前有确认弹窗。
++- 批量删除仍通过复选框 + “删除所选”完成。
+\ No newline at end of file
+diff --git a/docs/ai/HOME_REFACTOR.md b/docs/ai/HOME_REFACTOR.md
+index 3b95011..5340fff 100644
+--- a/docs/ai/HOME_REFACTOR.md
++++ b/docs/ai/HOME_REFACTOR.md
+@@ -85,7 +85,7 @@
+ - 首页空态/有数据态由同一模板分支控制，不再维护三套空状态。
+ - 移除首页嵌套 `<main>`，只保留应用层一个 `<main>`。
+ - 清理旧首页死样式约 6.7KB；CSS 计算样式指纹仍为 32 组合 0 差异。
+-- E2E 新增 6 项结构断言和 2 项键盘断言，当前 **88 passed**。
++- E2E 新增 6 项结构断言和 2 项键盘断言，当前 **94 passed**。
+ 
+ ## 6. AX
+ 
+@@ -100,7 +100,7 @@
+ 
+ ```text
+ 单元测试        100 passed / 0 failed
+-浏览器 E2E      88 passed / 0 failed
++浏览器 E2E      94 passed / 0 failed
+ 文件解析        18 passed / 0 failed
+ P0 专用回归     PASS
+ 全站路由        32/32 页，0 console error / 0 failed request / 0 横向溢出
+diff --git a/docs/ai/MOTION_SYSTEM.md b/docs/ai/MOTION_SYSTEM.md
+index eb72bd6..de6f01f 100644
+--- a/docs/ai/MOTION_SYSTEM.md
++++ b/docs/ai/MOTION_SYSTEM.md
+@@ -5,7 +5,7 @@
+ > 完整 diff：[MOTION_DIFF.patch](MOTION_DIFF.patch)  
+ > 参考：<https://holynova.github.io/web-motion-showcase/?lang=zh&theme=slate&mode=light>  
+ > 落地：工作台进入、数据条生长、工具展开、悬停/按压、顶栏滚动阴影  
+-> 验证：E2E 88、P0 PASS、32 路由 0 错误、1440/390 detector 0  
++> 验证：E2E 94、P0 PASS、32 路由 0 错误、1440/390 detector 0  
+ > 画面：[进入中的工作台](../screenshots/motion-entrance.png) · [减少动态模式](../screenshots/motion-reduced.png)
+ 
+ ## 1. 参考站拆解
+@@ -107,7 +107,7 @@
+   内容无隐藏、无位移
+ 
+ 回归
+-  E2E 88 passed
++  E2E 94 passed
+   P0 PASS
+   32 路由 0 console error / 0 failed request / 0 溢出
+   1440 / 390 detector 0 primary
+diff --git a/docs/ai/THEME_UPDATE.md b/docs/ai/THEME_UPDATE.md
+index 572be0b..04cc7b4 100644
+--- a/docs/ai/THEME_UPDATE.md
++++ b/docs/ai/THEME_UPDATE.md
+@@ -47,7 +47,7 @@
+ 
+ ```text
+ 单元测试        100 passed / 0 failed
+-浏览器 E2E      88 passed / 0 failed
++浏览器 E2E      94 passed / 0 failed
+ P0 专用回归     PASS
+ 全站路由        32/32，0 console error / 0 failed request / 0 横向溢出
+ 全站 detector   32 个页面/视口组合，0 primary findings
+diff --git a/docs/screenshots/history-delete-mobile.png b/docs/screenshots/history-delete-mobile.png
+new file mode 100644
+index 0000000..b7c14c5
+Binary files /dev/null and b/docs/screenshots/history-delete-mobile.png differ
+diff --git a/docs/screenshots/history-delete.png b/docs/screenshots/history-delete.png
+new file mode 100644
+index 0000000..9d3b385
+Binary files /dev/null and b/docs/screenshots/history-delete.png differ
+diff --git a/js/app.js b/js/app.js
+index f0475c1..ee428c3 100644
+--- a/js/app.js
++++ b/js/app.js
+@@ -6271,7 +6271,7 @@ function renderHistoryList(list) {
+         <div class="history-actions">
+           <button class="icon-btn" type="button" data-action="rename-conv" data-id="${escapeAttr(conv.id)}" title="修改标题" aria-label="修改对话标题">${icon("sliders", 12)}</button>
+           <button class="icon-btn${conv.pinned ? " is-pinned" : ""}" type="button" data-action="pin-conv" data-id="${escapeAttr(conv.id)}" title="${conv.pinned ? "取消收藏" : "收藏"}" aria-label="${conv.pinned ? "取消收藏" : "收藏"}">${icon("pin", 12)}</button>
+-          <button class="icon-btn" type="button" data-action="delete-conv" data-id="${escapeAttr(conv.id)}" title="删除" aria-label="删除对话">${icon("trash", 12)}</button>
++          <button class="btn btn-ghost history-delete" type="button" data-action="delete-conv" data-id="${escapeAttr(conv.id)}" title="删除这条对话" aria-label="删除对话：${escapeAttr(conv.title || "未命名对话")}">${icon("trash", 12)}<span>删除</span></button>
+         </div>
+       </article>
+     `;
+diff --git a/tests/e2e.smoke.mjs b/tests/e2e.smoke.mjs
+index 6809e1d..e8db5d0 100644
+--- a/tests/e2e.smoke.mjs
++++ b/tests/e2e.smoke.mjs
+@@ -336,6 +336,22 @@ async function main() {
+     await page.waitForTimeout(250);
+     check("移动端侧栏可打开", await page.locator(".sidebar").evaluate((el) => getComputedStyle(el).transform !== "none" || getComputedStyle(el).visibility !== "hidden"));
+ 
++    await page.goto(`${base}#/history`, { waitUntil: "networkidle" });
++    await page.waitForTimeout(300);
++    const historyBeforeDelete = await page.locator(".history-card").count();
++    check("历史记录单条删除键可见", await page.locator(".history-delete").count() >= 1);
++    check("历史记录删除键有文字", (await page.locator(".history-delete").first().innerText()).includes("删除"));
++    check("历史记录删除键触控高度", (await page.locator(".history-delete").first().boundingBox()).height >= 44);
++    await page.locator(".history-delete").first().click();
++    await page.waitForTimeout(180);
++    check("删除确认点名对话", (await page.locator(".modal").innerText()).includes("删除这条对话"));
++    await page.locator('[data-action="confirm-delete"]').click();
++    await page.waitForTimeout(400);
++    check("历史记录单条删除生效", await page.locator(".history-card").count() === historyBeforeDelete - 1);
++    await page.reload({ waitUntil: "networkidle" });
++    await page.waitForTimeout(400);
++    check("历史记录删除持久化", await page.locator(".history-card").count() === historyBeforeDelete - 1);
++
+     check("无控制台错误", errors.length === 0, errors.slice(0, 3).join(" / "));
+     console.log(JSON.stringify({ ok: true, passed: results.length, results, errors }, null, 2));
+   } finally {
