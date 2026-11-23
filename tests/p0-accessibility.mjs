@@ -40,14 +40,14 @@ try {
   // P0-3 all nav entries are links, only active has aria-current
   await page.locator(".nav-more-toggle").click(); await page.waitForTimeout(200);
   const nav = await page.locator(".side-nav .nav-item").evaluateAll((els) => els.map((el) => ({ tag: el.tagName, href: el.getAttribute("href"), current: el.getAttribute("aria-current") })));
-  assert.equal(nav.length, 15); // 14 route entries + AI action entry
+  assert.equal(nav.length, 14); // 14 route entries; teaching chat now lives in Workbench
   assert.ok(nav.every((item) => item.tag === "A" && item.href?.startsWith("#/")));
   assert.equal(nav.filter((item) => item.current === "page").length, 1);
   result.checks.push(`P0-3 ${nav.length} nav anchors with one aria-current`);
 
-  // 19 interactive sidebar targets (14 routes + AI + prep + brand + more + privacy + collapse)
+  // 19 interactive sidebar targets (14 routes + prep + brand + more + privacy + collapse)
   const entryCount = await page.locator(".sidebar .brand, .sidebar .new-chat, .sidebar .nav-more-toggle, .sidebar .side-foot-link, .sidebar .sidebar-collapse, .side-nav .nav-item").count();
-  assert.equal(entryCount, 20); // 15 items already counted + brand/prep/more/privacy/collapse
+  assert.equal(entryCount, 19);
   result.checks.push(`sidebar targets reachable: ${entryCount}`);
 
   // one route click and native hash behaviour

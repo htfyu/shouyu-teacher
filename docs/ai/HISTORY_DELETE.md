@@ -13,6 +13,8 @@
 
 历史卡片右侧的图标按钮改为明确的 **“删除”** 按钮：
 
+> 2026-11-23 后续：侧栏“RECENT / 最近”也增加了可见删除按钮，支持聚焦后按 `Delete`/`Backspace`，详见 [WORKBENCH_CHAT.md](WORKBENCH_CHAT.md)。
+
 ```text
 [调整标题] [收藏] [🗑 删除]
 ```
@@ -28,7 +30,7 @@
 ## 验证
 
 ```text
-E2E 94 passed / 0 failed
+E2E 103 passed / 0 failed
   · 删除键存在
   · 文案包含“删除”
   · 390px 下高度 ≥44px

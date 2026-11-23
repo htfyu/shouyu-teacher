@@ -1,0 +1,676 @@
+diff --git a/DESIGN.md b/DESIGN.md
+index 6bbd018..9af8e42 100644
+--- a/DESIGN.md
++++ b/DESIGN.md
+@@ -85,7 +85,9 @@
+ 
+ - 深松木书脊，浅色字，选中项用薄荷内页 + 深绿字，不使用左侧色条。
+ - 4 个核心入口固定：工作台 / 我的课程 / 备课工作室 / 我的成果。
+-- “更多功能”按工作阶段分组：教学资料、审阅与记录、设置与帮助。
++- 教学对话不是独立导航项：从工作台启动，聊天路由下仍由“工作台”承担选中态。
++- “更多功能”按工作阶段分组：教学资料、审阅与记录、设置与帮助；不再放教学对话。
++- “RECENT / 最近”行有独立删除按钮；聚焦后 `Delete`/`Backspace` 打开同一确认。
+ - 当前页面只有一个选中信号；模块色只用于图标和状态章，不用于整页底色。
+ 
+ ### 按钮
+diff --git a/README.md b/README.md
+index fec9501..7d5a84b 100644
+--- a/README.md
++++ b/README.md
+@@ -350,7 +350,7 @@ node tests/long-doc.e2e.mjs
+ 
+ - 100 个单元测试（隐私 33、知识包 8、引擎 7、AI 合并 7、安全代理 Mock 8、专业数据库 9、课程知识包/资源引擎/三层质检/来源完整性/演示标记 17、应用成效 5、授课记录 6）；
+ - 18 个文件解析用例（TXT / MD / CSV / JSON / DOCX / PDF / XLSX / PPTX / 分块 / BOM / 进度 / 无上传）；
+-- 94 项浏览器 E2E（路由、五场景、品牌标识 / favicon、首页工作台单一 CTA / 折叠单项工具 / 非零待处理、四个核心导航、我的课程与课程工作空间、课程授课记录空状态、六步备课、统一项目工作区、侧栏折叠、资料分栏、模板标识、专业数据库四级浏览 / 检索 / 课程资源、10 类资源、4 门知识包、质检三层/10 维、质量中心、成果中心、知识图谱、演示一键生成与状态、应用成效未采集/录入/图表、完整备份清空后恢复、编辑器、DOCX / XLSX、文件解析、历史单条删除与持久化、移动端、控制台）；
++- 103 项浏览器 E2E（路由、五场景、品牌标识 / favicon、首页工作台单一 CTA / 折叠单项工具 / 非零待处理、四个核心导航、我的课程与课程工作空间、课程授课记录空状态、六步备课、统一项目工作区、侧栏折叠、资料分栏、模板标识、专业数据库四级浏览 / 检索 / 课程资源、10 类资源、4 门知识包、质检三层/10 维、质量中心、成果中心、知识图谱、演示一键生成与状态、应用成效未采集/录入/图表、完整备份清空后恢复、编辑器、DOCX / XLSX、文件解析、历史单条删除与持久化、移动端、控制台）；
+ - 完整备份端到端：新建授课记录 + 生成备课项目 → 导出 JSON → 清空本机数据 → 导入恢复，记录与项目均恢复；
+ - 长文档：80 段 / 9,017 字，正文 13.5px / 24.3px 行高，无横向溢出；
+ - 真实 studio/quality 页面 Impeccable CDP 检测：0 primary findings；
+diff --git a/assets/components.css b/assets/components.css
+index 1ad7006..979ebcf 100644
+--- a/assets/components.css
++++ b/assets/components.css
+@@ -14788,3 +14788,158 @@ input:focus,select:focus,textarea:focus {
+     transform: none;
+   }
+ }
++
++/* Recent: visible quick delete + Delete keyboard shortcut. */
++.recent-row {
++  display: grid;
++  grid-template-columns: minmax(0, 1fr) 30px;
++  gap: 2px;
++  align-items: stretch;
++}
++
++.recent-row .recent-item {
++  min-width: 0;
++}
++
++.recent-delete {
++  display: grid;
++  width: 30px;
++  min-height: 38px;
++  place-items: center;
++  padding: 0;
++  border: 1px solid transparent;
++  border-radius: 7px;
++  background: transparent;
++  color: #91a797;
++  cursor: pointer;
++  transition:
++    background-color var(--motion-fast) var(--motion-ease),
++    border-color var(--motion-fast) var(--motion-ease),
++    color var(--motion-fast) var(--motion-ease),
++    transform var(--motion-fast) var(--motion-ease);
++}
++
++.recent-delete:hover,
++.recent-delete:focus-visible {
++  border-color: rgba(255, 214, 200, 0.22);
++  background: rgba(255, 214, 200, 0.1);
++  color: #ffd7c9;
++}
++
++.recent-delete:active {
++  transform: scale(0.94);
++}
++
++/* Workbench: teaching conversation starts where the work starts. */
++.work-chat-launch {
++  display: grid;
++  grid-template-columns: 36px minmax(0, 1fr) auto;
++  align-items: center;
++  gap: 10px;
++  margin: 0 0 16px;
++  padding: 9px 12px;
++  border: 1px solid var(--w-line);
++  border-radius: 18px;
++  background: var(--w-paper);
++  box-shadow: var(--shadow-soft);
++  transition:
++    border-color var(--motion-fast) var(--motion-ease),
++    box-shadow var(--motion-fast) var(--motion-ease);
++}
++
++.work-chat-launch:focus-within {
++  border-color: var(--brand-line);
++  box-shadow: 0 0 0 3px rgba(23, 138, 118, 0.1), var(--shadow-soft);
++}
++
++.work-chat-icon {
++  display: grid;
++  width: 36px;
++  height: 36px;
++  place-items: center;
++  border-radius: 11px;
++  background: var(--brand-soft);
++  color: var(--brand);
++}
++
++.work-chat-input {
++  width: 100%;
++  min-width: 0;
++  height: 36px;
++  padding: 0;
++  border: 0;
++  outline: none;
++  background: transparent;
++  color: var(--w-ink);
++  font: inherit;
++  font-size: 13px;
++}
++
++.work-chat-input::placeholder {
++  color: var(--w-muted);
++  opacity: 1;
++}
++
++.work-chat-submit {
++  min-height: 34px;
++  padding: 0 12px;
++  border-color: var(--brand-line);
++  background: var(--brand-soft);
++  color: var(--brand-ink);
++  font-size: 12px;
++  font-weight: 600;
++  white-space: nowrap;
++  box-shadow: none;
++}
++
++.work-chat-submit:hover {
++  border-color: var(--brand);
++  background: var(--brand);
++  color: #fff;
++}
++
++@media (max-width: 640px) {
++  .recent-row {
++    grid-template-columns: minmax(0, 1fr) 44px;
++  }
++
++  .recent-delete {
++    width: 44px;
++    min-height: 44px;
++  }
++
++  .work-chat-launch {
++    grid-template-columns: 32px minmax(0, 1fr);
++    gap: 8px;
++    padding: 10px;
++    border-radius: 15px;
++  }
++
++  .work-chat-icon {
++    width: 32px;
++    height: 32px;
++    border-radius: 9px;
++  }
++
++  .work-chat-input {
++    height: 34px;
++    font-size: 12.5px;
++  }
++
++  .work-chat-submit {
++    grid-column: 1 / -1;
++    width: 100%;
++    min-height: 40px;
++  }
++}
++
++@media (prefers-reduced-motion: reduce) {
++  .recent-delete,
++  .work-chat-launch {
++    transition: none;
++  }
++
++  .recent-delete:active {
++    transform: none;
++  }
++}
+diff --git a/docs/ai/CHANGELOG.md b/docs/ai/CHANGELOG.md
+index c5726bb..b1887d7 100644
+--- a/docs/ai/CHANGELOG.md
++++ b/docs/ai/CHANGELOG.md
+@@ -1,5 +1,23 @@
+ # 变更记录
+ 
++## 2026-11-23 · 教学对话并入工作台 + 最近快捷删除
++
++### 修改
++
++- 工作台 KPI 下新增教学对话启动条；提交后进入聊天，并把描述预填到输入框。
++- 聊天路由下“工作台”保持选中；不再让“更多功能”承担聊天高亮。
++- 从“更多功能”移除 AI 教学对话；核心导航仍为 4 项。
++- “RECENT / 最近”每行新增可见删除按钮，移动端 44×44px。
++- 聚焦最近项后按 `Delete`（Mac 用 `Backspace`）打开同一删除确认。
++- 最近删除复用历史页确认、localStorage + IndexedDB 持久化与批量删除。
++- 更新 P0 导航基线：14 个导航锚点、19 个侧栏可交互目标。
++
++### 验证
++
++- E2E 103：工作台对话入口、预填、聊天中工作台选中、更多功能无聊天、
++  最近删除可见、44px、Delete 快捷键、删除生效、刷新持久化。
++- P0 PASS；32 路由 0 错误/溢出；7 档宽度无溢出；1440/390 detector 0。
++
+ ## 2026-11-23 · 历史对话单条删除入口
+ 
+ ### 修改
+diff --git a/docs/ai/CSS_AUDIT.md b/docs/ai/CSS_AUDIT.md
+index 4d8f720..fc0eb0f 100644
+--- a/docs/ai/CSS_AUDIT.md
++++ b/docs/ai/CSS_AUDIT.md
+@@ -4,7 +4,7 @@
+ 
+ ```text
+ assets/tokens.css        3.6 KB   110 个设计变量，单一 :root
+-assets/components.css  297.4 KB   组件、页面、打印、响应式、动效
++assets/components.css  300.4 KB   组件、页面、打印、响应式、动效
+ ```
+ 
+ 加载顺序：
+@@ -41,10 +41,10 @@ shouyu-world.css     37.5 KB
+ |---|---:|---:|
+ | CSS 文件 | 6 | 2 |
+ | CSS 请求 | 6 | 2 |
+-| 未压缩字节 | 334,667 | 307,582 |
+-| gzip 字节 | 55,733 | 43,509 |
+-| 样式规则（含嵌套 qualified） | 3,096 | 2,995 |
+-| 重复选择器出现次数 | 1,176 | 997 |
++| 未压缩字节 | 334,667 | 310,585 |
++| gzip 字节 | 55,733 | 44,014 |
++| 样式规则（含嵌套 qualified） | 3,096 | 3,015 |
++| 重复选择器出现次数 | 1,176 | 1,004 |
+ | 精确重复规则块 | 12 | 0 |
+ | `:root` 变量 | 110 | 110 |
+ | 冲突变量 | 46 | 0 |
+diff --git a/docs/ai/HISTORY_DELETE.md b/docs/ai/HISTORY_DELETE.md
+index 87de823..ee13401 100644
+--- a/docs/ai/HISTORY_DELETE.md
++++ b/docs/ai/HISTORY_DELETE.md
+@@ -13,6 +13,8 @@
+ 
+ 历史卡片右侧的图标按钮改为明确的 **“删除”** 按钮：
+ 
++> 2026-11-23 后续：侧栏“RECENT / 最近”也增加了可见删除按钮，支持聚焦后按 `Delete`/`Backspace`，详见 [WORKBENCH_CHAT.md](WORKBENCH_CHAT.md)。
++
+ ```text
+ [调整标题] [收藏] [🗑 删除]
+ ```
+@@ -28,7 +30,7 @@
+ ## 验证
+ 
+ ```text
+-E2E 94 passed / 0 failed
++E2E 103 passed / 0 failed
+   · 删除键存在
+   · 文案包含“删除”
+   · 390px 下高度 ≥44px
+diff --git a/docs/ai/HOME_REFACTOR.md b/docs/ai/HOME_REFACTOR.md
+index 5340fff..b610d2c 100644
+--- a/docs/ai/HOME_REFACTOR.md
++++ b/docs/ai/HOME_REFACTOR.md
+@@ -85,7 +85,7 @@
+ - 首页空态/有数据态由同一模板分支控制，不再维护三套空状态。
+ - 移除首页嵌套 `<main>`，只保留应用层一个 `<main>`。
+ - 清理旧首页死样式约 6.7KB；CSS 计算样式指纹仍为 32 组合 0 差异。
+-- E2E 新增 6 项结构断言和 2 项键盘断言，当前 **94 passed**。
++- E2E 新增 6 项结构断言和 2 项键盘断言，当前 **103 passed**。
+ 
+ ## 6. AX
+ 
+@@ -100,7 +100,7 @@
+ 
+ ```text
+ 单元测试        100 passed / 0 failed
+-浏览器 E2E      94 passed / 0 failed
++浏览器 E2E      103 passed / 0 failed
+ 文件解析        18 passed / 0 failed
+ P0 专用回归     PASS
+ 全站路由        32/32 页，0 console error / 0 failed request / 0 横向溢出
+diff --git a/docs/ai/MOTION_SYSTEM.md b/docs/ai/MOTION_SYSTEM.md
+index de6f01f..d302ab0 100644
+--- a/docs/ai/MOTION_SYSTEM.md
++++ b/docs/ai/MOTION_SYSTEM.md
+@@ -5,7 +5,7 @@
+ > 完整 diff：[MOTION_DIFF.patch](MOTION_DIFF.patch)  
+ > 参考：<https://holynova.github.io/web-motion-showcase/?lang=zh&theme=slate&mode=light>  
+ > 落地：工作台进入、数据条生长、工具展开、悬停/按压、顶栏滚动阴影  
+-> 验证：E2E 94、P0 PASS、32 路由 0 错误、1440/390 detector 0  
++> 验证：E2E 103、P0 PASS、32 路由 0 错误、1440/390 detector 0  
+ > 画面：[进入中的工作台](../screenshots/motion-entrance.png) · [减少动态模式](../screenshots/motion-reduced.png)
+ 
+ ## 1. 参考站拆解
+@@ -107,7 +107,7 @@
+   内容无隐藏、无位移
+ 
+ 回归
+-  E2E 94 passed
++  E2E 103 passed
+   P0 PASS
+   32 路由 0 console error / 0 failed request / 0 溢出
+   1440 / 390 detector 0 primary
+diff --git a/docs/ai/THEME_UPDATE.md b/docs/ai/THEME_UPDATE.md
+index 04cc7b4..fc9249b 100644
+--- a/docs/ai/THEME_UPDATE.md
++++ b/docs/ai/THEME_UPDATE.md
+@@ -47,7 +47,7 @@
+ 
+ ```text
+ 单元测试        100 passed / 0 failed
+-浏览器 E2E      94 passed / 0 failed
++浏览器 E2E      103 passed / 0 failed
+ P0 专用回归     PASS
+ 全站路由        32/32，0 console error / 0 failed request / 0 横向溢出
+ 全站 detector   32 个页面/视口组合，0 primary findings
+diff --git a/docs/ai/WORKBENCH_CHAT.md b/docs/ai/WORKBENCH_CHAT.md
+new file mode 100644
+index 0000000..a7f298f
+--- /dev/null
++++ b/docs/ai/WORKBENCH_CHAT.md
+@@ -0,0 +1,73 @@
++# 工作台 × 教学对话 × 最近快捷删除
++
++> 日期：2026-11-23  
++> 截图：[工作台内对话](../screenshots/workbench-chat.png) · [更多功能](../screenshots/sidebar-more.png) · [最近删除移动端](../screenshots/recent-delete-mobile.png)
++
++## 1. 最近列表快捷删除
++
++侧栏的“RECENT / 最近”每一项现在是一个独立行：
++
++```text
++[对话标题 / 分类 / 时间]  [🗑]
++```
++
++- 删除按钮始终可见，不再依赖 hover。
++- `title="删除（Delete）"`；`aria-label="删除对话：{标题}"`。
++- 聚焦最近项后按 `Delete`（Mac 可用 `Backspace`）直接打开同一确认弹窗。
++- 最近项和删除按钮都带 `aria-keyshortcuts="Delete"`。
++- 移动端删除按钮 44×44px；桌面 30px 宽，行高自适应。
++- 删除仍走历史页同一套确认与持久化逻辑，不新增第二套数据路径。
++- 批量删除与历史页单条删除继续可用。
++
++## 2. 教学对话移出“更多功能”
++
++- 删除“更多功能”底部原来的 `AI 教学对话` 链接。
++- “更多功能”只保留：教学资料、审阅与记录、设置与帮助。
++- 核心导航仍是 4 项：工作台 / 我的课程 / 备课工作室 / 我的成果。
++- 侧栏导航锚点从 15 降到 14；P0 回归同步更新为 14 个锚点、19 个可交互目标。
++
++## 3. 教学对话并入工作台
++
++工作台 KPI 下方新增一个紧凑的对话启动条：
++
++```text
++[✦] 描述课程、章节或任务，开始教学对话…     [开始对话 →]
++```
++
++- 输入内容后提交，创建对话并进入聊天页，内容**预填到输入框**，不会替用户直接发送。
++- 空内容提交也可以直接进入空对话。
++- 打开 `#/chat/{id}` 时，侧栏“工作台”保持 `aria-current="page"`，不再让“更多功能”高亮。
++- 最近列表继续作为对话的快速入口。
++- 顶栏“新建对话”保留，作为全局快捷入口。
++- 对话仍保持本地优先：不会因为没有从侧栏进入而改变存储或授权逻辑。
++
++## 4. 验证
++
++```text
++浏览器 E2E       103 passed / 0 failed
++P0 专用回归      14 nav anchors / 19 sidebar targets / PASS
++32 路由          0 console error / 0 failed request / 0 溢出
++7 档宽度         无横向溢出
++单元测试          100 passed
++文件解析          18 passed
++1440/390 detector 0 primary findings
++公开站验证        对话启动条 / 最近删除 44px / 聊天中工作台选中 /
++                  Backspace-Delete 确认 / 0 控制台错误
++```
++
++新增 E2E 断言：
++
++- 工作台内置教学对话
++- 教学对话已移出更多功能
++- 聊天中工作台保持选中
++- 最近列表删除键可见、移动端 ≥44px
++- 聚焦最近项按 `Delete` 打开确认
++- 最近删除后刷新仍删除，并同步到历史页
++- 工作台对话输入预填到聊天框
++
++## 5. 边界
++
++- “最近”删除是**本机删除**，不提供撤销/回收站。
++- 键盘快捷键只在最近项获得焦点时触发，避免在输入框或页面其他位置误删。
++- 工作台对话启动条只负责创建对话与预填，不自动发送；用户仍需确认后发送。
++- 没有新增独立“聊天导航页”或第二套路由。
+\ No newline at end of file
+diff --git a/docs/screenshots/home.png b/docs/screenshots/home.png
+index 161eba4..86535c1 100644
+Binary files a/docs/screenshots/home.png and b/docs/screenshots/home.png differ
+diff --git a/docs/screenshots/recent-delete-mobile.png b/docs/screenshots/recent-delete-mobile.png
+new file mode 100644
+index 0000000..c1a3221
+Binary files /dev/null and b/docs/screenshots/recent-delete-mobile.png differ
+diff --git a/docs/screenshots/sidebar-more.png b/docs/screenshots/sidebar-more.png
+new file mode 100644
+index 0000000..fb86d16
+Binary files /dev/null and b/docs/screenshots/sidebar-more.png differ
+diff --git a/docs/screenshots/workbench-chat.png b/docs/screenshots/workbench-chat.png
+new file mode 100644
+index 0000000..0532881
+Binary files /dev/null and b/docs/screenshots/workbench-chat.png differ
+diff --git a/js/app.js b/js/app.js
+index ee428c3..c9219ce 100644
+--- a/js/app.js
++++ b/js/app.js
+@@ -1127,11 +1127,16 @@ function renderSidebar(activeConv) {
+     }
+   ];
+   const moreItems = moreGroups.flatMap((group) => group.items);
+-  const moreActive = moreItems.some((item) => route.name === item.key) || route.name === "chat";
++  const moreActive = moreItems.some((item) => route.name === item.key);
+   const coursesActive = route.name === "courses" || route.name === "course";
++  const workbenchActive = route.name === "home" || route.name === "chat";
+   const moreOpen = state.navMoreOpen || moreActive;
+   const navButton = (item) => {
+-    const active = item.key === "courses" ? coursesActive : route.name === item.key;
++    const active = item.key === "courses"
++      ? coursesActive
++      : item.key === "home"
++        ? workbenchActive
++        : route.name === item.key;
+     return `<a class="nav-item${active ? " is-active" : ""}" href="#${escapeAttr(item.path)}" data-action="nav" data-nav="${item.key}" data-path="${escapeAttr(item.path)}" title="${escapeAttr(item.label)}" aria-label="${escapeAttr(item.label)}" ${active ? 'aria-current="page"' : ""}>
+       <span class="nav-icon">${icon(item.icon, 16)}</span>
+       <span class="nav-label">${item.label}</span>
+@@ -1167,19 +1172,18 @@ function renderSidebar(activeConv) {
+             <span class="side-nav-group-label">${group.label}</span>
+             ${group.items.map(navButton).join("")}
+           `).join("")}
+-          <a class="nav-item nav-item-action" href="#/" data-action="new-chat" title="新建教学对话" aria-label="新建教学对话">
+-            <span class="nav-icon">${icon("file", 16)}</span>
+-            <span class="nav-label">AI 教学对话</span>
+-          </a>
+         </nav>` : ""}
+       </div>
+       <div class="side-label side-label-recent">RECENT / 最近</div>
+       <div class="recent-list">
+         ${recent.length ? recent.slice(0, 3).map((conv) => `
+-          <button class="recent-item${activeId === conv.id ? " is-active" : ""}" type="button" data-action="open-conv" data-id="${escapeAttr(conv.id)}" title="${escapeAttr(conv.title || "未命名对话")}">
+-            <span class="recent-title">${conv.pinned ? "◉ " : ""}${escapeHtml(conv.title || "未命名对话")}</span>
+-            <span class="recent-meta"><span>${escapeHtml(sceneShort(conv.scene))}</span><span>${escapeHtml(formatRelative(conv.updatedAt))}</span></span>
+-          </button>
++          <div class="recent-row">
++            <button class="recent-item${activeId === conv.id ? " is-active" : ""}" type="button" data-action="open-conv" data-id="${escapeAttr(conv.id)}" title="${escapeAttr(conv.title || "未命名对话")}" aria-keyshortcuts="Delete">
++              <span class="recent-title">${conv.pinned ? "◉ " : ""}${escapeHtml(conv.title || "未命名对话")}</span>
++              <span class="recent-meta"><span>${escapeHtml(sceneShort(conv.scene))}</span><span>${escapeHtml(formatRelative(conv.updatedAt))}</span></span>
++            </button>
++            <button class="recent-delete" type="button" data-action="delete-conv" data-id="${escapeAttr(conv.id)}" title="删除（Delete）" aria-label="删除对话：${escapeAttr(conv.title || "未命名对话")}" aria-keyshortcuts="Delete">${icon("trash", 12)}</button>
++          </div>
+         `).join("") : `<div class="recent-empty">暂无记录</div>`}
+       </div>
+     </div>
+@@ -1870,6 +1874,12 @@ function renderHomePage() {
+         `).join("")}
+       </section>
+ 
++      <form class="work-chat-launch" data-role="home-chat-form">
++        <span class="work-chat-icon" aria-hidden="true">${icon("spark", 17)}</span>
++        <input class="work-chat-input" data-role="home-chat-input" type="text" placeholder="描述课程、章节或任务，开始教学对话…" aria-label="教学对话：描述课程、章节或任务">
++        <button class="btn btn-ghost work-chat-submit" type="submit">开始对话 ${icon("arrowRight", 12)}</button>
++      </form>
++
+       <div class="work-home-layout">
+         <div class="work-home-main">
+           ${last || draft ? `
+@@ -6165,6 +6175,42 @@ function conversationCategory(conv) {
+   return conv?.category || (conv?.scene ? sceneShort(conv.scene) : "通用对话");
+ }
+ 
++function startHomeChat(form) {
++  const text = form.querySelector("[data-role='home-chat-input']")?.value.trim() || "";
++  state.draft = text;
++  state.attachments = [];
++  const conv = createConversation();
++  saveDB();
++  navigate(`/chat/${conv.id}`, { scroll: "bottom" });
++  requestAnimationFrame(() => {
++    const input = document.querySelector("[data-role='composer-input']");
++    if (!input) return;
++    input.value = text;
++    state.draft = text;
++    input.focus();
++    autoResize(input);
++  });
++}
++
++function openDeleteConversationModal(id) {
++  const conv = findConversation(id);
++  if (!conv) return;
++  openModal({
++    kind: "confirm",
++    narrow: true,
++    kicker: "DELETE / 本机记录",
++    title: "删除这条对话？",
++    sub: "删除后无法恢复，引用与本机反馈会一并移除。",
++    body: `<p class="confirm-copy">将删除：<strong>${escapeHtml(conv.title || "未命名对话")}</strong></p><div class="confirm-warning">此操作只影响当前浏览器中的记录，不会通知任何人，也不会恢复已删除的内容。</div>`,
++    focusSelector: "[data-action='confirm-delete']",
++    footer: `
++      <span class="spacer"></span>
++      <button class="btn btn-ghost" type="button" data-action="close-modal">取消</button>
++      <button class="btn btn-solid" type="button" data-action="confirm-delete" data-id="${escapeAttr(conv.id)}">确认删除</button>
++    `
++  });
++}
++
+ function filteredConversations() {
+   const all = sortedConversations();
+   const query = state.historyQuery.trim().toLowerCase();
+@@ -9954,25 +10000,9 @@ function handleAction(action, el, event) {
+       showToast(conv.pinned ? "已置顶" : "已取消置顶");
+       break;
+     }
+-    case "delete-conv": {
+-      const conv = findConversation(el.dataset.id);
+-      if (!conv) return;
+-      openModal({
+-        kind: "confirm",
+-        narrow: true,
+-        kicker: "DELETE / 本机记录",
+-        title: "删除这条对话？",
+-        sub: "删除后无法恢复，引用与本机反馈会一并移除。",
+-        body: `<p class="confirm-copy">将删除：<strong>${escapeHtml(conv.title || "未命名对话")}</strong></p><div class="confirm-warning">此操作只影响当前浏览器中的记录，不会通知任何人，也不会恢复已删除的内容。</div>`,
+-        focusSelector: "[data-action='confirm-delete']",
+-        footer: `
+-          <span class="spacer"></span>
+-          <button class="btn btn-ghost" type="button" data-action="close-modal">取消</button>
+-          <button class="btn btn-solid" type="button" data-action="confirm-delete" data-id="${escapeAttr(conv.id)}">确认删除</button>
+-        `
+-      });
++    case "delete-conv":
++      openDeleteConversationModal(el.dataset.id);
+       break;
+-    }
+     case "confirm-delete": {
+       const conv = findConversation(el.dataset.id);
+       if (conv) {
+@@ -10034,6 +10064,11 @@ document.addEventListener("click", (event) => {
+ 
+ document.addEventListener("submit", (event) => {
+   const form = event.target;
++  if (form.matches("[data-role='home-chat-form']")) {
++    event.preventDefault();
++    startHomeChat(form);
++    return;
++  }
+   if (form.matches("[data-role='composer']")) {
+     event.preventDefault();
+     const textarea = form.querySelector("[data-role='composer-input']");
+@@ -10440,6 +10475,13 @@ document.addEventListener("drop", (event) => {
+ });
+ 
+ document.addEventListener("keydown", (event) => {
++  const recentItem = event.target.closest?.(".recent-item");
++  if (!state.modal && recentItem && (event.key === "Delete" || event.key === "Backspace")) {
++    event.preventDefault();
++    openDeleteConversationModal(recentItem.dataset.id);
++    return;
++  }
++
+   if (event.key === "Escape") {
+     if (state.modal) {
+       closeModal();
+diff --git a/tests/e2e.smoke.mjs b/tests/e2e.smoke.mjs
+index e8db5d0..cb3d36c 100644
+--- a/tests/e2e.smoke.mjs
++++ b/tests/e2e.smoke.mjs
+@@ -109,6 +109,7 @@ async function main() {
+     check("首页标题明确", (await page.locator(".work-home-title").innerText()) === "工作台");
+     check("首页单一主 CTA", await page.locator(".work-home-actions .btn-solid").count() === 1);
+     check("首页真实 KPI 四项", await page.locator(".home-kpi").count() === 4);
++    check("工作台内置教学对话", await page.locator(".work-chat-launch").count() === 1);
+     check("知识包覆盖卡存在", await page.locator(".work-coverage").count() === 1);
+     check("首页只有一个 main", await page.locator("main").count() === 1);
+     check("单项工具默认折叠", await page.locator(".work-tools").getAttribute("open") === null);
+@@ -135,6 +136,7 @@ async function main() {
+     await page.locator('[data-action="toggle-nav-more"]').click();
+     await page.waitForTimeout(200);
+     check("更多功能可展开", await page.locator(".side-nav-more").count() === 1);
++    check("教学对话已移出更多功能", await page.locator(".side-nav-more [data-action='new-chat']").count() === 0);
+     check("专业数据库入口", await page.locator(".nav-item[data-path='/programs']").count() === 1);
+     await page.locator(".sidebar-collapse").click();
+     await page.waitForTimeout(250);
+@@ -285,6 +287,7 @@ async function main() {
+     await page.waitForTimeout(3200);
+     check("本地生成结果", await page.locator(".result-card").count() === 1);
+     check("结果含来源", await page.locator(".markdown-sources .source-chip, .context-rail .source-card").count() > 0);
++    check("教学对话中工作台保持选中", await page.locator('.nav-item[data-nav="home"]').getAttribute("aria-current") === "page");
+ 
+     await page.getByRole("button", { name: "编辑成果" }).click();
+     await page.waitForTimeout(350);
+@@ -345,12 +348,40 @@ async function main() {
+     await page.locator(".history-delete").first().click();
+     await page.waitForTimeout(180);
+     check("删除确认点名对话", (await page.locator(".modal").innerText()).includes("删除这条对话"));
++    await page.locator(".modal .modal-close").click();
++    await page.waitForTimeout(180);
++
++    await page.goto(base, { waitUntil: "networkidle" });
++    await page.waitForTimeout(300);
++    await page.locator(".mobile-menu").click();
++    await page.waitForTimeout(250);
++    check("最近列表删除键可见", await page.locator(".recent-delete").first().isVisible());
++    check("最近列表删除键触控高度", (await page.locator(".recent-delete").first().boundingBox()).height >= 44);
++    await page.locator(".recent-item").first().focus();
++    await page.keyboard.press("Delete");
++    await page.waitForTimeout(180);
++    check("最近列表 Delete 快捷键打开确认", (await page.locator(".modal").innerText()).includes("删除这条对话"));
++    await page.locator(".modal .modal-close").click();
++    await page.waitForTimeout(180);
++    await page.locator(".recent-delete").first().click();
++    await page.waitForTimeout(180);
+     await page.locator('[data-action="confirm-delete"]').click();
+-    await page.waitForTimeout(400);
+-    check("历史记录单条删除生效", await page.locator(".history-card").count() === historyBeforeDelete - 1);
++    await page.waitForTimeout(450);
++    check("最近列表单条删除生效", await page.locator(".recent-item").count() === 0);
+     await page.reload({ waitUntil: "networkidle" });
+-    await page.waitForTimeout(400);
+-    check("历史记录删除持久化", await page.locator(".history-card").count() === historyBeforeDelete - 1);
++    await page.waitForTimeout(450);
++    check("最近列表删除持久化", await page.locator(".recent-item").count() === 0);
++    await page.goto(`${base}#/history`, { waitUntil: "networkidle" });
++    await page.waitForTimeout(300);
++    check("最近删除同步到历史", await page.locator(".history-card").count() === historyBeforeDelete - 1);
++
++    await page.goto(base, { waitUntil: "networkidle" });
++    await page.waitForTimeout(300);
++    await page.locator("[data-role='home-chat-input']").fill("从工作台开始一次教学对话");
++    await page.locator(".work-chat-submit").click();
++    await page.waitForTimeout(450);
++    check("工作台对话入口进入聊天", page.url().includes("#/chat/"));
++    check("工作台对话预填到输入框", (await page.locator("[data-role='composer-input']").inputValue()) === "从工作台开始一次教学对话");
+ 
+     check("无控制台错误", errors.length === 0, errors.slice(0, 3).join(" / "));
+     console.log(JSON.stringify({ ok: true, passed: results.length, results, errors }, null, 2));
+diff --git a/tests/p0-accessibility.mjs b/tests/p0-accessibility.mjs
+index 2c7063d..80c9ce6 100644
+--- a/tests/p0-accessibility.mjs
++++ b/tests/p0-accessibility.mjs
+@@ -40,14 +40,14 @@ try {
+   // P0-3 all nav entries are links, only active has aria-current
+   await page.locator(".nav-more-toggle").click(); await page.waitForTimeout(200);
+   const nav = await page.locator(".side-nav .nav-item").evaluateAll((els) => els.map((el) => ({ tag: el.tagName, href: el.getAttribute("href"), current: el.getAttribute("aria-current") })));
+-  assert.equal(nav.length, 15); // 14 route entries + AI action entry
++  assert.equal(nav.length, 14); // 14 route entries; teaching chat now lives in Workbench
+   assert.ok(nav.every((item) => item.tag === "A" && item.href?.startsWith("#/")));
+   assert.equal(nav.filter((item) => item.current === "page").length, 1);
+   result.checks.push(`P0-3 ${nav.length} nav anchors with one aria-current`);
+ 
+-  // 19 interactive sidebar targets (14 routes + AI + prep + brand + more + privacy + collapse)
++  // 19 interactive sidebar targets (14 routes + prep + brand + more + privacy + collapse)
+   const entryCount = await page.locator(".sidebar .brand, .sidebar .new-chat, .sidebar .nav-more-toggle, .sidebar .side-foot-link, .sidebar .sidebar-collapse, .side-nav .nav-item").count();
+-  assert.equal(entryCount, 20); // 15 items already counted + brand/prep/more/privacy/collapse
++  assert.equal(entryCount, 19);
+   result.checks.push(`sidebar targets reachable: ${entryCount}`);
+ 
+   // one route click and native hash behaviour

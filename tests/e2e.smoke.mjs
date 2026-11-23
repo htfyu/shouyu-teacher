@@ -109,6 +109,7 @@ async function main() {
     check("首页标题明确", (await page.locator(".work-home-title").innerText()) === "工作台");
     check("首页单一主 CTA", await page.locator(".work-home-actions .btn-solid").count() === 1);
     check("首页真实 KPI 四项", await page.locator(".home-kpi").count() === 4);
+    check("工作台内置教学对话", await page.locator(".work-chat-launch").count() === 1);
     check("知识包覆盖卡存在", await page.locator(".work-coverage").count() === 1);
     check("首页只有一个 main", await page.locator("main").count() === 1);
     check("单项工具默认折叠", await page.locator(".work-tools").getAttribute("open") === null);
@@ -135,6 +136,7 @@ async function main() {
     await page.locator('[data-action="toggle-nav-more"]').click();
     await page.waitForTimeout(200);
     check("更多功能可展开", await page.locator(".side-nav-more").count() === 1);
+    check("教学对话已移出更多功能", await page.locator(".side-nav-more [data-action='new-chat']").count() === 0);
     check("专业数据库入口", await page.locator(".nav-item[data-path='/programs']").count() === 1);
     await page.locator(".sidebar-collapse").click();
     await page.waitForTimeout(250);
@@ -285,6 +287,7 @@ async function main() {
     await page.waitForTimeout(3200);
     check("本地生成结果", await page.locator(".result-card").count() === 1);
     check("结果含来源", await page.locator(".markdown-sources .source-chip, .context-rail .source-card").count() > 0);
+    check("教学对话中工作台保持选中", await page.locator('.nav-item[data-nav="home"]').getAttribute("aria-current") === "page");
 
     await page.getByRole("button", { name: "编辑成果" }).click();
     await page.waitForTimeout(350);
@@ -345,12 +348,40 @@ async function main() {
     await page.locator(".history-delete").first().click();
     await page.waitForTimeout(180);
     check("删除确认点名对话", (await page.locator(".modal").innerText()).includes("删除这条对话"));
+    await page.locator(".modal .modal-close").click();
+    await page.waitForTimeout(180);
+
+    await page.goto(base, { waitUntil: "networkidle" });
+    await page.waitForTimeout(300);
+    await page.locator(".mobile-menu").click();
+    await page.waitForTimeout(250);
+    check("最近列表删除键可见", await page.locator(".recent-delete").first().isVisible());
+    check("最近列表删除键触控高度", (await page.locator(".recent-delete").first().boundingBox()).height >= 44);
+    await page.locator(".recent-item").first().focus();
+    await page.keyboard.press("Delete");
+    await page.waitForTimeout(180);
+    check("最近列表 Delete 快捷键打开确认", (await page.locator(".modal").innerText()).includes("删除这条对话"));
+    await page.locator(".modal .modal-close").click();
+    await page.waitForTimeout(180);
+    await page.locator(".recent-delete").first().click();
+    await page.waitForTimeout(180);
     await page.locator('[data-action="confirm-delete"]').click();
-    await page.waitForTimeout(400);
-    check("历史记录单条删除生效", await page.locator(".history-card").count() === historyBeforeDelete - 1);
+    await page.waitForTimeout(450);
+    check("最近列表单条删除生效", await page.locator(".recent-item").count() === 0);
     await page.reload({ waitUntil: "networkidle" });
-    await page.waitForTimeout(400);
-    check("历史记录删除持久化", await page.locator(".history-card").count() === historyBeforeDelete - 1);
+    await page.waitForTimeout(450);
+    check("最近列表删除持久化", await page.locator(".recent-item").count() === 0);
+    await page.goto(`${base}#/history`, { waitUntil: "networkidle" });
+    await page.waitForTimeout(300);
+    check("最近删除同步到历史", await page.locator(".history-card").count() === historyBeforeDelete - 1);
+
+    await page.goto(base, { waitUntil: "networkidle" });
+    await page.waitForTimeout(300);
+    await page.locator("[data-role='home-chat-input']").fill("从工作台开始一次教学对话");
+    await page.locator(".work-chat-submit").click();
+    await page.waitForTimeout(450);
+    check("工作台对话入口进入聊天", page.url().includes("#/chat/"));
+    check("工作台对话预填到输入框", (await page.locator("[data-role='composer-input']").inputValue()) === "从工作台开始一次教学对话");
 
     check("无控制台错误", errors.length === 0, errors.slice(0, 3).join(" / "));
     console.log(JSON.stringify({ ok: true, passed: results.length, results, errors }, null, 2));

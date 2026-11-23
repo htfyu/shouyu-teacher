@@ -1127,11 +1127,16 @@ function renderSidebar(activeConv) {
     }
   ];
   const moreItems = moreGroups.flatMap((group) => group.items);
-  const moreActive = moreItems.some((item) => route.name === item.key) || route.name === "chat";
+  const moreActive = moreItems.some((item) => route.name === item.key);
   const coursesActive = route.name === "courses" || route.name === "course";
+  const workbenchActive = route.name === "home" || route.name === "chat";
   const moreOpen = state.navMoreOpen || moreActive;
   const navButton = (item) => {
-    const active = item.key === "courses" ? coursesActive : route.name === item.key;
+    const active = item.key === "courses"
+      ? coursesActive
+      : item.key === "home"
+        ? workbenchActive
+        : route.name === item.key;
     return `<a class="nav-item${active ? " is-active" : ""}" href="#${escapeAttr(item.path)}" data-action="nav" data-nav="${item.key}" data-path="${escapeAttr(item.path)}" title="${escapeAttr(item.label)}" aria-label="${escapeAttr(item.label)}" ${active ? 'aria-current="page"' : ""}>
       <span class="nav-icon">${icon(item.icon, 16)}</span>
       <span class="nav-label">${item.label}</span>
@@ -1167,19 +1172,18 @@ function renderSidebar(activeConv) {
             <span class="side-nav-group-label">${group.label}</span>
             ${group.items.map(navButton).join("")}
           `).join("")}
-          <a class="nav-item nav-item-action" href="#/" data-action="new-chat" title="新建教学对话" aria-label="新建教学对话">
-            <span class="nav-icon">${icon("file", 16)}</span>
-            <span class="nav-label">AI 教学对话</span>
-          </a>
         </nav>` : ""}
       </div>
       <div class="side-label side-label-recent">RECENT / 最近</div>
       <div class="recent-list">
         ${recent.length ? recent.slice(0, 3).map((conv) => `
-          <button class="recent-item${activeId === conv.id ? " is-active" : ""}" type="button" data-action="open-conv" data-id="${escapeAttr(conv.id)}" title="${escapeAttr(conv.title || "未命名对话")}">
-            <span class="recent-title">${conv.pinned ? "◉ " : ""}${escapeHtml(conv.title || "未命名对话")}</span>
-            <span class="recent-meta"><span>${escapeHtml(sceneShort(conv.scene))}</span><span>${escapeHtml(formatRelative(conv.updatedAt))}</span></span>
-          </button>
+          <div class="recent-row">
+            <button class="recent-item${activeId === conv.id ? " is-active" : ""}" type="button" data-action="open-conv" data-id="${escapeAttr(conv.id)}" title="${escapeAttr(conv.title || "未命名对话")}" aria-keyshortcuts="Delete">
+              <span class="recent-title">${conv.pinned ? "◉ " : ""}${escapeHtml(conv.title || "未命名对话")}</span>
+              <span class="recent-meta"><span>${escapeHtml(sceneShort(conv.scene))}</span><span>${escapeHtml(formatRelative(conv.updatedAt))}</span></span>
+            </button>
+            <button class="recent-delete" type="button" data-action="delete-conv" data-id="${escapeAttr(conv.id)}" title="删除（Delete）" aria-label="删除对话：${escapeAttr(conv.title || "未命名对话")}" aria-keyshortcuts="Delete">${icon("trash", 12)}</button>
+          </div>
         `).join("") : `<div class="recent-empty">暂无记录</div>`}
       </div>
     </div>
@@ -1869,6 +1873,12 @@ function renderHomePage() {
           </button>
         `).join("")}
       </section>
+
+      <form class="work-chat-launch" data-role="home-chat-form">
+        <span class="work-chat-icon" aria-hidden="true">${icon("spark", 17)}</span>
+        <input class="work-chat-input" data-role="home-chat-input" type="text" placeholder="描述课程、章节或任务，开始教学对话…" aria-label="教学对话：描述课程、章节或任务">
+        <button class="btn btn-ghost work-chat-submit" type="submit">开始对话 ${icon("arrowRight", 12)}</button>
+      </form>
 
       <div class="work-home-layout">
         <div class="work-home-main">
@@ -6165,6 +6175,42 @@ function conversationCategory(conv) {
   return conv?.category || (conv?.scene ? sceneShort(conv.scene) : "通用对话");
 }
 
+function startHomeChat(form) {
+  const text = form.querySelector("[data-role='home-chat-input']")?.value.trim() || "";
+  state.draft = text;
+  state.attachments = [];
+  const conv = createConversation();
+  saveDB();
+  navigate(`/chat/${conv.id}`, { scroll: "bottom" });
+  requestAnimationFrame(() => {
+    const input = document.querySelector("[data-role='composer-input']");
+    if (!input) return;
+    input.value = text;
+    state.draft = text;
+    input.focus();
+    autoResize(input);
+  });
+}
+
+function openDeleteConversationModal(id) {
+  const conv = findConversation(id);
+  if (!conv) return;
+  openModal({
+    kind: "confirm",
+    narrow: true,
+    kicker: "DELETE / 本机记录",
+    title: "删除这条对话？",
+    sub: "删除后无法恢复，引用与本机反馈会一并移除。",
+    body: `<p class="confirm-copy">将删除：<strong>${escapeHtml(conv.title || "未命名对话")}</strong></p><div class="confirm-warning">此操作只影响当前浏览器中的记录，不会通知任何人，也不会恢复已删除的内容。</div>`,
+    focusSelector: "[data-action='confirm-delete']",
+    footer: `
+      <span class="spacer"></span>
+      <button class="btn btn-ghost" type="button" data-action="close-modal">取消</button>
+      <button class="btn btn-solid" type="button" data-action="confirm-delete" data-id="${escapeAttr(conv.id)}">确认删除</button>
+    `
+  });
+}
+
 function filteredConversations() {
   const all = sortedConversations();
   const query = state.historyQuery.trim().toLowerCase();
@@ -9954,25 +10000,9 @@ function handleAction(action, el, event) {
       showToast(conv.pinned ? "已置顶" : "已取消置顶");
       break;
     }
-    case "delete-conv": {
-      const conv = findConversation(el.dataset.id);
-      if (!conv) return;
-      openModal({
-        kind: "confirm",
-        narrow: true,
-        kicker: "DELETE / 本机记录",
-        title: "删除这条对话？",
-        sub: "删除后无法恢复，引用与本机反馈会一并移除。",
-        body: `<p class="confirm-copy">将删除：<strong>${escapeHtml(conv.title || "未命名对话")}</strong></p><div class="confirm-warning">此操作只影响当前浏览器中的记录，不会通知任何人，也不会恢复已删除的内容。</div>`,
-        focusSelector: "[data-action='confirm-delete']",
-        footer: `
-          <span class="spacer"></span>
-          <button class="btn btn-ghost" type="button" data-action="close-modal">取消</button>
-          <button class="btn btn-solid" type="button" data-action="confirm-delete" data-id="${escapeAttr(conv.id)}">确认删除</button>
-        `
-      });
+    case "delete-conv":
+      openDeleteConversationModal(el.dataset.id);
       break;
-    }
     case "confirm-delete": {
       const conv = findConversation(el.dataset.id);
       if (conv) {
@@ -10034,6 +10064,11 @@ document.addEventListener("click", (event) => {
 
 document.addEventListener("submit", (event) => {
   const form = event.target;
+  if (form.matches("[data-role='home-chat-form']")) {
+    event.preventDefault();
+    startHomeChat(form);
+    return;
+  }
   if (form.matches("[data-role='composer']")) {
     event.preventDefault();
     const textarea = form.querySelector("[data-role='composer-input']");
@@ -10440,6 +10475,13 @@ document.addEventListener("drop", (event) => {
 });
 
 document.addEventListener("keydown", (event) => {
+  const recentItem = event.target.closest?.(".recent-item");
+  if (!state.modal && recentItem && (event.key === "Delete" || event.key === "Backspace")) {
+    event.preventDefault();
+    openDeleteConversationModal(recentItem.dataset.id);
+    return;
+  }
+
   if (event.key === "Escape") {
     if (state.modal) {
       closeModal();

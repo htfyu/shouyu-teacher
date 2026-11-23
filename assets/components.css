@@ -14788,3 +14788,158 @@ input:focus,select:focus,textarea:focus {
     transform: none;
   }
 }
+
+/* Recent: visible quick delete + Delete keyboard shortcut. */
+.recent-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 30px;
+  gap: 2px;
+  align-items: stretch;
+}
+
+.recent-row .recent-item {
+  min-width: 0;
+}
+
+.recent-delete {
+  display: grid;
+  width: 30px;
+  min-height: 38px;
+  place-items: center;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  background: transparent;
+  color: #91a797;
+  cursor: pointer;
+  transition:
+    background-color var(--motion-fast) var(--motion-ease),
+    border-color var(--motion-fast) var(--motion-ease),
+    color var(--motion-fast) var(--motion-ease),
+    transform var(--motion-fast) var(--motion-ease);
+}
+
+.recent-delete:hover,
+.recent-delete:focus-visible {
+  border-color: rgba(255, 214, 200, 0.22);
+  background: rgba(255, 214, 200, 0.1);
+  color: #ffd7c9;
+}
+
+.recent-delete:active {
+  transform: scale(0.94);
+}
+
+/* Workbench: teaching conversation starts where the work starts. */
+.work-chat-launch {
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 16px;
+  padding: 9px 12px;
+  border: 1px solid var(--w-line);
+  border-radius: 18px;
+  background: var(--w-paper);
+  box-shadow: var(--shadow-soft);
+  transition:
+    border-color var(--motion-fast) var(--motion-ease),
+    box-shadow var(--motion-fast) var(--motion-ease);
+}
+
+.work-chat-launch:focus-within {
+  border-color: var(--brand-line);
+  box-shadow: 0 0 0 3px rgba(23, 138, 118, 0.1), var(--shadow-soft);
+}
+
+.work-chat-icon {
+  display: grid;
+  width: 36px;
+  height: 36px;
+  place-items: center;
+  border-radius: 11px;
+  background: var(--brand-soft);
+  color: var(--brand);
+}
+
+.work-chat-input {
+  width: 100%;
+  min-width: 0;
+  height: 36px;
+  padding: 0;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: var(--w-ink);
+  font: inherit;
+  font-size: 13px;
+}
+
+.work-chat-input::placeholder {
+  color: var(--w-muted);
+  opacity: 1;
+}
+
+.work-chat-submit {
+  min-height: 34px;
+  padding: 0 12px;
+  border-color: var(--brand-line);
+  background: var(--brand-soft);
+  color: var(--brand-ink);
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  box-shadow: none;
+}
+
+.work-chat-submit:hover {
+  border-color: var(--brand);
+  background: var(--brand);
+  color: #fff;
+}
+
+@media (max-width: 640px) {
+  .recent-row {
+    grid-template-columns: minmax(0, 1fr) 44px;
+  }
+
+  .recent-delete {
+    width: 44px;
+    min-height: 44px;
+  }
+
+  .work-chat-launch {
+    grid-template-columns: 32px minmax(0, 1fr);
+    gap: 8px;
+    padding: 10px;
+    border-radius: 15px;
+  }
+
+  .work-chat-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 9px;
+  }
+
+  .work-chat-input {
+    height: 34px;
+    font-size: 12.5px;
+  }
+
+  .work-chat-submit {
+    grid-column: 1 / -1;
+    width: 100%;
+    min-height: 40px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .recent-delete,
+  .work-chat-launch {
+    transition: none;
+  }
+
+  .recent-delete:active {
+    transform: none;
+  }
+}

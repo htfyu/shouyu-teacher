@@ -5,7 +5,7 @@
 > 完整 diff：[MOTION_DIFF.patch](MOTION_DIFF.patch)  
 > 参考：<https://holynova.github.io/web-motion-showcase/?lang=zh&theme=slate&mode=light>  
 > 落地：工作台进入、数据条生长、工具展开、悬停/按压、顶栏滚动阴影  
-> 验证：E2E 94、P0 PASS、32 路由 0 错误、1440/390 detector 0  
+> 验证：E2E 103、P0 PASS、32 路由 0 错误、1440/390 detector 0  
 > 画面：[进入中的工作台](../screenshots/motion-entrance.png) · [减少动态模式](../screenshots/motion-reduced.png)
 
 ## 1. 参考站拆解
@@ -107,7 +107,7 @@
   内容无隐藏、无位移
 
 回归
-  E2E 94 passed
+  E2E 103 passed
   P0 PASS
   32 路由 0 console error / 0 failed request / 0 溢出
   1440 / 390 detector 0 primary
