@@ -1,5 +1,27 @@
 # 变更记录
 
+## 2026-11-23 · 克制动效系统
+
+### 学习
+
+- 拆解 Web Motion Showcase：60 个动效，150 / 250 / 400ms 三档，标准 + expo 缓动。
+- 只采纳与工作台状态相关的进入、数据显现、悬停、按压、展开、滚动阴影。
+- 拒绝无限循环预览、光标跟随、礼花/流星、3D/眩光、数字滚动。
+
+### 落地
+
+- 新增 motion token：`--motion-fast/base/slow` 与 easing。
+- 工作台 KPI 20–155ms 错峰进入，主卡 80–200ms，右栏 120–230ms。
+- 知识包覆盖条 650ms `scaleX` 生长。
+- 工具区展开 240ms；卡片 hover 2px；按钮按压 0.985。
+- 顶栏滚动阴影：passive scroll + requestAnimationFrame。
+- 全部新动效一次性播放；`prefers-reduced-motion` 下取消。
+
+### 验证
+
+- E2E 88、P0 PASS、32 路由 0 错误、1440/390 detector 0、7 档宽度无溢出。
+- 正常模式 animation iteration 1；减少动态 animationName none 且内容 opacity 1。
+
 ## 2026-11-21 · Daylight Workspace 视觉更新
 
 ### 修改

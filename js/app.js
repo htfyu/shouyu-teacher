@@ -1037,6 +1037,26 @@ function handleRoute() {
 
 window.addEventListener("popstate", handleRoute);
 
+function syncTopbarScroll() {
+  const topbar = document.querySelector(".topbar");
+  if (!topbar) return;
+  topbar.classList.toggle("is-scrolled", viewEl.scrollTop > 8);
+}
+
+function initScrollChrome() {
+  if (viewEl.dataset.scrollChrome === "true") return;
+  viewEl.dataset.scrollChrome = "true";
+  let frame = 0;
+  viewEl.addEventListener("scroll", () => {
+    if (frame) return;
+    frame = requestAnimationFrame(() => {
+      frame = 0;
+      syncTopbarScroll();
+    });
+  }, { passive: true });
+  syncTopbarScroll();
+}
+
 /* ==========================================================
    Shell render
    ========================================================== */
@@ -1053,6 +1073,7 @@ function renderApp(options = {}) {
   renderSidebar(activeConv);
   renderTopbar(activeConv);
   renderView(activeConv, options, previousChatScroll, previousViewScroll);
+  syncTopbarScroll();
 
   document.querySelectorAll(".sidebar-scrim").forEach((el) => el.remove());
   if (state.sidebarOpen) {
@@ -10651,6 +10672,7 @@ async function bootstrapApp() {
       // 忽略状态恢复写入失败。
     }
   }
+  initScrollChrome();
   handleRoute();
 }
 

@@ -1,0 +1,851 @@
+diff --git a/DESIGN.md b/DESIGN.md
+index 7740cec..6bbd018 100644
+--- a/DESIGN.md
++++ b/DESIGN.md
+@@ -14,14 +14,14 @@
+ 
+ ### 材料
+ 
+-- **书脊**：深松木绿 `#1B3A32`，承载导航，是品牌锚点；不用整页深色。
++- **书脊**：深青绿 `#194039`，承载导航，是品牌锚点；不用整页深色。
+ - **画布**：冷雾白 `#EEF3F9`，比纯白更轻，适合长时间工作。
+ - **数据卡**：纯白 `#FFFFFF`，18px 圆角，1px 冷灰边，柔和阴影。
+ - **细线**：`#E3E9F2`，用于表格与分隔，不用重边框。
+-- **主行动**：青绿 `#178A76`，用于“可以开始/执行”的唯一主动作。
++- **主行动**：青绿 `#16836F`，用于“可以开始/执行”的唯一主动作。
+ - **数据蓝**：`#3B78E7`，用于图表、链接和次级数据强调，不与主动作争抢。
+-- **状态**：琥珀 `#A56A1A` 待审核，青绿 `#178A76` 通过，砖红 `#B4453A` 必须修改。
+-- **文字**：主文字 `#1C2738`，辅助 `#667085`，弱提示不浅于 `#5F6B7D`。
++- **状态**：琥珀 `#A56A1A` 待审核，青绿 `#16836F` 通过，砖红 `#B4453A` 必须修改。
++- **文字**：主文字 `#1C2738`，辅助 `#646F83`，弱提示不浅于 `#5F6B7D`。
+ 
+ ### 字体
+ 
+@@ -121,12 +121,16 @@
+ 
+ ## 5. 动效
+ 
+-- 统一缓动 `cubic-bezier(0.22, 1, 0.36, 1)`。
+-- 按钮 140ms；输入 160ms；卡片 200ms；菜单 180ms；弹窗 220ms；页面 240ms。
+-- 页面切换只在新路由触发；使用 opacity + 4px 位移，结束后不保留 transform。
+-- 卡片 hover 只上浮 2px；不弹跳、不持续呼吸。
+-- `prefers-reduced-motion` 下关闭位移和动画，保留状态变化。
+-- 不做粒子、光晕、渐变文字、玻璃拟态、3D 按钮。
++- 动效 token：`--motion-fast: 150ms`、`--motion-base: 220ms`、`--motion-slow: 400ms`。
++- 缓动：常规交互 `cubic-bezier(0.4, 0, 0.2, 1)`；显现 `cubic-bezier(0.16, 1, 0.3, 1)`。
++- 页面切换只在新路由触发；270ms，opacity + 7px 位移，结束后不保留 transform。
++- 工作台进入：KPI 20–155ms 错峰，单项 360–400ms；主卡 80–200ms；右栏 120–230ms。
++- 数据显现：知识包覆盖条 650ms scaleX 从 0 到 1，仅在首次进入；不做数字滚动，避免数据被误读。
++- 卡片 hover 只上浮 2px；箭头位移 1–2px；按压 scale 0.985；不做弹跳、持续呼吸或无限循环。
++- 工具折叠展开 240ms；顶栏滚动阴影 220ms。
++- 动效只用 `transform` / `opacity`；滚动监听用 passive + requestAnimationFrame。
++- `prefers-reduced-motion` 下取消全部新动效，内容直接可见。
++- 展示站里的无限循环预览、自定义光标、礼花、流星、3D、金属渐变只作为案例，不进入教学工具。
+ 
+ ## 6. 无障碍
+ 
+diff --git a/assets/components.css b/assets/components.css
+index b472ad4..d09a894 100644
+--- a/assets/components.css
++++ b/assets/components.css
+@@ -12631,10 +12631,10 @@ body {
+ }
+ .side-foot {
+   border-top-color: rgba(238, 242, 234, 0.14);
+-  background: #1b332a;
++  background: #173731;
+ }
+ .side-foot-row,.side-foot .side-foot-link,.side-foot .sidebar-collapse {
+-  color: #c5d2c7;
++  color: #c5d2d0;
+   font-size: 11px;
+ }
+ .side-foot .side-foot-link:hover,.side-foot .sidebar-collapse:hover {
+@@ -12864,9 +12864,24 @@ input:focus,select:focus,textarea:focus {
+   white-space: nowrap;
+ }
+ .programs-badge.is-official,.programs-badge.is-approved,.quality-issue-row.is-low > span,.is-approved.status-stamp {
+-  border-color: #b8cbbd;
++  border-color: #b8cbc8;
+   background: var(--w-approve-soft);
+-  color: #31583d;
++  color: #315851;
++}
++.status-stamp.is-ok {
++  border-color: #b8cbc8;
++  background: var(--w-approve-soft);
++  color: #315851;
++}
++.status-stamp.is-warning,.status-stamp.is-pending {
++  border-color: #dfc98f;
++  background: var(--w-warning-soft);
++  color: #6e5116;
++}
++.status-stamp.is-danger {
++  border-color: #e1b3a5;
++  background: var(--w-danger-soft);
++  color: var(--w-danger);
+ }
+ .programs-badge.is-pending,.course-row-meta b.is-pending,.quality-issue-row.is-medium > span {
+   border-color: #dfc98f;
+@@ -12879,9 +12894,9 @@ input:focus,select:focus,textarea:focus {
+   color: #566257;
+ }
+ .course-row-meta b.is-ok {
+-  border-color: #b8cbbd;
++  border-color: #b8cbc8;
+   background: var(--w-approve-soft);
+-  color: #31583d;
++  color: #315851;
+ }
+ .programs-badge.is-reference {
+   border-color: #d8d0bd;
+@@ -13517,7 +13532,7 @@ input:focus,select:focus,textarea:focus {
+   background: var(--w-warning-soft);
+ }
+ .studio-project .studio-quality-layers .is-approved {
+-  border-color: #b8cbbd;
++  border-color: #b8cbc8;
+   background: var(--w-approve-soft);
+ }
+ .studio-project-issue.is-active {
+@@ -13801,7 +13816,7 @@ input:focus,select:focus,textarea:focus {
+ }
+ .toast {
+   border: 1px solid var(--w-line-strong);
+-  background: #203b31;
++  background: var(--w-pine);
+   color: #fffdf5;
+   box-shadow: 0 8px 24px rgba(25, 37, 30, 0.2);
+ }
+@@ -14048,25 +14063,25 @@ input:focus,select:focus,textarea:focus {
+   border-color: var(--brand);
+   background: var(--brand);
+   color: #fff;
+-  box-shadow: 0 6px 14px rgba(23, 138, 118, 0.18);
++  box-shadow: 0 6px 14px rgba(24, 42, 70, 0.1);
+ }
+ 
+ .btn-solid:hover {
+   border-color: var(--brand-ink);
+   background: var(--brand-ink);
+   color: #fff;
+-  box-shadow: 0 8px 18px rgba(23, 138, 118, 0.22);
++  box-shadow: 0 8px 18px rgba(24, 42, 70, 0.14);
+ }
+ 
+ .sidebar {
+   border-right-color: rgba(233, 244, 238, 0.12);
+-  background: linear-gradient(180deg, #1d3c32 0%, #163027 100%);
++  background: linear-gradient(180deg, #194039 0%, #13332d 100%);
+ }
+ 
+ .sidebar .nav-item.is-active {
+   border-color: transparent;
+-  background: #e7f6f1;
+-  color: #123f35;
++  background: #e7f6f3;
++  color: #123f37;
+   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+ }
+ 
+@@ -14075,7 +14090,7 @@ input:focus,select:focus,textarea:focus {
+ }
+ 
+ .sidebar .nav-item.is-active .nav-count {
+-  color: #587066;
++  color: #54746e;
+ }
+ 
+ .sidebar .nav-item:hover {
+@@ -14085,22 +14100,22 @@ input:focus,select:focus,textarea:focus {
+ }
+ 
+ .sidebar .new-chat {
+-  border-color: #d5eee7;
+-  background: #f3fbf8;
+-  color: #123f35;
++  border-color: #d5eee9;
++  background: #f3fbfa;
++  color: #123f37;
+   box-shadow: 0 6px 16px rgba(0, 0, 0, 0.12);
+ }
+ 
+ .sidebar .new-chat:hover {
+-  border-color: #bce6db;
++  border-color: #bce6de;
+   background: #ffffff;
+-  color: #0e332b;
++  color: #0e332c;
+ }
+ 
+ .sidebar .new-chat kbd {
+-  border-color: #c7e5dc;
+-  background: #e7f6f1;
+-  color: #3e665b;
++  border-color: #c7e5e0;
++  background: #e7f6f3;
++  color: #3d6760;
+ }
+ 
+ .work-home {
+@@ -14154,6 +14169,12 @@ input:focus,select:focus,textarea:focus {
+   box-shadow: var(--shadow-pop);
+ }
+ 
++.home-kpi:active {
++  transform: translateY(1px);
++  border-color: var(--w-line-strong);
++  box-shadow: var(--shadow);
++}
++
+ .home-kpi-icon {
+   display: grid;
+   width: 40px;
+@@ -14163,8 +14184,8 @@ input:focus,select:focus,textarea:focus {
+ }
+ 
+ .home-kpi-icon.is-teal {
+-  background: #e6f6f1;
+-  color: #178a76;
++  background: var(--brand-soft);
++  color: var(--brand);
+ }
+ 
+ .home-kpi-icon.is-blue {
+@@ -14178,8 +14199,8 @@ input:focus,select:focus,textarea:focus {
+ }
+ 
+ .home-kpi-icon.is-mint {
+-  background: #eaf7f3;
+-  color: #13836f;
++  background: var(--brand-soft);
++  color: var(--brand);
+ }
+ 
+ .home-kpi-copy {
+@@ -14191,7 +14212,7 @@ input:focus,select:focus,textarea:focus {
+ .home-kpi-label {
+   overflow: hidden;
+   color: var(--w-muted);
+-  font-size: 11.5px;
++  font-size: 12px;
+   line-height: 1.4;
+   text-overflow: ellipsis;
+   white-space: nowrap;
+@@ -14210,7 +14231,7 @@ input:focus,select:focus,textarea:focus {
+ .home-kpi-meta {
+   overflow: hidden;
+   color: var(--w-muted-2);
+-  font-size: 10.5px;
++  font-size: 12px;
+   line-height: 1.4;
+   text-overflow: ellipsis;
+   white-space: nowrap;
+@@ -14277,7 +14298,7 @@ input:focus,select:focus,textarea:focus {
+   align-items: baseline;
+   gap: 6px;
+   color: var(--w-muted);
+-  font-size: 11.5px;
++  font-size: 12px;
+ }
+ 
+ .coverage-score b {
+@@ -14301,7 +14322,7 @@ input:focus,select:focus,textarea:focus {
+   display: block;
+   height: 100%;
+   border-radius: inherit;
+-  background: linear-gradient(90deg, #178a76, #3b78e7);
++  background: var(--brand);
+ }
+ 
+ .coverage-legend {
+@@ -14310,7 +14331,7 @@ input:focus,select:focus,textarea:focus {
+   gap: 14px;
+   margin-top: 10px;
+   color: var(--w-muted);
+-  font-size: 10.5px;
++  font-size: 12px;
+ }
+ 
+ .coverage-legend span {
+@@ -14326,11 +14347,11 @@ input:focus,select:focus,textarea:focus {
+ }
+ 
+ .coverage-dot.is-built {
+-  background: #178a76;
++  background: var(--brand);
+ }
+ 
+ .coverage-dot.is-pending {
+-  background: #d59a35;
++  background: var(--w-warning);
+ }
+ 
+ .work-tools {
+@@ -14396,6 +14417,12 @@ input:focus,select:focus,textarea:focus {
+   }
+ }
+ 
++@media (max-width: 1080px) {
++  .work-home-layout {
++    grid-template-columns: minmax(0, 1fr);
++  }
++}
++
+ @media (max-width: 900px) {
+   .work-home-layout {
+     grid-template-columns: minmax(0, 1fr);
+@@ -14459,7 +14486,7 @@ input:focus,select:focus,textarea:focus {
+ .coverage-legend,
+ .work-course-group-head span,
+ .work-tools-count {
+-  font-size: 11px;
++  font-size: 12px;
+   line-height: 1.45;
+ }
+ 
+@@ -14467,10 +14494,6 @@ input:focus,select:focus,textarea:focus {
+   color: var(--w-muted);
+ }
+ 
+-.coverage-track span {
+-  background: var(--brand);
+-}
+-
+ @media (max-width: 960px) {
+   .work-tools summary {
+     min-height: 44px;
+@@ -14497,6 +14520,22 @@ input:focus,select:focus,textarea:focus {
+   text-align: left;
+ }
+ 
++.work-side-links button {
++  transition:
++    background-color var(--ui-fast) var(--ui-ease),
++    color var(--ui-fast) var(--ui-ease),
++    transform var(--ui-fast) var(--ui-ease);
++}
++
++.work-side-links button:hover {
++  background: var(--w-hover);
++  color: var(--w-ink);
++}
++
++.work-side-links button:active {
++  transform: translateY(1px);
++}
++
+ .work-side-links button:last-child {
+   border-bottom: 0;
+ }
+@@ -14509,3 +14548,186 @@ input:focus,select:focus,textarea:focus {
+   font-weight: 650;
+   letter-spacing: -0.02em;
+ }
++
++@media (prefers-reduced-motion: reduce) {
++.home-kpi:active,
++.work-side-links button:active {
++  transform: none;
++}
++}
++
++/* Motion: one restrained entrance, meaningful data reveal, tactile hover/press. */
++@keyframes home-rise {
++  from {
++    opacity: 0;
++    transform: translateY(9px);
++  }
++  to {
++    opacity: 1;
++    transform: translateY(0);
++  }
++}
++
++@keyframes coverage-grow {
++  from {
++    transform: scaleX(0);
++  }
++  to {
++    transform: scaleX(1);
++  }
++}
++
++@keyframes tools-unfold {
++  from {
++    opacity: 0;
++    transform: translateY(5px);
++  }
++  to {
++    opacity: 1;
++    transform: translateY(0);
++  }
++}
++
++.view.is-route-enter .home-kpi {
++  animation: home-rise 360ms var(--motion-out) backwards;
++}
++
++.view.is-route-enter .home-kpi:nth-child(1) {
++  animation-delay: 20ms;
++}
++
++.view.is-route-enter .home-kpi:nth-child(2) {
++  animation-delay: 65ms;
++}
++
++.view.is-route-enter .home-kpi:nth-child(3) {
++  animation-delay: 110ms;
++}
++
++.view.is-route-enter .home-kpi:nth-child(4) {
++  animation-delay: 155ms;
++}
++
++.view.is-route-enter .work-home-main > .work-section {
++  animation: home-rise 400ms var(--motion-out) backwards;
++}
++
++.view.is-route-enter .work-home-main > .work-section:nth-child(1) {
++  animation-delay: 80ms;
++}
++
++.view.is-route-enter .work-home-main > .work-section:nth-child(2) {
++  animation-delay: 120ms;
++}
++
++.view.is-route-enter .work-home-main > .work-section:nth-child(3) {
++  animation-delay: 160ms;
++}
++
++.view.is-route-enter .work-home-main > .work-section:nth-child(4) {
++  animation-delay: 200ms;
++}
++
++.view.is-route-enter .work-home-side > .work-side-block {
++  animation: home-rise 400ms var(--motion-out) backwards;
++}
++
++.view.is-route-enter .work-home-side > .work-side-block:nth-child(1) {
++  animation-delay: 120ms;
++}
++
++.view.is-route-enter .work-home-side > .work-side-block:nth-child(2) {
++  animation-delay: 175ms;
++}
++
++.view.is-route-enter .work-home-side > .work-side-block:nth-child(3) {
++  animation-delay: 230ms;
++}
++
++.view.is-route-enter .coverage-track span {
++  transform-origin: left center;
++  animation: coverage-grow 650ms var(--motion-out) 220ms backwards;
++}
++
++.work-tools[open] .quick-grid {
++  animation: tools-unfold 240ms var(--motion-out) backwards;
++}
++
++.home-kpi {
++  transition:
++    transform var(--motion-fast) var(--motion-ease),
++    border-color var(--motion-fast) var(--motion-ease),
++    box-shadow var(--motion-fast) var(--motion-ease);
++}
++
++.home-kpi:hover {
++  transform: translateY(-2px);
++}
++
++.home-kpi-arrow,
++.work-row-arrow,
++.scene-card-arrow {
++  transition:
++    color var(--motion-fast) var(--motion-ease),
++    transform var(--motion-fast) var(--motion-ease);
++}
++
++.home-kpi:hover .home-kpi-arrow,
++.scene-card:hover .scene-card-arrow {
++  transform: translate(1px, -1px);
++}
++
++.work-row:hover .work-row-arrow {
++  transform: translateX(2px);
++}
++
++.btn-solid {
++  transition:
++    background-color var(--motion-fast) var(--motion-ease),
++    border-color var(--motion-fast) var(--motion-ease),
++    box-shadow var(--motion-fast) var(--motion-ease),
++    transform var(--motion-fast) var(--motion-ease);
++}
++
++.btn-solid:hover {
++  transform: translateY(-1px);
++}
++
++.btn-solid:active,
++.home-kpi:active,
++.work-row:active,
++.scene-card:active {
++  transform: scale(0.985);
++}
++
++.topbar {
++  transition:
++    background-color var(--motion-base) var(--motion-ease),
++    box-shadow var(--motion-base) var(--motion-ease),
++    border-color var(--motion-base) var(--motion-ease);
++}
++
++.topbar.is-scrolled {
++  background: rgba(255, 255, 255, 0.96);
++  box-shadow: 0 8px 20px rgba(24, 42, 70, 0.07);
++}
++
++@media (prefers-reduced-motion: reduce) {
++  .view.is-route-enter .home-kpi,
++  .view.is-route-enter .work-home-main > .work-section,
++  .view.is-route-enter .work-home-side > .work-side-block,
++  .view.is-route-enter .coverage-track span,
++  .work-tools[open] .quick-grid {
++    animation: none !important;
++    transform: none !important;
++  }
++
++  .home-kpi:hover,
++  .btn-solid:hover,
++  .btn-solid:active,
++  .home-kpi:active,
++  .work-row:active,
++  .scene-card:active {
++    transform: none !important;
++  }
++}
+diff --git a/assets/tokens.css b/assets/tokens.css
+index 0be8145..ad72025 100644
+--- a/assets/tokens.css
++++ b/assets/tokens.css
+@@ -2,13 +2,13 @@
+   --wash: #f8f9fb;
+   --mid: #e8e5dd;
+   --hair: #e7e5dd;
+-  --brand-strong: #3e5245;
++  --brand-strong: #355b54;
+   --accent: var(--brand);
+   --accent-ink: var(--brand-ink);
+   --accent-strong: var(--brand-strong);
+   --accent-soft: var(--brand-soft);
+   --accent-line: var(--brand-line);
+-  --success-soft: #edf5ef;
++  --success-soft: #edf5f4;
+   --warning-soft: #fbf4e6;
+   --danger-soft: #fbefec;
+   --danger-bg: #fbefec;
+@@ -36,10 +36,16 @@
+   --ui-fast: 150ms;
+   --ui-base: 200ms;
+   --ui-slow: 280ms;
++  --motion-fast: 150ms;
++  --motion-base: 220ms;
++  --motion-slow: 400ms;
++  --motion-ease: cubic-bezier(0.4, 0, 0.2, 1);
++  --motion-out: cubic-bezier(0.16, 1, 0.3, 1);
++  --motion-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+   --ui-shadow-1: 0 1px 2px rgba(24, 42, 70, 0.04), 0 4px 12px rgba(24, 42, 70, 0.04);
+   --ui-shadow-2: 0 12px 32px rgba(24, 42, 70, 0.075), 0 2px 8px rgba(24, 42, 70, 0.04);
+   --ui-shadow-modal: 0 28px 76px rgba(24, 42, 70, 0.16), 0 6px 18px rgba(24, 42, 70, 0.07);
+-  --ui-ring: 0 0 0 3px rgba(23, 138, 118, 0.14);
++  --ui-ring: 0 0 0 3px rgba(22, 131, 111, 0.14);
+   --ui-ring-danger: 0 0 0 3px rgba(163, 61, 50, 0.12);
+   --ds-page-max: 1240px;
+   --ds-page-pad: clamp(24px, 3.2vw, 46px);
+@@ -60,7 +66,7 @@
+   --ds-line-strong: #cfd9e7;
+   --w-ink: #1c2738;
+   --w-ink-2: #435066;
+-  --w-muted: #667085;
++  --w-muted: #646F83;
+   --w-muted-2: #5f6b7d;
+   --w-canvas: #eef3f9;
+   --w-paper: #ffffff;
+@@ -70,15 +76,15 @@
+   --w-line: #e3e9f2;
+   --w-line-soft: #edf1f7;
+   --w-line-strong: #cfd9e7;
+-  --w-pine: #203b31;
+-  --w-pine-2: #2d4d40;
+-  --w-pine-3: #3f6253;
++  --w-pine: #1b4039;
++  --w-pine-2: #26534b;
++  --w-pine-3: #356c62;
+   --w-vermilion: #b64f32;
+   --w-vermilion-ink: #8f3722;
+   --w-vermilion-soft: #f7e9e2;
+   --w-brass: #a77b35;
+   --w-brass-soft: #f8efd9;
+-  --w-approve: #178a76;
++  --w-approve: #16836F;
+   --w-approve-soft: #e6f6f1;
+   --w-danger: #b4453a;
+   --w-danger-soft: #fbeceb;
+@@ -99,10 +105,10 @@
+   --ink: var(--w-ink);
+   --muted: var(--w-muted);
+   --muted-2: var(--w-muted-2);
+-  --brand: #178a76;
++  --brand: #16836F;
+   --brand-ink: #0f5f52;
+-  --brand-soft: #e6f6f1;
+-  --brand-line: #b7ded5;
++  --brand-soft: #e6f6f3;
++  --brand-line: #b7ded7;
+   --success: var(--w-approve);
+   --warning: var(--w-warning);
+   --danger: var(--w-danger);
+diff --git a/docs/ai/CHANGELOG.md b/docs/ai/CHANGELOG.md
+index 7fea7f2..17ec1e2 100644
+--- a/docs/ai/CHANGELOG.md
++++ b/docs/ai/CHANGELOG.md
+@@ -1,5 +1,27 @@
+ # 变更记录
+ 
++## 2026-11-23 · 克制动效系统
++
++### 学习
++
++- 拆解 Web Motion Showcase：60 个动效，150 / 250 / 400ms 三档，标准 + expo 缓动。
++- 只采纳与工作台状态相关的进入、数据显现、悬停、按压、展开、滚动阴影。
++- 拒绝无限循环预览、光标跟随、礼花/流星、3D/眩光、数字滚动。
++
++### 落地
++
++- 新增 motion token：`--motion-fast/base/slow` 与 easing。
++- 工作台 KPI 20–155ms 错峰进入，主卡 80–200ms，右栏 120–230ms。
++- 知识包覆盖条 650ms `scaleX` 生长。
++- 工具区展开 240ms；卡片 hover 2px；按钮按压 0.985。
++- 顶栏滚动阴影：passive scroll + requestAnimationFrame。
++- 全部新动效一次性播放；`prefers-reduced-motion` 下取消。
++
++### 验证
++
++- E2E 88、P0 PASS、32 路由 0 错误、1440/390 detector 0、7 档宽度无溢出。
++- 正常模式 animation iteration 1；减少动态 animationName none 且内容 opacity 1。
++
+ ## 2026-11-21 · Daylight Workspace 视觉更新
+ 
+ ### 修改
+diff --git a/docs/ai/CSS_AUDIT.md b/docs/ai/CSS_AUDIT.md
+index 7d2e0e3..aa3031f 100644
+--- a/docs/ai/CSS_AUDIT.md
++++ b/docs/ai/CSS_AUDIT.md
+@@ -4,7 +4,7 @@
+ 
+ ```text
+ assets/tokens.css        3.6 KB   110 个设计变量，单一 :root
+-assets/components.css  291.7 KB   组件、页面、打印、响应式、动效
++assets/components.css  296.3 KB   组件、页面、打印、响应式、动效
+ ```
+ 
+ 加载顺序：
+@@ -41,10 +41,10 @@ shouyu-world.css     37.5 KB
+ |---|---:|---:|
+ | CSS 文件 | 6 | 2 |
+ | CSS 请求 | 6 | 2 |
+-| 未压缩字节 | 334,667 | 301,330 |
+-| gzip 字节 | 55,733 | 42,599 |
+-| 样式规则（含嵌套 qualified） | 3,096 | 2,946 |
+-| 重复选择器出现次数 | 1,176 | 980 |
++| 未压缩字节 | 334,667 | 306,443 |
++| gzip 字节 | 55,733 | 43,306 |
++| 样式规则（含嵌套 qualified） | 3,096 | 2,988 |
++| 重复选择器出现次数 | 1,176 | 993 |
+ | 精确重复规则块 | 12 | 0 |
+ | `:root` 变量 | 110 | 110 |
+ | 冲突变量 | 46 | 0 |
+diff --git a/docs/ai/MOTION_SYSTEM.md b/docs/ai/MOTION_SYSTEM.md
+new file mode 100644
+index 0000000..f1d0f95
+--- /dev/null
++++ b/docs/ai/MOTION_SYSTEM.md
+@@ -0,0 +1,120 @@
++# Motion System：从 Web Motion Showcase 学到的克制动效
++
++> 日期：2026-11-23  
++> 参考：<https://holynova.github.io/web-motion-showcase/?lang=zh&theme=slate&mode=light>  
++> 落地：工作台进入、数据条生长、工具展开、悬停/按压、顶栏滚动阴影  
++> 验证：E2E 88、P0 PASS、32 路由 0 错误、1440/390 detector 0  
++> 画面：[进入中的工作台](../screenshots/motion-entrance.png) · [减少动态模式](../screenshots/motion-reduced.png)
++
++## 1. 参考站拆解
++
++站点收录 60 个动效，分类分布：
++
++```text
++反馈 19
++进入 12
++悬停 12
++滚动 8
++布局 5
++图片 4
++```
++
++它的核心不是“多”，而是**短、稳、可预期**：
++
++- `--transition-fast: 150ms`：hover、颜色、按钮反馈；
++- `--transition-normal: 250ms`：导航、边框、阴影、状态；
++- `--transition-slow: 400ms`：卡片上浮、较慢的场景变化；
++- 常规缓动 `cubic-bezier(0.4, 0, 0.2, 1)`；
++- 显现缓动 `cubic-bezier(0.16, 1, 0.3, 1)`；
++- 卡片 hover `translateY(-5px)`，阴影和边框同帧变化；
++- 卡片操作按钮在 hover/focus-within 时以 150ms 出现；
++- 滚动进度 3px 顶线，100ms 过渡；导航滚动后只增加阴影；
++- 全局 `prefers-reduced-motion` 会把动画、过渡、位移全部压掉。
++
++参考站的展示卡片里有很多 2–4 秒无限循环、礼花、流星、光标跟随、3D 倾斜。这些是**展品**，不是工作台行为。授渔不照搬。
++
++## 2. 授渔采纳
++
++### 一次性进入
++
++- 页面路由切换：270ms，opacity + 7px。
++- KPI：360ms，20 / 65 / 110 / 155ms 错峰。
++- 主卡：400ms，80 / 120 / 160 / 200ms 错峰。
++- 右栏：400ms，120 / 175 / 230ms 错峰。
++- 只在 `.view.is-route-enter` 下播放；普通状态重渲染不重播。
++
++### 有含义的数据显现
++
++- 知识包覆盖条：650ms，`scaleX(0) → 1`，220ms 延迟。
++- 条的长度来自真实 `4/4` 数据，不是装饰性无限动画。
++- 不做数字滚动/滚动计数，避免指标被误读。
++
++### 交互反馈
++
++- KPI / 卡片 hover：上浮 2px，150ms。
++- 箭头 hover：位移 1–2px。
++- 主按钮 hover：上浮 1px；按压 `scale(0.985)`。
++- 工具区展开：240ms，opacity + 5px。
++- 顶栏滚动超过 8px：220ms 内增加阴影和更实的白底。
++
++### 降级
++
++- `prefers-reduced-motion: reduce` 下新动效全部 `animation: none`，KPI 与卡片直接 `opacity: 1`。
++- 没有依赖动效才能理解的状态；所有内容在不播放动画时完整可见。
++- 不使用滚动劫持、视差、光标跟随、无限循环或自动播放装饰。
++
++## 3. 未采纳
++
++| 参考案例 | 不采用的原因 |
++|---|---|
++| 60 个循环预览 | 展品逻辑；工作台会持续分心 |
++| Custom Cursor / Trail | 破坏系统光标与可访问性 |
++| Confetti / Meteors / Aurora | 与教学任务无关，抢注意力 |
++| Tilt / Glare / 3D | 影响阅读与命中，移动端无意义 |
++| Count Up / Odometer | 数据需要可信的一眼读数，不做表演 |
++| Scroll Hijack / Parallax | 长文档和表格阅读会被劫持 |
++| Infinite Marquee | 无信息增量的持续运动 |
++| 金属渐变文字 | 可读性和印刷感都更差 |
++
++## 4. 代码位置
++
++- `assets/tokens.css`：`--motion-fast/base/slow`、`--motion-ease/out/spring`。
++- `assets/components.css`：
++  - `home-rise`、`coverage-grow`、`tools-unfold`
++  - KPI / 主卡 / 右栏 stagger
++  - hover / press / arrow motion
++  - `.topbar.is-scrolled`
++  - `prefers-reduced-motion` 覆盖
++- `js/app.js`：`initScrollChrome()`，passive scroll + rAF，只切换顶栏 class。
++- `DESIGN.md`：动效规则同步更新。
++
++## 5. 验证
++
++```text
++正常模式
++  KPI animation: home-rise / 0.36s / iteration 1
++  主卡 animation: home-rise / 0.4s / iteration 1
++  覆盖条 animation: coverage-grow / 0.65s
++  工具展开 animation: tools-unfold / 0.24s
++  滚动后 topbar.is-scrolled: true
++
++减少动态
++  KPI animationName: none
++  覆盖条 animationName: none
++  KPI opacity: 1
++  内容无隐藏、无位移
++
++回归
++  E2E 88 passed
++  P0 PASS
++  32 路由 0 console error / 0 failed request / 0 溢出
++  1440 / 390 detector 0 primary
++  7 档宽度无横向溢出
++```
++
++## 6. 已知边界
++
++- 未在低端 Android 真机测帧率；目前只用合成层属性，避免布局动画。
++- 只在 Edge/Chromium 自动化验证，未跑 Safari/Firefox 视觉回归。
++- 动效是工作台优先；课程/质量等页面沿用既有路由进入和交互过渡，没有逐页重做。
++- 没有新增动画库或构建依赖。
+\ No newline at end of file
+diff --git a/docs/screenshots/motion-entrance.png b/docs/screenshots/motion-entrance.png
+new file mode 100644
+index 0000000..1c2b56a
+Binary files /dev/null and b/docs/screenshots/motion-entrance.png differ
+diff --git a/docs/screenshots/motion-reduced.png b/docs/screenshots/motion-reduced.png
+new file mode 100644
+index 0000000..3264dc0
+Binary files /dev/null and b/docs/screenshots/motion-reduced.png differ
+diff --git a/js/app.js b/js/app.js
+index 71dd793..f0475c1 100644
+--- a/js/app.js
++++ b/js/app.js
+@@ -1037,6 +1037,26 @@ function handleRoute() {
+ 
+ window.addEventListener("popstate", handleRoute);
+ 
++function syncTopbarScroll() {
++  const topbar = document.querySelector(".topbar");
++  if (!topbar) return;
++  topbar.classList.toggle("is-scrolled", viewEl.scrollTop > 8);
++}
++
++function initScrollChrome() {
++  if (viewEl.dataset.scrollChrome === "true") return;
++  viewEl.dataset.scrollChrome = "true";
++  let frame = 0;
++  viewEl.addEventListener("scroll", () => {
++    if (frame) return;
++    frame = requestAnimationFrame(() => {
++      frame = 0;
++      syncTopbarScroll();
++    });
++  }, { passive: true });
++  syncTopbarScroll();
++}
++
+ /* ==========================================================
+    Shell render
+    ========================================================== */
+@@ -1053,6 +1073,7 @@ function renderApp(options = {}) {
+   renderSidebar(activeConv);
+   renderTopbar(activeConv);
+   renderView(activeConv, options, previousChatScroll, previousViewScroll);
++  syncTopbarScroll();
+ 
+   document.querySelectorAll(".sidebar-scrim").forEach((el) => el.remove());
+   if (state.sidebarOpen) {
+@@ -10651,6 +10672,7 @@ async function bootstrapApp() {
+       // 忽略状态恢复写入失败。
+     }
+   }
++  initScrollChrome();
+   handleRoute();
+ }
+ 
